@@ -5,11 +5,17 @@ Local Android web remote for a Windows PC. The current implementation is an earl
 ## Run
 
 1. Install Node.js 20 or newer on Windows.
-2. Double-click [Start Remote Smart Trackpad.cmd](Start%20Remote%20Smart%20Trackpad.cmd), or run `npm start` in this directory.
+2. Double-click [Start Remote Smart Trackpad.cmd](Start%20Remote%20Smart%20Trackpad.cmd), or run `npm start` in this directory. If the host is already running, the launcher opens its pairing page without starting a second copy.
 3. Allow inbound access on your **private** Windows network if the firewall asks. The server listens on loopback and private IPv4 interfaces only, port 8765 by default (`REMOTE_SMART_TRACKPAD_PORT` changes it).
 4. The launcher opens a setup page on the PC. Scan its QR code with the Android camera, open the local URL, and enter the six-digit pairing code shown on the PC. The code expires after ten minutes; use **Nouveau code** on the setup page to refresh it. If the browser does not open automatically, visit `http://127.0.0.1:8765/setup` on the PC (adjust the port if configured).
 
 The pairing token is stored on the phone in browser local storage; its hash is stored in `.data/tokens.json` on the PC. Delete that file while the server is stopped to revoke all paired phones. Do not forward the port to the Internet. The current local HTTP transport is **unencrypted**; use only a trusted private network. HTTPS with a trusted certificate is required for standards-based PWA installation on a LAN, so the home-screen/full-screen experience is browser-dependent in this build.
+
+## Start automatically with Windows
+
+Double-click [Manage Auto Start.cmd](Manage%20Auto%20Start.cmd) and choose **1** to enable or **2** to disable. Enabling registers a task named **Remote Smart Trackpad** for the current Windows user and starts the host immediately. It runs at sign-in, in the user's interactive desktop session, without administrator privileges or a visible console. Disabling removes only this task; it does not erase pairing data. If the host is already running when you use the normal launcher, that launcher opens the QR pairing page.
+
+The project folder and Node.js installation must remain at their registered locations. Re-run the enable option after moving either one. The host log for automatic starts is `.data/auto-start.log`. A private network address that appears after sign-in is picked up automatically. The task uses an [interactive logon token](https://learn.microsoft.com/en-us/windows/win32/taskschd/taskschedulerschema-logontype-simpletype), which is required for desktop input; it does not run before someone signs in.
 
 ## Editing behavior
 

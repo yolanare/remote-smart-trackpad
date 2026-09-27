@@ -84,14 +84,16 @@ const staticFiles = new Map([
 ]);
 
 const isLoopback = request => request.socket.remoteAddress === '127.0.0.1' || request.socket.remoteAddress === '::1' || request.socket.remoteAddress === '::ffff:127.0.0.1';
-function privateUrls() {
-  const urls = [];
+const listeningAddresses = new Set();
+function privateAddresses() {
+  const addresses = [];
   for (const entries of Object.values(networkInterfaces())) for (const address of entries || []) {
     const value = address.address;
-    if (address.family === 'IPv4' && (/^10\./.test(value) || /^192\.168\./.test(value) || /^172\.(1[6-9]|2\d|3[01])\./.test(value))) urls.push(`http://${value}:${port}/`);
+    if (address.family === 'IPv4' && (/^10\./.test(value) || /^192\.168\./.test(value) || /^172\.(1[6-9]|2\d|3[01])\./.test(value))) addresses.push(value);
   }
-  return [...new Set(urls)];
+  return [...new Set(addresses)];
 }
+function privateUrls() { return [...listeningAddresses].filter(address => address !== '127.0.0.1').map(address => `http://${address}:${port}/`); }
 
 const server = http.createServer(async (request, response) => {
   try {
@@ -100,7 +102,7 @@ const server = http.createServer(async (request, response) => {
       if (!isLoopback(request)) return json(response, 403, { error: 'Setup is available on the PC only' });
     }
     if (request.method === 'GET' && pathname === '/api/setup') {
-      return json(response, 200, { urls: privateUrls(), pairingCode: Date.now() < pairingExpires ? pairingCode : null, pairingExpires });
+      return json(response, 200, { app: 'remote-smart-trackpad', urls: privateUrls(), pairingCode: Date.now() < pairingExpires ? pairingCode : null, pairingExpires });
     }
     if (request.method === 'POST' && pathname === '/api/setup/refresh') {
       refreshPairingCode();
@@ -199,17 +201,36 @@ server.on('upgrade', (request, socket) => {
   socket.on('error', release);
 });
 
-const localAddresses = ['127.0.0.1', ...privateUrls().map(url => new URL(url).hostname)];
-for (const address of [...new Set(localAddresses)]) {
-  const listener = address === localAddresses[0] ? server : http.createServer(server.listeners('request')[0]);
+const listeners = new Map();
+function startListener(address) {
+  if (listeners.has(address)) return;
+  const listener = address === '127.0.0.1' ? server : http.createServer(server.listeners('request')[0]);
+  listeners.set(address, listener);
   if (listener !== server) listener.on('upgrade', server.listeners('upgrade')[0]);
   listener.listen(port, address, () => {
+    listeningAddresses.add(address);
     console.log(`Open http://${address}:${port}/`);
     if (address === '127.0.0.1' && process.env.REMOTE_SMART_TRACKPAD_OPEN_SETUP === '1') {
       const browser = spawn('powershell.exe', ['-NoProfile', '-Command', `Start-Process 'http://127.0.0.1:${port}/setup'`], { stdio: 'ignore', windowsHide: true });
       browser.on('error', error => console.error(`Could not open setup page: ${error.message}`));
     }
   });
-  listener.on('error', error => console.error(`Cannot listen on ${address}:${port}: ${error.message}`));
+  listener.on('error', error => {
+    listeners.delete(address);
+    listeningAddresses.delete(address);
+    console.error(`Cannot listen on ${address}:${port}: ${error.message}`);
+    if (address === '127.0.0.1') { bridge.kill(); process.exit(1); }
+  });
 }
+function syncListeners() {
+  const desired = new Set(['127.0.0.1', ...privateAddresses()]);
+  for (const address of desired) startListener(address);
+  for (const [address, listener] of listeners) if (!desired.has(address)) {
+    listeningAddresses.delete(address);
+    listeners.delete(address);
+    listener.close();
+  }
+}
+syncListeners();
+setInterval(syncListeners, 10_000);
 console.log(`Pairing code: ${pairingCode} (10 minutes)`);

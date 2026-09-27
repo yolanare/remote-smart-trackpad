@@ -1,6 +1,9 @@
 @echo off
 setlocal
 cd /d "%~dp0"
+rem If the scheduled host is already running, this launcher only opens pairing.
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0host\open-pairing.ps1"
+if not errorlevel 1 exit /b 0
 where node >nul 2>nul
 if errorlevel 1 (
   echo Node.js 20 or newer is required: https://nodejs.org/
