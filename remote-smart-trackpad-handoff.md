@@ -1,4 +1,4 @@
-# Phone Text Remote — handoff
+# Remote Smart Trackpad — handoff
 
 ## Produit et périmètre
 

@@ -1,0 +1,11 @@
+{
+  "name": "remote-smart-trackpad",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node host/server.js",
+    "check": "node --check host/server.js && node --check web/app.js && node --check web/setup.js && node --check web/vendor/qrcode.min.js"
+  },
+  "engines": { "node": ">=20" }
+}
