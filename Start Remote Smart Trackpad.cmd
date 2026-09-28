@@ -10,6 +10,15 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+if not exist "node_modules\multicast-dns\package.json" (
+  echo Installing Remote Smart Trackpad dependencies...
+  call npm ci --omit=dev
+  if errorlevel 1 (
+    echo Dependency installation failed.
+    pause
+    exit /b 1
+  )
+)
 echo Keep this window open while using Remote Smart Trackpad.
 set "REMOTE_SMART_TRACKPAD_OPEN_SETUP=1"
 node host\server.js

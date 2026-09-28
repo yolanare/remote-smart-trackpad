@@ -1,16 +1,29 @@
 import http from 'node:http';
+import https from 'node:https';
 import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { networkInterfaces } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { discoveryHost, startDiscovery } from './discovery.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.env.REMOTE_SMART_TRACKPAD_PORT || 8765);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('REMOTE_SMART_TRACKPAD_PORT must be a valid TCP port');
-const dataDirectory = path.join(root, '.data');
+const dataDirectory = process.env.REMOTE_SMART_TRACKPAD_DATA_DIRECTORY || path.join(root, '.data');
 await mkdir(dataDirectory, { recursive: true });
+const certificate = await readFile(path.join(dataDirectory, 'tls', 'cert.pem')).catch(error => {
+  if (error.code === 'ENOENT') return null;
+  throw error;
+});
+const privateKey = await readFile(path.join(dataDirectory, 'tls', 'key.pem')).catch(error => {
+  if (error.code === 'ENOENT') return null;
+  throw error;
+});
+if (Boolean(certificate) !== Boolean(privateKey)) throw new Error('Both tls/cert.pem and tls/key.pem are required for HTTPS');
+const tlsOptions = certificate ? { cert: certificate, key: privateKey } : null;
+const privateProtocol = tlsOptions ? 'https' : 'http';
 const tokenFile = path.join(dataDirectory, 'tokens.json');
 let tokens = new Set(JSON.parse(await readFile(tokenFile, 'utf8').catch(() => '[]')));
 let pairingCode = String(randomInt(100000, 1000000));
@@ -26,7 +39,7 @@ let activeClient = null;
 let sequence = 0;
 const pending = new Map();
 
-const bridge = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(root, 'host', 'windows-bridge.ps1')], { stdio: ['pipe', 'pipe', 'inherit'], windowsHide: true });
+const bridge = spawn('powershell.exe', ['-NoProfile', '-Mta', '-ExecutionPolicy', 'Bypass', '-File', path.join(root, 'host', 'windows-bridge.ps1')], { stdio: ['pipe', 'pipe', 'inherit'], windowsHide: true });
 let bridgeBuffer = '';
 bridge.stdout.setEncoding('utf8');
 bridge.stdout.on('data', chunk => {
@@ -53,7 +66,7 @@ function command(action, data = {}) {
   if (bridge.exitCode !== null) return Promise.reject(new Error('Windows bridge unavailable'));
   const id = ++sequence;
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => { pending.delete(id); reject(new Error('Windows did not respond')); }, 5000);
+    const timeout = setTimeout(() => { pending.delete(id); reject(new Error('Windows did not respond')); }, action === 'edit' ? 30_000 : action === 'open' || action === 'inspect' ? 12_000 : 5000);
     pending.set(id, { resolve: result => { clearTimeout(timeout); resolve(result); }, reject: error => { clearTimeout(timeout); reject(error); } });
     bridge.stdin.write(JSON.stringify({ id, action, ...data }) + '\n');
   });
@@ -77,14 +90,19 @@ function json(response, code, value) {
 }
 const staticFiles = new Map([
   ['/', ['index.html', 'text/html']], ['/app.js', ['app.js', 'text/javascript']],
+  ['/text-operations.js', ['text-operations.js', 'text/javascript']],
   ['/style.css', ['style.css', 'text/css']], ['/manifest.webmanifest', ['manifest.webmanifest', 'application/manifest+json']],
   ['/icon.svg', ['icon.svg', 'image/svg+xml']], ['/setup', ['setup.html', 'text/html']],
+  ['/icon-192.png', ['icon-192.png', 'image/png']], ['/icon-512.png', ['icon-512.png', 'image/png']],
   ['/setup.js', ['setup.js', 'text/javascript']], ['/setup.css', ['setup.css', 'text/css']],
   ['/vendor/qrcode.min.js', ['vendor/qrcode.min.js', 'text/javascript']]
 ]);
 
 const isLoopback = request => request.socket.remoteAddress === '127.0.0.1' || request.socket.remoteAddress === '::1' || request.socket.remoteAddress === '::ffff:127.0.0.1';
 const listeningAddresses = new Set();
+const discoveryStops = new Map();
+const discoveryReady = new Set();
+const discoveryRetryAt = new Map();
 function privateAddresses() {
   const addresses = [];
   for (const entries of Object.values(networkInterfaces())) for (const address of entries || []) {
@@ -93,7 +111,9 @@ function privateAddresses() {
   }
   return [...new Set(addresses)];
 }
-function privateUrls() { return [...listeningAddresses].filter(address => address !== '127.0.0.1').map(address => `http://${address}:${port}/`); }
+function privateUrls() { return [...listeningAddresses].filter(address => address !== '127.0.0.1').map(address => privateProtocol + '://' + address + ':' + port + '/'); }
+
+function discoveryUrl() { return discoveryReady.size ? privateProtocol + '://' + discoveryHost + ':' + port + '/' : null; }
 
 const server = http.createServer(async (request, response) => {
   try {
@@ -102,7 +122,7 @@ const server = http.createServer(async (request, response) => {
       if (!isLoopback(request)) return json(response, 403, { error: 'Setup is available on the PC only' });
     }
     if (request.method === 'GET' && pathname === '/api/setup') {
-      return json(response, 200, { app: 'remote-smart-trackpad', urls: privateUrls(), pairingCode: Date.now() < pairingExpires ? pairingCode : null, pairingExpires });
+      return json(response, 200, { app: 'remote-smart-trackpad', urls: privateUrls(), discoveryUrl: discoveryUrl(), pairingCode: Date.now() < pairingExpires ? pairingCode : null, pairingExpires });
     }
     if (request.method === 'POST' && pathname === '/api/setup/refresh') {
       refreshPairingCode();
@@ -115,7 +135,7 @@ const server = http.createServer(async (request, response) => {
       if (++attempts.count > 8) return json(response, 429, { error: 'Too many attempts. Try again in one minute.' });
       pairingAttempts.set(address, attempts);
       const { code } = await readBody(request);
-      if (Date.now() > pairingExpires || !timingSafeEqual(Buffer.from(String(code || '').padEnd(6).slice(0, 6)), Buffer.from(pairingCode))) return json(response, 403, { error: 'Pairing code expired or incorrect' });
+      if (Date.now() > pairingExpires || !/^[0-9]{6}$/.test(String(code)) || !timingSafeEqual(Buffer.from(String(code)), Buffer.from(pairingCode))) return json(response, 403, { error: 'Pairing code expired or incorrect' });
       const token = randomBytes(32).toString('hex');
       tokens.add(createHash('sha256').update(token).digest('hex'));
       await writeFile(tokenFile, JSON.stringify([...tokens]), { mode: 0o600 });
@@ -127,7 +147,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === 'GET' && staticFiles.has(pathname)) {
       const [name, contentType] = staticFiles.get(pathname);
       const file = await readFile(path.join(root, 'web', name));
-      response.writeHead(200, { 'Content-Type': contentType + '; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'self'; connect-src 'self' ws:; style-src 'self'; script-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'" });
+      response.writeHead(200, { 'Content-Type': contentType.startsWith('image/') ? contentType : contentType + '; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'self'; connect-src 'self' ws: wss:; style-src 'self'; script-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'" });
       return response.end(file);
     }
     json(response, 404, { error: 'Not found' });
@@ -135,65 +155,87 @@ const server = http.createServer(async (request, response) => {
 });
 
 server.on('upgrade', (request, socket) => {
-  const pathname = new URL(request.url, 'http://localhost').pathname;
-  const origin = request.headers.origin;
-  if (pathname !== '/socket' || !authorized(request) || !origin || new URL(origin).host !== request.headers.host || request.headers.upgrade?.toLowerCase() !== 'websocket') return socket.destroy();
+  let pathname;
+  let sameOrigin = false;
+  try {
+    pathname = new URL(request.url, 'http://localhost').pathname;
+    const origin = new URL(request.headers.origin);
+    sameOrigin = origin.host === request.headers.host && origin.protocol === (request.socket.encrypted ? 'https:' : 'http:');
+  } catch { return socket.destroy(); }
+  if (pathname !== '/socket' || !sameOrigin || !authorized(request) || request.headers.upgrade?.toLowerCase() !== 'websocket') return socket.destroy();
   const key = request.headers['sec-websocket-key'];
   if (!key) return socket.destroy();
   const accept = createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
   socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + '\r\n\r\n');
   const client = {
-    socket, buffer: Buffer.alloc(0), chain: Promise.resolve(), lastId: 0,
+    socket, buffer: Buffer.alloc(0), chain: Promise.resolve(), lastId: 0, queued: 0, lastPong: Date.now(),
     send(value) {
       if (socket.destroyed) return;
       const payload = Buffer.from(JSON.stringify(value));
-      const header = payload.length < 126 ? Buffer.from([0x81, payload.length]) : Buffer.from([0x81, 126, payload.length >> 8, payload.length & 255]);
+      if (socket.writableLength > 2_000_000) return socket.destroy();
+      let header;
+      if (payload.length < 126) header = Buffer.from([0x81, payload.length]);
+      else if (payload.length <= 65_535) header = Buffer.from([0x81, 126, payload.length >> 8, payload.length & 255]);
+      else { header = Buffer.alloc(10); header[0] = 0x81; header[1] = 127; header.writeBigUInt64BE(BigInt(payload.length), 2); }
       socket.write(Buffer.concat([header, payload]));
     }
   };
   clients.add(client);
-  if (activeClient && activeClient !== client) activeClient.send({ type: 'status', state: 'another-device' });
+  if (activeClient && activeClient !== client) {
+    activeClient.send({ type: 'status', state: 'another-device' });
+    command('release').catch(error => console.error(`Could not release previous device input: ${error.message}`));
+  }
   activeClient = client;
   client.send({ type: 'status', state: 'ready' });
+  const heartbeat = setInterval(() => {
+    if (socket.destroyed) return;
+    if (Date.now() - client.lastPong > 15_000) return socket.destroy();
+    socket.write(Buffer.from([0x89, 0x00]));
+  }, 5_000);
   socket.on('data', data => {
     client.buffer = Buffer.concat([client.buffer, data]);
+    if (client.buffer.length > 2_000_000) return socket.destroy();
     while (client.buffer.length >= 2) {
       const opcode = client.buffer[0] & 15;
       const final = Boolean(client.buffer[0] & 128);
       const second = client.buffer[1];
       const lengthCode = second & 127;
-      if (!(second & 128) || lengthCode === 127 || !final) return socket.destroy();
-      const headerLength = lengthCode === 126 ? 4 : 2;
+      if (!(second & 128) || !final) return socket.destroy();
+      const headerLength = lengthCode === 127 ? 10 : lengthCode === 126 ? 4 : 2;
       if (client.buffer.length < headerLength + 4) break;
-      const length = lengthCode === 126 ? client.buffer.readUInt16BE(2) : lengthCode;
-      if (length > 65_536) return socket.destroy();
+      const length = lengthCode === 127 ? Number(client.buffer.readBigUInt64BE(2)) : lengthCode === 126 ? client.buffer.readUInt16BE(2) : lengthCode;
+      if (!Number.isSafeInteger(length) || length > 1_100_000) return socket.destroy();
       if (client.buffer.length < headerLength + 4 + length) break;
       const mask = client.buffer.subarray(headerLength, headerLength + 4);
       const payload = Buffer.from(client.buffer.subarray(headerLength + 4, headerLength + 4 + length));
       for (let index = 0; index < payload.length; index++) payload[index] ^= mask[index % 4];
       client.buffer = client.buffer.subarray(headerLength + 4 + length);
+      if (opcode >= 8 && length > 125) return socket.destroy();
       if (opcode === 8) return socket.end(Buffer.from([0x88, 0x00]));
       if (opcode === 9) { socket.write(Buffer.from([0x8a, payload.length, ...payload])); continue; }
+      if (opcode === 10) { client.lastPong = Date.now(); continue; }
       if (opcode !== 1) return socket.destroy();
       let message;
       try { message = JSON.parse(payload.toString('utf8')); } catch { continue; }
+      if (++client.queued > 64) return socket.destroy();
       client.chain = client.chain.then(async () => {
         if (client !== activeClient) return client.send({ type: 'ack', id: message.id, ok: false, error: 'Another device is active' });
         if (!Number.isSafeInteger(message.id) || message.id <= client.lastId) return;
         client.lastId = message.id;
-        const allowed = new Set(['move', 'click', 'button', 'scroll', 'key', 'open', 'edit', 'close', 'release']);
+        const allowed = new Set(['move', 'click', 'button', 'scroll', 'key', 'shortcut', 'open', 'edit', 'inspect', 'observe', 'close', 'release']);
         if (!allowed.has(message.action)) return client.send({ type: 'ack', id: message.id, ok: false, error: 'Unknown command' });
         try {
           const result = await command(message.action, { data: message.data || {} });
-          client.send({ type: 'ack', id: message.id, ok: result.ok, result: result.result, error: result.error });
+          client.send({ type: 'ack', id: message.id, ok: result.ok, result: result.result, error: result.error, code: result.code });
         } catch (error) { client.send({ type: 'ack', id: message.id, ok: false, error: error.message }); }
-      }).catch(error => console.error(error));
+      }).catch(error => console.error(error)).finally(() => { client.queued--; });
     }
   });
   let released = false;
   const release = () => {
     if (released) return;
     released = true;
+    clearInterval(heartbeat);
     clients.delete(client);
     if (activeClient === client) { activeClient = null; command('release').catch(() => {}); }
   };
@@ -202,14 +244,43 @@ server.on('upgrade', (request, socket) => {
 });
 
 const listeners = new Map();
+function stopDiscovery(address) {
+  discoveryReady.delete(address);
+  const stop = discoveryStops.get(address);
+  discoveryStops.delete(address);
+  stop?.();
+}
+function ensureDiscovery(address) {
+  if (address === '127.0.0.1' || discoveryStops.has(address) || Date.now() < (discoveryRetryAt.get(address) || 0)) return;
+  try {
+    const stop = startDiscovery(address, port, privateProtocol,
+      () => {
+        if (listeningAddresses.has(address) && discoveryStops.has(address)) {
+          discoveryReady.add(address);
+          console.log('mDNS: ' + discoveryUrl());
+        }
+      },
+      error => {
+        console.warn('mDNS unavailable on ' + address + ': ' + error.message);
+        discoveryRetryAt.set(address, Date.now() + 60_000);
+        stopDiscovery(address);
+      }
+    );
+    discoveryStops.set(address, stop);
+  } catch (error) {
+    console.warn('mDNS unavailable on ' + address + ': ' + error.message);
+    discoveryRetryAt.set(address, Date.now() + 60_000);
+  }
+}
 function startListener(address) {
   if (listeners.has(address)) return;
-  const listener = address === '127.0.0.1' ? server : http.createServer(server.listeners('request')[0]);
+  const listener = address === '127.0.0.1' ? server : tlsOptions ? https.createServer(tlsOptions, server.listeners('request')[0]) : http.createServer(server.listeners('request')[0]);
   listeners.set(address, listener);
   if (listener !== server) listener.on('upgrade', server.listeners('upgrade')[0]);
   listener.listen(port, address, () => {
     listeningAddresses.add(address);
-    console.log(`Open http://${address}:${port}/`);
+    ensureDiscovery(address);
+    console.log('Open ' + (address === '127.0.0.1' ? 'http' : privateProtocol) + '://' + address + ':' + port + '/');
     if (address === '127.0.0.1' && process.env.REMOTE_SMART_TRACKPAD_OPEN_SETUP === '1') {
       const browser = spawn('powershell.exe', ['-NoProfile', '-Command', `Start-Process 'http://127.0.0.1:${port}/setup'`], { stdio: 'ignore', windowsHide: true });
       browser.on('error', error => console.error(`Could not open setup page: ${error.message}`));
@@ -218,6 +289,7 @@ function startListener(address) {
   listener.on('error', error => {
     listeners.delete(address);
     listeningAddresses.delete(address);
+    stopDiscovery(address);
     console.error(`Cannot listen on ${address}:${port}: ${error.message}`);
     if (address === '127.0.0.1') { bridge.kill(); process.exit(1); }
   });
@@ -225,9 +297,11 @@ function startListener(address) {
 function syncListeners() {
   const desired = new Set(['127.0.0.1', ...privateAddresses()]);
   for (const address of desired) startListener(address);
+  for (const address of listeningAddresses) ensureDiscovery(address);
   for (const [address, listener] of listeners) if (!desired.has(address)) {
     listeningAddresses.delete(address);
     listeners.delete(address);
+    stopDiscovery(address);
     listener.close();
   }
 }

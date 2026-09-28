@@ -13,12 +13,20 @@ function updateCountdown() {
   if (!seconds) { codeElement.textContent = 'Expiré'; expiryElement.textContent = 'Générez un nouveau code pour appairer un téléphone.'; return; }
   expiryElement.textContent = `Valable encore ${Math.floor(seconds / 60)} min ${String(seconds % 60).padStart(2, '0')} s`;
 }
-function renderUrls(urls) {
+function renderUrls(urls, discoveryUrl) {
   qrList.replaceChildren();
   if (!urls.length) {
     const empty = document.createElement('p'); empty.className = 'empty';
     empty.textContent = 'Aucune adresse réseau privée disponible. Connectez le PC au Wi-Fi, puis relancez le serveur.';
     qrList.append(empty); return;
+  }
+  if (discoveryUrl) {
+    const card = document.createElement('article'); card.className = 'qr-card';
+    const image = document.createElement('div'); image.className = 'qr-image';
+    image.append(QRCode({ msg: discoveryUrl, dim: 220, pad: 4, ecl: 'M', pal: ['#111827', '#ffffff'] }));
+    const title = document.createElement('h3'); title.textContent = 'Adresse stable du PC (.local)';
+    const link = document.createElement('a'); link.href = discoveryUrl; link.textContent = discoveryUrl;
+    card.append(image, title, link); qrList.append(card);
   }
   for (const [index, url] of urls.entries()) {
     const card = document.createElement('article'); card.className = 'qr-card';
@@ -35,7 +43,7 @@ async function loadSetup() {
     if (!response.ok) throw new Error('La page de connexion est indisponible.');
     const setup = await response.json();
     showCode(setup.pairingCode, setup.pairingExpires);
-    renderUrls(setup.urls);
+    renderUrls(setup.urls, setup.discoveryUrl);
   } catch (error) { qrList.textContent = error.message; }
 }
 document.querySelector('#refresh-code').addEventListener('click', async () => {
