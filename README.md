@@ -20,7 +20,7 @@ Keep the project and Node.js at their registered locations. After moving either,
 
 ## Controls and text
 
-The pointer area moves the PC cursor and its dot pattern. Left/right buttons support holding while moving; the middle button sits between the two native scroll rails. Native browser scrolling supplies momentum; each rail recenters only after scrolling settles. The menu toggles function (F1–F14, as drawn in Figma), media, edit and modifier rows, plus sticky modifiers.
+The pointer area moves the PC cursor and its dot pattern. Left/right buttons support holding while moving; the middle button sits between the two native scroll rails. Native browser scrolling supplies momentum; each rail recenters only after scrolling settles. The menu toggles function (function keys, as drawn in Figma), media, edit and modifier rows, plus sticky modifiers.
 
 Opening the editor reads the entire focused editable UI Automation text field, including its selection. While open it follows PC focus, text and selection changes. It closes only through **Close text editor**. Non-text, password, read-only and unsupported fields clear/disable the mirror without closing it. Only the enabled modifier row remains visible during editing. The viewport follows the visible area above the native phone keyboard.
 

@@ -1,7 +1,7 @@
 import { icon } from './icons.js';
 const rows = {
     // [key, label, icon (null for text), group]; matching adjacent groups share smaller corners.
-    functions: Array.from({ length: 14 }, (_, index) => [`F${index + 1}`, `F${index + 1}`, null, 'functions']),
+    functions: Array.from({ length: 24 }, (_, index) => [`F${index + 1}`, `F${index + 1}`, null, 'functions']),
     media: [
         ['PlayPause', 'Play / pause', 'play', null],
         ['VolumeMute', 'Mute', 'mute', 'media'],
@@ -35,7 +35,7 @@ class KeyRows extends HTMLElement {
             const row = document.createElement('div');
             row.className = `key-row ${name}`;
             row.dataset.row = name;
-            const columns = name === 'functions' ? 7 : keys.length;
+            const columns = name === 'functions' ? 8 : keys.length;
             row.style.setProperty('--columns', columns);
             for (const [index, [key, label, glyph, group]] of keys.entries()) {
                 const button = document.createElement('button');
