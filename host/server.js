@@ -64,7 +64,7 @@ function json(response, code, value) {
 const staticFiles = new Map([
   ['/', ['index.html', 'text/html']], ['/app.js', ['dist/app.js', 'text/javascript']],
   ['/style.css', ['dist/app.css', 'text/css']], ['/manifest.webmanifest', ['manifest.webmanifest', 'application/manifest+json']],
-  ['/icon.svg', ['icon.svg', 'image/svg+xml']], ['/setup', ['setup.html', 'text/html']],
+  ['/setup', ['setup.html', 'text/html']],
   ['/icon-192.png', ['icon-192.png', 'image/png']], ['/icon-512.png', ['icon-512.png', 'image/png']],
   ['/setup.js', ['setup.js', 'text/javascript']], ['/setup.css', ['setup.css', 'text/css']],
   ['/vendor/qrcode.min.js', ['vendor/qrcode.min.js', 'text/javascript']]

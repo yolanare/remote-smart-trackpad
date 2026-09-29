@@ -33,7 +33,8 @@ internal sealed class HostContext : ApplicationContext {
 
     public HostContext(string projectRoot) {
         root = projectRoot;
-        console = new Form { Text = "Remote Smart Trackpad - Console", Size = new Size(850, 500), StartPosition = FormStartPosition.CenterScreen };
+        Icon appIcon = Icon.ExtractAssociatedIcon(Path.Combine(root, ".data", "RemoteSmartTrackpad.exe"));
+        console = new Form { Icon = appIcon, Text = "Remote Smart Trackpad - Console", Size = new Size(850, 500), StartPosition = FormStartPosition.CenterScreen };
         output = new TextBox { Multiline = true, ReadOnly = true, Dock = DockStyle.Fill, ScrollBars = ScrollBars.Both, WordWrap = false, BackColor = Color.FromArgb(20, 20, 20), ForeColor = Color.Gainsboro, Font = new Font("Consolas", 10) };
         console.Controls.Add(output);
         console.FormClosing += delegate(object sender, FormClosingEventArgs e) { if (!stopping) { e.Cancel = true; console.Hide(); } };
@@ -47,7 +48,7 @@ internal sealed class HostContext : ApplicationContext {
         menu.Items.Add(startup);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Stop server", null, delegate { ExitThread(); });
-        tray = new NotifyIcon { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath), Text = StartupName, ContextMenuStrip = menu, Visible = true };
+        tray = new NotifyIcon { Icon = appIcon, Text = StartupName, ContextMenuStrip = menu, Visible = true };
         tray.DoubleClick += delegate { console.Show(); console.Activate(); };
         using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run")) startup.Checked = key != null && key.GetValue(StartupName) != null;
         string marker = Path.Combine(root, ".data", "tray-initialized");

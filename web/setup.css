@@ -4,7 +4,7 @@ html, body { height: auto; min-height: 100%; overflow: auto; overscroll-behavior
 body { min-height: 100dvh; }
 .setup { width: min(100%, 58rem); margin: auto; padding: 2rem 1.5rem 4rem; }
 .setup header { display: flex; align-items: center; gap: var(--space-3); padding-bottom: 1.5rem; border-bottom: var(--stroke) solid var(--border); }
-.logo { width: 2.5rem; height: 2.5rem; flex: none; border: var(--stroke) solid var(--border); border-radius: var(--radius) var(--radius) var(--radius-small) var(--radius-small); background-image: radial-gradient(circle, var(--muted) .045rem, transparent .065rem); background-size: .5rem .5rem; background-position: .2rem .2rem; }
+.logo { display: block; width: 2.5rem; height: 2.5rem; flex: none; object-fit: contain; }
 .setup header strong { display: block; font-size: .875rem; font-weight: 500; letter-spacing: -.02em; }
 .setup header span { display: block; margin-top: var(--space-1); color: var(--muted); font-size: .75rem; }
 .intro { max-width: 39rem; padding: 3.5rem 0 1.5rem; }
