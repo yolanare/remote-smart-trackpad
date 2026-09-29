@@ -112,6 +112,13 @@ function discoveryUrl() {
 const server = http.createServer(async (request, response) => {
     try {
         const pathname = new URL(request.url, 'http://localhost').pathname;
+        if (request.method === 'GET' && pathname === '/dev-build.json') {
+            const revision = await readFile(path.join(root, 'web', 'dist', 'dev-build.json'), 'utf8').catch((error) => {
+                if (error.code === 'ENOENT') return '{"revision":null}';
+                throw error;
+            });
+            return json(response, 200, JSON.parse(revision));
+        }
         if (
             pathname === '/setup'
             || pathname === '/setup.js'
