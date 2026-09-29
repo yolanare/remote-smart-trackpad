@@ -47,10 +47,10 @@ internal sealed class HostContext : ApplicationContext {
         var menu = new ContextMenuStrip();
         menu.Items.Add("Show console", null, delegate { ShowConsole(); });
         menu.Items.Add("Connect a device", null, delegate { Process.Start(new ProcessStartInfo("http://127.0.0.1:" + (Environment.GetEnvironmentVariable("REMOTE_SMART_TRACKPAD_PORT") ?? "8765") + "/setup") { UseShellExecute = true }); });
+        menu.Items.Add(new ToolStripSeparator());
         startup = new ToolStripMenuItem("Start with Windows") { CheckOnClick = false };
         startup.Click += delegate { try { SetStartup(!startup.Checked); } catch (Exception error) { MessageBox.Show(error.Message, StartupName); } };
         menu.Items.Add(startup);
-        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Stop server", null, delegate { ExitThread(); });
         tray = new NotifyIcon { Icon = appIcon, Text = StartupName, ContextMenuStrip = menu, Visible = true };
         tray.DoubleClick += delegate { ShowConsole(); };
