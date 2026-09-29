@@ -1,10 +1,9 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
-  <meta name="theme-color" content="#10141c">
-  <meta name="description" content="Commande locale du pointeur et du texte de votre PC Windows">
+  <meta name="theme-color" content="#000000">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/style.css">
@@ -13,29 +12,36 @@
 <body>
   <main class="app">
     <header class="topbar">
-      <div class="brand"><span class="brand-icon">⌁</span><div><strong>Remote Smart Trackpad</strong><small>WINDOWS · LOCAL</small></div></div>
-      <div id="connection" class="connection" role="status"><span class="dot"></span><span>Connexion…</span></div>
+      <div id="connection" role="status" aria-live="polite"><span class="status-dot"></span><span id="connection-label"></span></div>
+      <button id="options-toggle" aria-label="Options" aria-expanded="false" aria-controls="options" data-icon="more"></button>
+      <button id="editor-close" hidden><span data-icon="close"></span>Close text editor</button>
     </header>
-    <section id="pairing" class="pairing hidden" aria-labelledby="pairing-title">
-      <div class="pairing-mark">⌁</div>
-      <p class="eyebrow">PREMIÈRE CONNEXION</p>
-      <h1 id="pairing-title">Connecter ce téléphone</h1>
-      <p>Entrez le code affiché dans la fenêtre du PC. Votre téléphone restera reconnu ensuite.</p>
-      <form id="pair-form"><label for="pair-code">Code d’appairage</label><input id="pair-code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000 000" required><button class="primary" type="submit">Connecter</button></form>
-      <p id="pair-error" class="error" role="alert"></p>
+    <section id="pairing" class="pairing" hidden>
+      <h1>Connect this device</h1>
+      <form id="pair-form">
+        <label>Your name<input id="pair-name" autocomplete="name" maxlength="80" required></label>
+        <label id="pair-code-label">Pairing code from your PC<input id="pair-code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label>
+        <button type="submit">Connect</button>
+      </form>
+      <p id="pair-error" role="alert"></p>
     </section>
-    <div id="controls" class="controls hidden">
-      <div id="notice" class="notice hidden" role="alert"></div>
-      <section class="surface-section">
-        <div class="section-heading"><div><p class="eyebrow">POINTEUR</p><h1>Trackpad</h1></div><button id="editor-open" class="editor-launch" type="button"><span>✎</span> Écrire <span class="launch-arrow">↗</span></button></div>
-        <div id="trackpad" class="trackpad" aria-label="Zone tactile du pointeur"><div class="trackpad-grid"></div><div class="trackpad-guide"><div class="guide-icon">⌖</div><strong>Votre espace de mouvement</strong><span>Glissez pour déplacer · touchez pour cliquer</span></div><div class="trackpad-corner">DEUX DOIGTS <span>↕</span> DÉFILER</div></div>
-        <div class="mouse-buttons" aria-label="Boutons de souris"><button data-click="left" type="button"><span class="mouse-symbol">◧</span> Gauche</button><button data-click="middle" type="button"><span class="mouse-symbol">▣</span> Milieu</button><button data-click="right" type="button"><span class="mouse-symbol">◨</span> Droit</button></div>
-      </section>
-      <section class="keys-section"><div class="section-heading small"><div><p class="eyebrow">RACCOURCIS</p><h2>Touches rapides</h2></div><button id="edit-keys" class="text-button" type="button">Organiser</button></div><div id="key-grid" class="key-grid"></div><details class="more-keys"><summary>Plus de touches <span>⌄</span></summary><div id="extra-keys" class="extra-keys"></div></details></section>
-      <footer>Connecté uniquement à votre réseau local <span>·</span> <button id="disconnect" type="button">Oublier cet appareil</button></footer>
+    <div id="controls">
+      <pointer-pad></pointer-pad>
+      <div class="input-dock">
+        <text-editor hidden></text-editor>
+        <key-rows></key-rows>
+        <div class="editor-launch"><button id="editor-open" aria-label="Open text editor" data-icon="text"></button></div>
+      </div>
+    </div>
+    <div id="options" class="options" hidden>
+      <label><input type="checkbox" name="functions"><span class="checkbox" data-icon="check"></span>Show F1–F14 keys rows</label>
+      <label><input type="checkbox" name="media"><span class="checkbox" data-icon="check"></span>Show media keys row</label>
+      <label><input type="checkbox" name="edit"><span class="checkbox" data-icon="check"></span>Show edit keys row</label>
+      <label><input type="checkbox" name="modifiers"><span class="checkbox" data-icon="check"></span>Show modifier keys row</label>
+      <hr>
+      <label><input type="checkbox" name="sticky"><span class="checkbox" data-icon="check"></span>Sticky modifier keys</label>
     </div>
   </main>
-  <div id="editor" class="editor hidden" role="dialog" aria-modal="true" aria-labelledby="editor-title"><div class="editor-header"><div><p class="eyebrow">SESSION DE SAISIE</p><h2 id="editor-title">Éditeur</h2></div><button id="editor-close" class="icon-button" type="button" aria-label="Fermer l’éditeur">×</button></div><div id="editor-status" class="editor-status">Vérification du champ PC…</div><button id="editor-reopen" class="reopen hidden" type="button">Ouvrir une nouvelle session sur le PC</button><textarea id="editor-text" spellcheck="true" autocapitalize="sentences" placeholder="Tapez avec le clavier de votre téléphone…"></textarea><div class="editor-tools"><button data-editor-key="Escape" type="button">Échap</button><button data-editor-key="Tab" type="button">Tab</button><button data-editor-key="Enter" type="button">Entrée</button><button data-editor-key="Control" type="button">Ctrl</button><button data-editor-key="Shift" type="button">Shift</button><button data-editor-key="Alt" type="button">Alt</button><button data-editor-key="AltGr" type="button">AltGr</button></div><p class="editor-hint">Le texte reste ici en cas de coupure ou de désaccord. Fermez l’éditeur avant de changer de champ sur le PC.</p></div>
   <script src="/app.js" type="module"></script>
 </body>
 </html>

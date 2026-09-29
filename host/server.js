@@ -1,12 +1,16 @@
 import http from 'node:http';
 import https from 'node:https';
-import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
-import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { randomInt, timingSafeEqual } from 'node:crypto';
+import { readFile, mkdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { networkInterfaces } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createInterface } from 'node:readline';
 import { discoveryHost, startDiscovery } from './discovery.js';
+import { openAccessStore } from './access.js';
+import { startBridge } from './bridge.js';
+import { createTransport } from './transport.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.env.REMOTE_SMART_TRACKPAD_PORT || 8765);
@@ -25,7 +29,7 @@ if (Boolean(certificate) !== Boolean(privateKey)) throw new Error('Both tls/cert
 const tlsOptions = certificate ? { cert: certificate, key: privateKey } : null;
 const privateProtocol = tlsOptions ? 'https' : 'http';
 const tokenFile = path.join(dataDirectory, 'tokens.json');
-let tokens = new Set(JSON.parse(await readFile(tokenFile, 'utf8').catch(() => '[]')));
+const access = await openAccessStore(tokenFile);
 let pairingCode = String(randomInt(100000, 1000000));
 let pairingExpires = Date.now() + 10 * 60_000;
 function refreshPairingCode() {
@@ -34,49 +38,18 @@ function refreshPairingCode() {
   console.log(`Pairing code: ${pairingCode} (10 minutes)`);
 }
 const pairingAttempts = new Map();
-const clients = new Set();
-let activeClient = null;
-let sequence = 0;
-const pending = new Map();
-
-const bridge = spawn('powershell.exe', ['-NoProfile', '-Mta', '-ExecutionPolicy', 'Bypass', '-File', path.join(root, 'host', 'windows-bridge.ps1')], { stdio: ['pipe', 'pipe', 'inherit'], windowsHide: true });
-let bridgeBuffer = '';
-bridge.stdout.setEncoding('utf8');
-bridge.stdout.on('data', chunk => {
-  bridgeBuffer += chunk;
-  for (let end; (end = bridgeBuffer.indexOf('\n')) >= 0;) {
-    const line = bridgeBuffer.slice(0, end).trim();
-    bridgeBuffer = bridgeBuffer.slice(end + 1);
-    if (!line) continue;
-    try {
-      const result = JSON.parse(line);
-      const request = pending.get(result.id);
-      if (request) { pending.delete(result.id); request.resolve(result); }
-    } catch (error) { console.error('Bridge response error:', error.message); }
-  }
+const bridge = startBridge(path.join(root, 'host', 'windows-bridge.ps1'), error => {
+  console.error(error.message);
+  transport.notify('unavailable');
 });
-bridge.on('exit', code => {
-  console.error(`Windows bridge stopped (${code}). Restart the server.`);
-  for (const request of pending.values()) request.reject(new Error('Windows bridge stopped'));
-  pending.clear();
-  for (const client of clients) client.send({ type: 'status', state: 'unavailable' });
-});
-
-function command(action, data = {}) {
-  if (bridge.exitCode !== null) return Promise.reject(new Error('Windows bridge unavailable'));
-  const id = ++sequence;
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => { pending.delete(id); reject(new Error('Windows did not respond')); }, action === 'edit' ? 30_000 : action === 'open' || action === 'inspect' ? 12_000 : 5000);
-    pending.set(id, { resolve: result => { clearTimeout(timeout); resolve(result); }, reject: error => { clearTimeout(timeout); reject(error); } });
-    bridge.stdin.write(JSON.stringify({ id, action, ...data }) + '\n');
-  });
-}
+const command = (action, data) => bridge.command(action, data);
 
 function authorized(request) {
   const token = request.headers.authorization?.replace(/^Bearer /, '') || new URL(request.url, 'http://localhost').searchParams.get('token');
-  return token && tokens.has(createHash('sha256').update(token).digest('hex'));
+  return access.find(token);
 }
 async function readBody(request) {
+  request.setEncoding('utf8');
   let body = '';
   for await (const chunk of request) {
     body += chunk;
@@ -89,9 +62,8 @@ function json(response, code, value) {
   response.end(JSON.stringify(value));
 }
 const staticFiles = new Map([
-  ['/', ['index.html', 'text/html']], ['/app.js', ['app.js', 'text/javascript']],
-  ['/text-operations.js', ['text-operations.js', 'text/javascript']],
-  ['/style.css', ['style.css', 'text/css']], ['/manifest.webmanifest', ['manifest.webmanifest', 'application/manifest+json']],
+  ['/', ['index.html', 'text/html']], ['/app.js', ['dist/app.js', 'text/javascript']],
+  ['/style.css', ['dist/app.css', 'text/css']], ['/manifest.webmanifest', ['manifest.webmanifest', 'application/manifest+json']],
   ['/icon.svg', ['icon.svg', 'image/svg+xml']], ['/setup', ['setup.html', 'text/html']],
   ['/icon-192.png', ['icon-192.png', 'image/png']], ['/icon-512.png', ['icon-512.png', 'image/png']],
   ['/setup.js', ['setup.js', 'text/javascript']], ['/setup.css', ['setup.css', 'text/css']],
@@ -121,6 +93,20 @@ const server = http.createServer(async (request, response) => {
     if (pathname === '/setup' || pathname === '/setup.js' || pathname === '/setup.css' || pathname === '/vendor/qrcode.min.js' || pathname.startsWith('/api/setup')) {
       if (!isLoopback(request)) return json(response, 403, { error: 'Setup is available on the PC only' });
     }
+    if (pathname === '/api/setup/tokens') {
+      if (request.method === 'GET') return json(response, 200, access.list());
+      if (request.method !== 'DELETE' || request.headers['x-trackpad-local'] !== '1' || request.headers.origin) return json(response, 403, { error: 'Use the local token manager' });
+      const { id } = await readBody(request);
+      await access.remove(id);
+      transport.revoke(id);
+      return json(response, 200, access.list());
+    }
+    if (request.method === 'POST' && pathname === '/api/profile') {
+      const record = authorized(request);
+      if (!record) return json(response, 401, { error: 'Pairing required' });
+      await access.identify(record.id, (await readBody(request)).name);
+      return json(response, 200, { ok: true });
+    }
     if (request.method === 'GET' && pathname === '/api/setup') {
       return json(response, 200, { app: 'remote-smart-trackpad', urls: privateUrls(), discoveryUrl: discoveryUrl(), pairingCode: Date.now() < pairingExpires ? pairingCode : null, pairingExpires });
     }
@@ -134,16 +120,19 @@ const server = http.createServer(async (request, response) => {
       if (Date.now() > attempts.until) { attempts.count = 0; attempts.until = Date.now() + 60_000; }
       if (++attempts.count > 8) return json(response, 429, { error: 'Too many attempts. Try again in one minute.' });
       pairingAttempts.set(address, attempts);
-      const { code } = await readBody(request);
+      const { code, name } = await readBody(request);
       if (Date.now() > pairingExpires || !/^[0-9]{6}$/.test(String(code)) || !timingSafeEqual(Buffer.from(String(code)), Buffer.from(pairingCode))) return json(response, 403, { error: 'Pairing code expired or incorrect' });
-      const token = randomBytes(32).toString('hex');
-      tokens.add(createHash('sha256').update(token).digest('hex'));
-      await writeFile(tokenFile, JSON.stringify([...tokens]), { mode: 0o600 });
+      const token = await access.add(name);
       refreshPairingCode();
       pairingAttempts.delete(address);
       return json(response, 200, { token });
     }
-    if (pathname === '/api/status') return json(response, authorized(request) ? 200 : 401, authorized(request) ? { state: bridge.exitCode === null ? 'ready' : 'unavailable' } : { error: 'Pairing required' });
+    if (pathname === '/api/status') return json(response, authorized(request) ? 200 : 401, authorized(request) ? { state: bridge.available ? 'ready' : 'unavailable', needsName: !authorized(request).name } : { error: 'Pairing required' });
+    if (request.method === 'GET' && /^\/assets\/[a-zA-Z0-9_.-]+\.woff2?$/.test(pathname)) {
+      const file = await readFile(path.join(root, 'web', 'dist', pathname));
+      response.writeHead(200, { 'Content-Type': pathname.endsWith('.woff2') ? 'font/woff2' : 'font/woff', 'Cache-Control': 'public, max-age=86400' });
+      return response.end(file);
+    }
     if (request.method === 'GET' && staticFiles.has(pathname)) {
       const [name, contentType] = staticFiles.get(pathname);
       const file = await readFile(path.join(root, 'web', name));
@@ -154,94 +143,8 @@ const server = http.createServer(async (request, response) => {
   } catch (error) { json(response, 400, { error: error.message }); }
 });
 
-server.on('upgrade', (request, socket) => {
-  let pathname;
-  let sameOrigin = false;
-  try {
-    pathname = new URL(request.url, 'http://localhost').pathname;
-    const origin = new URL(request.headers.origin);
-    sameOrigin = origin.host === request.headers.host && origin.protocol === (request.socket.encrypted ? 'https:' : 'http:');
-  } catch { return socket.destroy(); }
-  if (pathname !== '/socket' || !sameOrigin || !authorized(request) || request.headers.upgrade?.toLowerCase() !== 'websocket') return socket.destroy();
-  const key = request.headers['sec-websocket-key'];
-  if (!key) return socket.destroy();
-  const accept = createHash('sha1').update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
-  socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + '\r\n\r\n');
-  const client = {
-    socket, buffer: Buffer.alloc(0), chain: Promise.resolve(), lastId: 0, queued: 0, lastPong: Date.now(),
-    send(value) {
-      if (socket.destroyed) return;
-      const payload = Buffer.from(JSON.stringify(value));
-      if (socket.writableLength > 2_000_000) return socket.destroy();
-      let header;
-      if (payload.length < 126) header = Buffer.from([0x81, payload.length]);
-      else if (payload.length <= 65_535) header = Buffer.from([0x81, 126, payload.length >> 8, payload.length & 255]);
-      else { header = Buffer.alloc(10); header[0] = 0x81; header[1] = 127; header.writeBigUInt64BE(BigInt(payload.length), 2); }
-      socket.write(Buffer.concat([header, payload]));
-    }
-  };
-  clients.add(client);
-  if (activeClient && activeClient !== client) {
-    activeClient.send({ type: 'status', state: 'another-device' });
-    command('release').catch(error => console.error(`Could not release previous device input: ${error.message}`));
-  }
-  activeClient = client;
-  client.send({ type: 'status', state: 'ready' });
-  const heartbeat = setInterval(() => {
-    if (socket.destroyed) return;
-    if (Date.now() - client.lastPong > 15_000) return socket.destroy();
-    socket.write(Buffer.from([0x89, 0x00]));
-  }, 5_000);
-  socket.on('data', data => {
-    client.buffer = Buffer.concat([client.buffer, data]);
-    if (client.buffer.length > 2_000_000) return socket.destroy();
-    while (client.buffer.length >= 2) {
-      const opcode = client.buffer[0] & 15;
-      const final = Boolean(client.buffer[0] & 128);
-      const second = client.buffer[1];
-      const lengthCode = second & 127;
-      if (!(second & 128) || !final) return socket.destroy();
-      const headerLength = lengthCode === 127 ? 10 : lengthCode === 126 ? 4 : 2;
-      if (client.buffer.length < headerLength + 4) break;
-      const length = lengthCode === 127 ? Number(client.buffer.readBigUInt64BE(2)) : lengthCode === 126 ? client.buffer.readUInt16BE(2) : lengthCode;
-      if (!Number.isSafeInteger(length) || length > 1_100_000) return socket.destroy();
-      if (client.buffer.length < headerLength + 4 + length) break;
-      const mask = client.buffer.subarray(headerLength, headerLength + 4);
-      const payload = Buffer.from(client.buffer.subarray(headerLength + 4, headerLength + 4 + length));
-      for (let index = 0; index < payload.length; index++) payload[index] ^= mask[index % 4];
-      client.buffer = client.buffer.subarray(headerLength + 4 + length);
-      if (opcode >= 8 && length > 125) return socket.destroy();
-      if (opcode === 8) return socket.end(Buffer.from([0x88, 0x00]));
-      if (opcode === 9) { socket.write(Buffer.from([0x8a, payload.length, ...payload])); continue; }
-      if (opcode === 10) { client.lastPong = Date.now(); continue; }
-      if (opcode !== 1) return socket.destroy();
-      let message;
-      try { message = JSON.parse(payload.toString('utf8')); } catch { continue; }
-      if (++client.queued > 64) return socket.destroy();
-      client.chain = client.chain.then(async () => {
-        if (client !== activeClient) return client.send({ type: 'ack', id: message.id, ok: false, error: 'Another device is active' });
-        if (!Number.isSafeInteger(message.id) || message.id <= client.lastId) return;
-        client.lastId = message.id;
-        const allowed = new Set(['move', 'click', 'button', 'scroll', 'key', 'shortcut', 'open', 'edit', 'inspect', 'observe', 'close', 'release']);
-        if (!allowed.has(message.action)) return client.send({ type: 'ack', id: message.id, ok: false, error: 'Unknown command' });
-        try {
-          const result = await command(message.action, { data: message.data || {} });
-          client.send({ type: 'ack', id: message.id, ok: result.ok, result: result.result, error: result.error, code: result.code });
-        } catch (error) { client.send({ type: 'ack', id: message.id, ok: false, error: error.message }); }
-      }).catch(error => console.error(error)).finally(() => { client.queued--; });
-    }
-  });
-  let released = false;
-  const release = () => {
-    if (released) return;
-    released = true;
-    clearInterval(heartbeat);
-    clients.delete(client);
-    if (activeClient === client) { activeClient = null; command('release').catch(() => {}); }
-  };
-  socket.on('close', release);
-  socket.on('error', release);
-});
+const transport = createTransport({ authorized, hasAccess: id => access.list().some(record => record.id === id), command });
+server.on('upgrade', transport.handleUpgrade);
 
 const listeners = new Map();
 function stopDiscovery(address) {
@@ -291,7 +194,7 @@ function startListener(address) {
     listeningAddresses.delete(address);
     stopDiscovery(address);
     console.error(`Cannot listen on ${address}:${port}: ${error.message}`);
-    if (address === '127.0.0.1') { bridge.kill(); process.exit(1); }
+    if (address === '127.0.0.1') { bridge.stop(); process.exit(1); }
   });
 }
 function syncListeners() {
@@ -306,5 +209,20 @@ function syncListeners() {
   }
 }
 syncListeners();
-setInterval(syncListeners, 10_000);
+const listenerTimer = setInterval(syncListeners, 10_000);
 console.log(`Pairing code: ${pairingCode} (10 minutes)`);
+let stopping = false;
+async function shutdown() {
+  if (stopping) return;
+  stopping = true;
+  clearInterval(listenerTimer);
+  transport.close();
+  for (const stop of discoveryStops.values()) stop();
+  for (const listener of listeners.values()) listener.close();
+  await command('mirror-close').catch(() => {});
+  bridge.stop();
+  process.exit(0);
+}
+createInterface({ input: process.stdin }).on('line', line => { if (line === 'shutdown') shutdown(); });
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

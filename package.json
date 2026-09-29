@@ -6,17 +6,22 @@
   "scripts": {
     "start": "node host/server.js",
     "icons": "node scripts/generate-icons.mjs",
-    "check": "node --check host/server.js && node --check host/discovery.js && node --check web/app.js && node --check web/text-operations.js && node --check web/setup.js && node --check web/vendor/qrcode.min.js",
+    "check": "node scripts/check.mjs",
     "test": "node --test tests/*.test.mjs",
-    "test:browser": "node scripts/browser-check.mjs"
+    "test:browser": "node scripts/browser-check.mjs",
+    "build": "node scripts/build.mjs",
+    "prestart": "npm run build"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
+    "lucide": "1.48.0",
     "multicast-dns": "7.2.5"
   },
   "devDependencies": {
-    "@resvg/resvg-js": "2.6.2"
+    "@fontsource/inter": "5.3.0",
+    "@resvg/resvg-js": "2.6.2",
+    "esbuild": "0.28.2"
   }
 }

@@ -1,0 +1,4 @@
+import { createElement, EllipsisVertical, X, Check, VolumeOff, Volume1, Volume2, Play, Scissors, Copy, ClipboardPaste, Delete, ArrowBigUp, Grid2X2, CornerDownLeft, TextCursor } from 'lucide';
+const icons = { more: EllipsisVertical, close: X, check: Check, mute: VolumeOff, quieter: Volume1, louder: Volume2, play: Play, cut: Scissors, copy: Copy, paste: ClipboardPaste, delete: Delete, shift: ArrowBigUp, windows: Grid2X2, enter: CornerDownLeft, text: TextCursor };
+export function icon(name) { return createElement(icons[name], { width: name === 'more' ? 24 : 18, height: name === 'more' ? 24 : 18, 'stroke-width': 1.5, 'aria-hidden': 'true', focusable: 'false' }); }
+export function addIcons(root) { root.querySelectorAll('[data-icon]').forEach(element => element.replaceChildren(icon(element.dataset.icon))); }

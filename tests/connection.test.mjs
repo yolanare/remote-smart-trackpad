@@ -69,7 +69,7 @@ test('a paired phone can reconnect and receives command acknowledgements', async
   assert.equal(setup.app, 'remote-smart-trackpad');
   const invalid = await fetch(`${url}/api/pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: setup.pairingCode + '9' }) });
   assert.equal(invalid.status, 403);
-  const paired = await fetch(`${url}/api/pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: setup.pairingCode }) });
+  const paired = await fetch(`${url}/api/pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: setup.pairingCode, name: 'Test phone' }) });
   assert.equal(paired.status, 200);
   const { token } = await paired.json();
   const authorized = await fetch(`${url}/api/status`, { headers: { Authorization: `Bearer ${token}` } });
@@ -92,5 +92,13 @@ test('a paired phone can reconnect and receives command acknowledgements', async
   socket.close();
   const reconnected = await openSocket(url, token);
   assert.equal((await exchange(reconnected, { id: 1, action: 'release', data: {} })).ok, true);
-  reconnected.close();
+  const devices = await (await fetch(`${url}/api/setup/tokens`)).json();
+  assert.equal(devices[0].name, 'Test phone');
+  assert.ok(Date.parse(devices[0].firstConnectedAt));
+  assert.equal(devices[0].hash, undefined);
+  const closed = new Promise(resolve => { reconnected.onclose = resolve; });
+  const revoked = await fetch(`${url}/api/setup/tokens`, { method: 'DELETE', headers: { 'content-type': 'application/json', 'x-trackpad-local': '1' }, body: JSON.stringify({ id: devices[0].id }) });
+  assert.equal(revoked.status, 200);
+  await closed;
+  assert.equal((await fetch(`${url}/api/status`, { headers: { Authorization: `Bearer ${token}` } })).status, 401);
 });
