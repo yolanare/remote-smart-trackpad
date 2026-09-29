@@ -1,47 +1,83 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
-  <meta name="theme-color" content="#000000">
-  <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="icon" href="/icon-192.png?v=d9a7d144671e" type="image/png">
-  <link rel="stylesheet" href="/style.css">
-  <title>Remote Smart Trackpad</title>
-</head>
-<body>
-  <main class="app">
-    <header class="topbar">
-      <div id="connection" role="status" aria-live="polite"><span class="status-dot"></span><span id="connection-label"></span></div>
-      <button id="options-toggle" aria-label="Options" aria-expanded="false" aria-controls="options" data-icon="more"></button>
-      <button id="editor-close" hidden><span data-icon="close"></span>Close text editor</button>
-    </header>
-    <section id="pairing" class="pairing" hidden>
-      <h1>Connect this device</h1>
-      <form id="pair-form">
-        <label>Your name<input id="pair-name" autocomplete="name" maxlength="80" required></label>
-        <label id="pair-code-label">Pairing code from your PC<input id="pair-code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label>
-        <button type="submit">Connect</button>
-      </form>
-      <p id="pair-error" role="alert"></p>
-    </section>
-    <div id="controls">
-      <pointer-pad></pointer-pad>
-      <div class="input-dock">
-        <text-editor hidden></text-editor>
-        <key-rows></key-rows>
-        <div class="editor-launch"><button id="editor-open" aria-label="Open text editor" data-icon="text"></button></div>
-      </div>
-    </div>
-    <div id="options" class="options" hidden>
-      <label><input type="checkbox" name="functions"><span class="checkbox" data-icon="check"></span>Show F1–F14 keys rows</label>
-      <label><input type="checkbox" name="media"><span class="checkbox" data-icon="check"></span>Show media keys row</label>
-      <label><input type="checkbox" name="edit"><span class="checkbox" data-icon="check"></span>Show edit keys row</label>
-      <label><input type="checkbox" name="modifiers"><span class="checkbox" data-icon="check"></span>Show modifier keys row</label>
-      <hr>
-      <label><input type="checkbox" name="sticky"><span class="checkbox" data-icon="check"></span>Sticky modifier keys</label>
-    </div>
-  </main>
-  <script src="/app.js" type="module"></script>
-</body>
+    <head>
+        <meta charset="utf-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
+        />
+        <meta name="theme-color" content="#000000" />
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="icon" href="/icon-192.png?v=d9a7d144671e" type="image/png" />
+        <link rel="stylesheet" href="/style.css" />
+        <title>Remote Smart Trackpad</title>
+    </head>
+    <body>
+        <main class="app">
+            <header class="topbar">
+                <div id="connection" role="status" aria-live="polite">
+                    <span class="status-dot"></span><span id="connection-label"></span>
+                </div>
+                <button
+                    id="options-toggle"
+                    aria-label="Options"
+                    aria-expanded="false"
+                    aria-controls="options"
+                    data-icon="more"
+                ></button>
+                <button id="editor-close" hidden><span data-icon="close"></span>Close text editor</button>
+            </header>
+            <section id="pairing" class="pairing" hidden>
+                <h1>Connect this device</h1>
+                <form id="pair-form">
+                    <label>Your name<input id="pair-name" autocomplete="name" maxlength="80" required /></label>
+                    <label id="pair-code-label"
+                        >Pairing code from your PC<input
+                            id="pair-code"
+                            inputmode="numeric"
+                            pattern="[0-9]{6}"
+                            maxlength="6"
+                            autocomplete="one-time-code"
+                            required
+                    /></label>
+                    <button type="submit">Connect</button>
+                </form>
+                <p id="pair-error" role="alert"></p>
+            </section>
+            <div id="controls">
+                <pointer-pad></pointer-pad>
+                <div class="input-dock">
+                    <text-editor hidden></text-editor>
+                    <key-rows></key-rows>
+                    <div class="editor-launch">
+                        <button id="editor-open" aria-label="Open text editor" data-icon="text"></button>
+                    </div>
+                </div>
+            </div>
+            <div id="options" class="options" hidden>
+                <label
+                    ><input type="checkbox" name="functions" /><span class="checkbox" data-icon="check"></span>Show
+                    F1–F14 keys rows</label
+                >
+                <label
+                    ><input type="checkbox" name="media" /><span class="checkbox" data-icon="check"></span>Show media
+                    keys row</label
+                >
+                <label
+                    ><input type="checkbox" name="edit" /><span class="checkbox" data-icon="check"></span>Show edit keys
+                    row</label
+                >
+                <label
+                    ><input type="checkbox" name="modifiers" /><span class="checkbox" data-icon="check"></span>Show
+                    modifier keys row</label
+                >
+                <hr />
+                <label
+                    ><input type="checkbox" name="sticky" /><span class="checkbox" data-icon="check"></span>Sticky
+                    modifier keys</label
+                >
+            </div>
+        </main>
+        <script src="/app.js" type="module"></script>
+    </body>
 </html>

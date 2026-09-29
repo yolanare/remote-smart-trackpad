@@ -1,26 +1,32 @@
 {
-  "name": "remote-smart-trackpad",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "start": "node host/server.js",
-    "icons": "node scripts/generate-icons.mjs",
-    "check": "node scripts/check.mjs",
-    "test": "node --test tests/*.test.mjs",
-    "test:browser": "node scripts/browser-check.mjs",
-    "build": "node scripts/build.mjs",
-    "prestart": "npm run build"
-  },
-  "engines": {
-    "node": ">=20"
-  },
-  "dependencies": {
-    "lucide": "1.48.0",
-    "multicast-dns": "7.2.5"
-  },
-  "devDependencies": {
-    "@resvg/resvg-js": "2.6.2",
-    "esbuild": "0.28.2"
-  }
+    "name": "remote-smart-trackpad",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "start": "node host/server.js",
+        "icons": "node scripts/generate-icons.mjs",
+        "check": "node scripts/check.mjs",
+        "test": "node --test tests/*.test.mjs",
+        "test:browser": "node scripts/browser-check.mjs",
+        "build": "node scripts/build.mjs",
+        "prestart": "npm run build"
+    },
+    "engines": {
+        "node": ">=20"
+    },
+    "dependencies": {
+        "lucide": "1.48.0",
+        "multicast-dns": "7.2.5"
+    },
+    "devDependencies": {
+        "@resvg/resvg-js": "2.6.2",
+        "@xeonlink/prettier-plugin-organize-attributes": "^1.1.0",
+        "esbuild": "0.28.2",
+        "prettier": "^3.8.1",
+        "prettier-plugin-css-order": "^2.2.0",
+        "prettier-plugin-multiline-arrays": "^4.1.4"
+    }
 }

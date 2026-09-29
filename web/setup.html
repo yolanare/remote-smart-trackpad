@@ -1,22 +1,51 @@
 <!doctype html>
 <html lang="fr">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#000000">
-  <link rel="icon" href="/icon-192.png?v=d9a7d144671e" type="image/png">
-  <link rel="stylesheet" href="/setup.css">
-  <title>Connecter un téléphone · Remote Smart Trackpad</title>
-</head>
-<body>
-  <main class="setup">
-    <header><img class="logo" src="/icon-192.png?v=d9a7d144671e" alt="" width="192" height="192"><div><strong>Remote Smart Trackpad</strong><span>Connexion locale</span></div></header>
-    <div class="intro"><p class="eyebrow">SUR VOTRE PC WINDOWS</p><h1>Connectez votre téléphone</h1><p>Scannez le QR code avec l’appareil photo du téléphone. Ouvrez le lien, puis entrez le code d’appairage ci-dessous.</p></div>
-    <section class="code-card" aria-labelledby="code-title"><div><p class="eyebrow" id="code-title">CODE D’APPAIRAGE</p><strong id="pairing-code" class="code">··· ···</strong><p id="code-expiry" class="expiry">Chargement…</p></div><button id="refresh-code" type="button">Nouveau code</button></section>
-    <section aria-labelledby="qr-title"><div class="section-heading"><div><p class="eyebrow">RÉSEAU LOCAL</p><h2 id="qr-title">Scannez pour ouvrir</h2></div></div><div id="qr-list" class="qr-list" aria-live="polite"></div></section>
-    <p class="help">Le téléphone et le PC doivent être sur le même réseau privé. L’adresse .local reste valable si l’IP du PC change ; si elle ne s’ouvre pas sur votre téléphone, choisissez l’adresse IP du Wi-Fi. Les QR codes contiennent uniquement une adresse locale, jamais le code d’appairage.</p>
-  </main>
-  <script src="/vendor/qrcode.min.js"></script>
-  <script src="/setup.js" defer></script>
-</body>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#000000" />
+        <link rel="icon" href="/icon-192.png?v=d9a7d144671e" type="image/png" />
+        <link rel="stylesheet" href="/setup.css" />
+        <title>Connecter un téléphone · Remote Smart Trackpad</title>
+    </head>
+    <body>
+        <main class="setup">
+            <header>
+                <img class="logo" src="/icon-192.png?v=d9a7d144671e" alt="" width="192" height="192" />
+                <div><strong>Remote Smart Trackpad</strong><span>Connexion locale</span></div>
+            </header>
+            <div class="intro">
+                <p class="eyebrow">SUR VOTRE PC WINDOWS</p>
+                <h1>Connectez votre téléphone</h1>
+                <p>
+                    Scannez le QR code avec l’appareil photo du téléphone. Ouvrez le lien, puis entrez le code
+                    d’appairage ci-dessous.
+                </p>
+            </div>
+            <section class="code-card" aria-labelledby="code-title">
+                <div>
+                    <p class="eyebrow" id="code-title">CODE D’APPAIRAGE</p>
+                    <strong id="pairing-code" class="code">··· ···</strong>
+                    <p id="code-expiry" class="expiry">Chargement…</p>
+                </div>
+                <button id="refresh-code" type="button">Nouveau code</button>
+            </section>
+            <section aria-labelledby="qr-title">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">RÉSEAU LOCAL</p>
+                        <h2 id="qr-title">Scannez pour ouvrir</h2>
+                    </div>
+                </div>
+                <div id="qr-list" class="qr-list" aria-live="polite"></div>
+            </section>
+            <p class="help">
+                Le téléphone et le PC doivent être sur le même réseau privé. L’adresse .local reste valable si l’IP du
+                PC change ; si elle ne s’ouvre pas sur votre téléphone, choisissez l’adresse IP du Wi-Fi. Les QR codes
+                contiennent uniquement une adresse locale, jamais le code d’appairage.
+            </p>
+        </main>
+        <script src="/vendor/qrcode.min.js"></script>
+        <script src="/setup.js" defer></script>
+    </body>
 </html>

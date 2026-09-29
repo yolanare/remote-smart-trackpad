@@ -8,12 +8,12 @@ const buffer = Buffer.alloc(64 * 1024);
 const decoder = new StringDecoder('utf8');
 let position = Math.max(0, fstatSync(file).size - buffer.length);
 function displayLogs() {
-  const size = fstatSync(file).size;
-  if (size < position) position = 0;
-  if (size === position) return;
-  const length = readSync(file, buffer, 0, Math.min(size - position, buffer.length), position);
-  position += length;
-  process.stdout.write(decoder.write(buffer.subarray(0, length)));
+    const size = fstatSync(file).size;
+    if (size < position) position = 0;
+    if (size === position) return;
+    const length = readSync(file, buffer, 0, Math.min(size - position, buffer.length), position);
+    position += length;
+    process.stdout.write(decoder.write(buffer.subarray(0, length)));
 }
 displayLogs();
 setInterval(displayLogs, 100);

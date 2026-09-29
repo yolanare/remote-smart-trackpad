@@ -36,17 +36,17 @@ LAN HTTP is unencrypted. For trusted HTTPS, put the certificate and key in `.dat
 
 ## Structure and validation
 
-| Module | Responsibility |
-| --- | --- |
-| `host/server.js` | HTTP routes, listener lifecycle, setup and discovery |
-| `host/access.js` | Token persistence, migration, identity and revocation |
-| `host/transport.js` | WebSocket framing, active controller, ordering and heartbeat |
-| `host/bridge.js` | Windows child process and acknowledged commands |
-| `host/windows-input.ps1`, `host/text-mirror.ps1` | Native input and authoritative text snapshots/edits |
-| `host/TrayHost.cs` | Native tray, hidden server, console and startup preference |
-| `web/logic/` | Connection, motion batching and mirror state |
-| `web/ui/` | Pointer, native scroll, keys and text Web Components |
-| `web/style.css` | Shared colors, spacing, rem dimensions and compact editor state |
+| Module                                           | Responsibility                                                  |
+| ------------------------------------------------ | --------------------------------------------------------------- |
+| `host/server.js`                                 | HTTP routes, listener lifecycle, setup and discovery            |
+| `host/access.js`                                 | Token persistence, migration, identity and revocation           |
+| `host/transport.js`                              | WebSocket framing, active controller, ordering and heartbeat    |
+| `host/bridge.js`                                 | Windows child process and acknowledged commands                 |
+| `host/windows-input.ps1`, `host/text-mirror.ps1` | Native input and authoritative text snapshots/edits             |
+| `host/TrayHost.cs`                               | Native tray, hidden server, console and startup preference      |
+| `web/logic/`                                     | Connection, motion batching and mirror state                    |
+| `web/ui/`                                        | Pointer, native scroll, keys and text Web Components            |
+| `web/style.css`                                  | Shared colors, spacing, rem dimensions and compact editor state |
 
 `npm run build` bundles with esbuild and tree-shakes named Lucide imports. Inter fonts are local. `web/dist` is generated; runtime needs no CDN. `npm run check` checks JavaScript syntax; `npm test` covers transport/revocation, mirror races, IME and Unicode diffs. With Node.js 22+ and Chrome installed at its standard Windows path, `npm run test:browser` exercises pairing, Figma-sized layouts, row settings and native scroll; it writes screenshots and `.data/browser-report.json`.
 
