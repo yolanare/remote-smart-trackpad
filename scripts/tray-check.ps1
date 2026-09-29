@@ -22,7 +22,7 @@ try {
     $tray = $type.GetField('tray', $flags).GetValue($context)
     $console = $type.GetField('console', $flags).GetValue($context)
     $server = $type.GetField('server', $flags).GetValue($context)
-    Assert ($tray.Visible -and -not $console.Visible) 'Tray should start with its console hidden'
+    Assert ($tray.Visible -and $null -eq $console) 'Tray should start without a console process'
     Assert ($server.StartInfo.CreateNoWindow -and -not $server.StartInfo.UseShellExecute) 'Server must be launched without a console window'
     $ready = $false
     for ($attempt=0; $attempt -lt 40; $attempt++) {
@@ -33,9 +33,16 @@ try {
     Assert $ready 'Tray-owned server did not start'
     $tray.ContextMenuStrip.Items[0].PerformClick()
     [Windows.Forms.Application]::DoEvents()
-    Assert $console.Visible 'Show console menu item did not show the console'
-    $console.Close()
-    Assert (-not $console.Visible -and -not $server.HasExited) 'Closing the console should keep the server running'
+    $console = $type.GetField('console', $flags).GetValue($context)
+    Assert ($null -ne $console -and -not $console.HasExited -and -not $console.StartInfo.CreateNoWindow) 'Show console should launch a native console'
+    $tray.ContextMenuStrip.Items[0].PerformClick()
+    Assert ($type.GetField('console', $flags).GetValue($context).Id -eq $console.Id) 'Show console should reuse the existing console'
+    $console.Kill()
+    $console.WaitForExit()
+    Assert (-not $server.HasExited) 'Closing the console should keep the server running'
+    $tray.ContextMenuStrip.Items[0].PerformClick()
+    $console = $type.GetField('console', $flags).GetValue($context)
+    Assert (-not $console.HasExited) 'Console should reopen after closing'
     $startup = $tray.ContextMenuStrip.Items[2]
     $before = $startup.Checked
     $startup.PerformClick()

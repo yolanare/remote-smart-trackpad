@@ -8,7 +8,7 @@ A local smartphone remote for a Windows PC. The PC owns access, WebSocket transp
 2. Double-click [Start Remote Smart Trackpad.cmd](Start%20Remote%20Smart%20Trackpad.cmd). First use installs dependencies, builds the web assets and compiles the native tray host using Windows' .NET Framework compiler. The launcher exits; the server continues in the notification area.
 3. Right-click the tray icon → **Connect a device**. Scan a private-network QR code, enter your name and the six-digit pairing code. Codes expire after ten minutes; refresh them on the PC setup page.
 
-The tray offers **Show console**, **Stop server**, and **Start with Windows**. Closing the console hides it; stopping the server exits the tray. Automatic start is enabled on the first tray launch and respects later changes. Windows launches `.data/RemoteSmartTrackpad.exe` directly through the current user's Run entry, without a CMD or PowerShell window at sign-in. The manual CMD may show installation/build output. The launcher migrates only the previous scheduled task belonging to this checkout.
+The tray offers **Show console**, **Stop server**, and **Start with Windows**. Show console opens a native Windows console with live logs from `.data/server.log`. Closing it leaves the server running; stopping the server closes the console and exits the tray. Automatic start is enabled on the first tray launch and respects later changes. Windows launches `.data/RemoteSmartTrackpad.exe` directly through the current user's Run entry, without a CMD or PowerShell window at sign-in. The manual CMD may show installation/build output. The launcher migrates only the previous scheduled task belonging to this checkout.
 
 Keep the project and Node.js at their registered locations. After moving either, rerun the launcher and toggle startup off/on. [Manage Auto Start.cmd](Manage%20Auto%20Start.cmd) also accepts `enable`, `disable` and `status`. A previous foreground server must be stopped before switching to the tray. For development: `npm ci`, then `npm start` (foreground console; no startup registration).
 
@@ -52,7 +52,7 @@ LAN HTTP is unencrypted. For trusted HTTPS, put the certificate and key in `.dat
 
 `powershell -NoProfile -Mta -ExecutionPolicy Bypass -File scripts/windows-mirror-check.ps1` briefly opens two disposable text fields and verifies actual UI Automation reading, writing, selection and stale-focus rejection. It requires an interactive Windows desktop, not an isolated sandbox, and writes `.data/windows-mirror-report.json`.
 
-After the normal tray has run once, `powershell -NoProfile -Sta -ExecutionPolicy Bypass -File scripts/tray-check.ps1` checks its menu actions against a separate server and data directory. It temporarily toggles and restores the current user's startup entry, tests console visibility and server shutdown, and writes `.data/tray-report.json`.
+After the normal tray has run once, `powershell -NoProfile -Sta -ExecutionPolicy Bypass -File scripts/tray-check.ps1` checks its menu actions against a separate server and data directory. It temporarily toggles and restores the current user's startup entry, tests console launch, reopening and server shutdown, and writes `.data/tray-report.json`.
 
 Remaining physical-device checks: Gboard/IME and viewport resizing on Android, native touch momentum over long gestures, LAN/mDNS/firewall behavior, PWA installation, real Windows editors (Notepad, VS Code, Word, browser fields), and an actual Windows sign-in. Browser emulation and the controlled UI Automation fixture do not prove these combinations.
 
