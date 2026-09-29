@@ -1,1 +1,35 @@
-:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#eef0f8;background:#10141c}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 75% 0%,#25325a 0%,#10141c 42%)}button{font:inherit;cursor:pointer}.setup{max-width:920px;margin:auto;padding:32px 24px 70px}header{display:flex;align-items:center;gap:13px;padding-bottom:25px;border-bottom:1px solid #303746}.logo{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:#6579e8;color:#fff;font-size:32px;font-weight:700}header strong{display:block;font-size:16px;letter-spacing:-.02em}header span{display:block;color:#929aad;font-size:10px;letter-spacing:.18em;margin-top:4px}.intro{max-width:660px;padding:55px 0 30px}.eyebrow{margin:0 0 8px;color:#8fa1ff;font-size:11px;font-weight:800;letter-spacing:.16em}.intro h1{font-size:clamp(32px,5vw,52px);line-height:1.06;letter-spacing:-.055em;margin:0 0 18px}.intro>p:last-child{max-width:560px;color:#b2bed1;font-size:16px;line-height:1.55}.code-card{display:flex;align-items:center;justify-content:space-between;gap:20px;background:#242d3f;border:1px solid #44506a;border-radius:18px;padding:23px 27px;margin:8px 0 45px;box-shadow:0 14px 40px #0002}.code{display:block;font-size:39px;letter-spacing:.18em;font-variant-numeric:tabular-nums;margin-top:10px}.expiry{color:#aab7ca;margin:7px 0 0;font-size:12px}.code-card button{border:1px solid #8292ee;border-radius:11px;background:#37467e;color:#f2f4ff;padding:13px 17px;font-weight:650;white-space:nowrap}.code-card button:hover{background:#48599a}.section-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.section-heading h2{margin:0;font-size:26px;letter-spacing:-.04em}.phone-icon{font-size:38px;color:#8fa1ff}.qr-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px}.qr-card{background:#1d2634;border:1px solid #384458;border-radius:19px;padding:24px;text-align:center}.qr-image{display:grid;place-items:center;background:#fff;border-radius:16px;padding:16px;width:max-content;max-width:100%;margin:0 auto 19px}.qr-image svg{display:block;width:min(220px,100%);height:auto}.qr-card h3{margin:0 0 5px;font-size:14px}.qr-card a{color:#aebaff;font-size:14px;text-decoration:none;overflow-wrap:anywhere}.qr-card a:hover{text-decoration:underline}.help{margin-top:25px;color:#91a0b6;font-size:13px;line-height:1.6;max-width:700px}.empty{padding:25px;border:1px solid #55434a;border-radius:14px;color:#ffd4db;background:#3e2b36}@media(max-width:520px){.setup{padding:19px 16px 50px}.intro{padding-top:38px}.code-card{padding:20px;align-items:flex-start;flex-direction:column}.code{font-size:32px}.code-card button{width:100%}}
+@import url('/style.css');
+
+html, body { height: auto; min-height: 100%; overflow: auto; overscroll-behavior: auto; }
+body { min-height: 100dvh; }
+.setup { width: min(100%, 58rem); margin: auto; padding: 2rem 1.5rem 4rem; }
+.setup header { display: flex; align-items: center; gap: var(--space-3); padding-bottom: 1.5rem; border-bottom: var(--stroke) solid var(--border); }
+.logo { width: 2.5rem; height: 2.5rem; flex: none; border: var(--stroke) solid var(--border); border-radius: var(--radius) var(--radius) var(--radius-small) var(--radius-small); background-image: radial-gradient(circle, var(--muted) .045rem, transparent .065rem); background-size: .5rem .5rem; background-position: .2rem .2rem; }
+.setup header strong { display: block; font-size: .875rem; font-weight: 500; letter-spacing: -.02em; }
+.setup header span { display: block; margin-top: var(--space-1); color: var(--muted); font-size: .75rem; }
+.intro { max-width: 39rem; padding: 3.5rem 0 1.5rem; }
+.eyebrow { margin: 0 0 var(--space-2); color: var(--muted); font-size: .6875rem; font-weight: 500; letter-spacing: .12em; }
+.intro h1 { margin: 0 0 var(--space-4); font-size: clamp(2rem, 4vw, 2.75rem); font-weight: 400; line-height: 1.12; letter-spacing: -.045em; text-wrap: balance; }
+.intro > p:last-child { max-width: 34rem; margin-bottom: 0; color: var(--muted); font-size: .875rem; line-height: 1.7; }
+.code-card { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 1.5rem; margin: var(--space-2) 0 2.5rem; border: var(--stroke) solid var(--border); border-radius: 1.5rem; }
+.code { display: block; margin-top: var(--space-3); font-size: clamp(2rem, 6vw, 3rem); font-weight: 400; line-height: 1.15; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
+.expiry { margin: var(--space-3) 0 0; color: var(--muted); font-size: .75rem; line-height: 1.5; }
+.code-card button { min-height: 2.5rem; padding: .625rem var(--space-4); font-size: .75rem; font-weight: 500; white-space: nowrap; transition: background var(--transition), color var(--transition), border-color var(--transition); }
+.code-card button:hover { color: var(--text); border-color: var(--muted); background: var(--surface); }
+.section-heading { margin-bottom: var(--space-4); }
+.section-heading h2 { margin: 0; font-size: 1.25rem; font-weight: 400; letter-spacing: -.025em; }
+.qr-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--space-3); }
+.qr-card { min-width: 0; padding: 1.5rem var(--space-4); border: var(--stroke) solid var(--border); border-radius: 1.5rem; text-align: center; }
+.qr-image { display: grid; place-items: center; width: fit-content; max-width: 100%; margin: 0 auto 1.5rem; padding: var(--space-3); border-radius: var(--radius); background: #fff; }
+.qr-image svg { display: block; width: min(13.75rem, 100%); height: auto; }
+.qr-card h3 { margin: 0 0 var(--space-2); font-size: .8125rem; font-weight: 500; }
+.qr-card a { color: var(--muted); font-size: .75rem; line-height: 1.6; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: .2em; overflow-wrap: anywhere; transition: color var(--transition), text-decoration-color var(--transition); }
+.qr-card a:hover, .qr-card a:focus-visible { color: var(--text); text-decoration-color: currentColor; }
+.help { max-width: 44rem; margin: 1.5rem 0 0; color: var(--muted); font-size: .75rem; line-height: 1.7; }
+.empty { margin: 0; padding: 1.5rem; border: var(--stroke) solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text); font-size: .875rem; line-height: 1.6; }
+@media (max-width: 34rem) {
+  .setup { padding: 1.25rem var(--space-4) 2.5rem; }
+  .intro { padding-top: 2.5rem; }
+  .code-card { align-items: stretch; flex-direction: column; padding: 1.25rem; gap: 1.25rem; }
+  .code-card button { width: 100%; }
+}

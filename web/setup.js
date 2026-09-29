@@ -23,7 +23,7 @@ function renderUrls(urls, discoveryUrl) {
   if (discoveryUrl) {
     const card = document.createElement('article'); card.className = 'qr-card';
     const image = document.createElement('div'); image.className = 'qr-image';
-    image.append(QRCode({ msg: discoveryUrl, dim: 220, pad: 4, ecl: 'M', pal: ['#111827', '#ffffff'] }));
+    image.append(QRCode({ msg: discoveryUrl, dim: 220, pad: 4, ecl: 'M', pal: ['#000000', '#ffffff'] }));
     const title = document.createElement('h3'); title.textContent = 'Adresse stable du PC (.local)';
     const link = document.createElement('a'); link.href = discoveryUrl; link.textContent = discoveryUrl;
     card.append(image, title, link); qrList.append(card);
@@ -31,7 +31,7 @@ function renderUrls(urls, discoveryUrl) {
   for (const [index, url] of urls.entries()) {
     const card = document.createElement('article'); card.className = 'qr-card';
     const image = document.createElement('div'); image.className = 'qr-image';
-    image.append(QRCode({ msg: url, dim: 220, pad: 4, ecl: 'M', pal: ['#111827', '#ffffff'] }));
+    image.append(QRCode({ msg: url, dim: 220, pad: 4, ecl: 'M', pal: ['#000000', '#ffffff'] }));
     const title = document.createElement('h3'); title.textContent = urls.length === 1 ? 'Adresse du téléphone' : `Adresse réseau ${index + 1}`;
     const link = document.createElement('a'); link.href = url; link.textContent = url;
     card.append(image, title, link); qrList.append(card);
