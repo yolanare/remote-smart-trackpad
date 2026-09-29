@@ -62,8 +62,17 @@ button {
     background: transparent;
     color: var(--muted);
     cursor: pointer;
+    transition: opacity 120ms ease-out;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+}
+button:active,
+button.is-held {
+    opacity: 0.7;
+    transition-duration: 0ms;
+}
+button {
+    user-select: none;
 }
 button:active,
 button[aria-pressed='true'] {
@@ -89,6 +98,7 @@ svg {
     height: var(--viewport-height, 100dvh);
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
+    touch-action: pan-x pan-y;
 }
 .topbar {
     display: flex;
@@ -127,6 +137,7 @@ svg {
     height: 2.25rem;
     border: none;
     border-radius: 50%;
+    color: var(--border);
 }
 #editor-close {
     height: 2.25rem;
@@ -269,46 +280,24 @@ key-rows {
     font-weight: 500;
     font-size: 0.75rem;
 }
-.key-row button:first-child {
+.key-row button.round-top-left {
     border-top-left-radius: var(--radius);
+}
+.key-row button.round-bottom-left {
     border-bottom-left-radius: var(--radius);
 }
-.key-row button:last-child {
+.key-row button.round-top-right {
     border-top-right-radius: var(--radius);
+}
+.key-row button.round-bottom-right {
     border-bottom-right-radius: var(--radius);
 }
 .functions {
     display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
 }
 .functions button {
     height: 1.5625rem;
-}
-.functions button:first-child {
-    border-radius: var(--radius) var(--radius-small) var(--radius-small) var(--radius-small);
-}
-.functions button:last-child {
-    border-radius: var(--radius-small) var(--radius-small) var(--radius) var(--radius-small);
-}
-.functions button:nth-child(7),
-.functions button:nth-child(8) {
-    border-radius: var(--radius-small);
-}
-.media button:nth-child(3),
-.edit button:nth-child(4),
-.modifiers button:nth-child(3) {
-    border-top-right-radius: var(--radius);
-    border-bottom-right-radius: var(--radius);
-}
-.media button:last-child,
-.edit button:first-child,
-.modifiers button:nth-child(n + 4) {
-    border-radius: var(--radius);
-}
-.edit button:nth-child(2),
-.edit button:nth-child(5) {
-    border-top-left-radius: var(--radius);
-    border-bottom-left-radius: var(--radius);
 }
 .forward-delete svg {
     transform: scaleX(-1);
@@ -367,10 +356,16 @@ textarea {
 .options {
     z-index: 5;
     position: absolute;
-    top: 3rem;
+    top: calc(3rem + env(safe-area-inset-top));
     right: var(--space-4);
     width: 15.625rem;
+    max-width: calc(100% - 2 * var(--space-4));
+    max-height: calc(
+        var(--viewport-height, 100dvh) - 3rem - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--space-4)
+    );
     padding: var(--space-3) 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     border-radius: 1rem;
     background: linear-gradient(110deg, #202020, #191919);
     box-shadow: 0 0.5rem 2rem #0006;
@@ -389,11 +384,100 @@ textarea {
 .options label:last-child {
     margin-bottom: 0;
 }
-.options input {
+.options input[type='checkbox'] {
     position: absolute;
     width: 1.125rem;
     height: 1.125rem;
     opacity: 0;
+}
+#options-dismiss {
+    z-index: 4;
+    position: absolute;
+    inset: 2.75rem 0 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    opacity: 1;
+}
+.speed-setting {
+    padding: 0 var(--space-4);
+}
+.options .speed-setting label {
+    justify-content: space-between;
+    margin: 0;
+    padding: 0;
+    cursor: default;
+}
+.speed-setting output {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+.speed-setting input[type='range'] {
+    display: block;
+    appearance: none;
+    width: 100%;
+    height: 2.75rem;
+    margin: 0;
+    padding: 0;
+    -webkit-appearance: none;
+    border: 0;
+    border-radius: var(--radius-small);
+    background: transparent;
+    cursor: pointer;
+    touch-action: pan-y;
+    -webkit-tap-highlight-color: transparent;
+}
+.speed-setting input::-webkit-slider-runnable-track {
+    height: 0.25rem;
+    border-radius: var(--radius);
+    background: linear-gradient(to right, var(--text) var(--fill), var(--border) var(--fill));
+}
+.speed-setting input::-moz-range-track {
+    height: 0.25rem;
+    border-radius: var(--radius);
+    background: var(--border);
+}
+.speed-setting input::-moz-range-progress {
+    height: 0.25rem;
+    border-radius: var(--radius);
+    background: var(--text);
+}
+.speed-setting input::-webkit-slider-thumb {
+    appearance: none;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-top: -0.4375rem;
+    -webkit-appearance: none;
+    border: var(--stroke) solid var(--muted);
+    border-radius: 50%;
+    background: var(--text);
+    box-shadow: 0 0 0 0 var(--surface);
+    transition: box-shadow 120ms ease-out;
+}
+.speed-setting input::-moz-range-thumb {
+    box-sizing: border-box;
+    width: 1.125rem;
+    height: 1.125rem;
+    border: var(--stroke) solid var(--muted);
+    border-radius: 50%;
+    background: var(--text);
+    box-shadow: 0 0 0 0 var(--surface);
+    transition: box-shadow 120ms ease-out;
+}
+.speed-setting input:active::-webkit-slider-thumb,
+.speed-setting input:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 0.375rem var(--surface);
+}
+.speed-setting input:active::-moz-range-thumb,
+.speed-setting input:focus-visible::-moz-range-thumb {
+    box-shadow: 0 0 0 0.375rem var(--surface);
+}
+.checkbox svg {
+    opacity: 0;
+    transition: opacity 120ms ease-out;
+}
+.options input:checked + .checkbox svg {
+    opacity: 1;
 }
 .checkbox {
     display: flex;
@@ -459,6 +543,16 @@ textarea {
     color: #e6a1a1;
 }
 @media (prefers-reduced-motion: reduce) {
+    button,
+    .checkbox svg {
+        transition: none;
+    }
+    .speed-setting input::-webkit-slider-thumb {
+        transition: none;
+    }
+    .speed-setting input::-moz-range-thumb {
+        transition: none;
+    }
     :root {
         --transition: 0ms;
     }

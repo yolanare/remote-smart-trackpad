@@ -1,6 +1,6 @@
-import { build } from 'esbuild';
+import { build, context } from 'esbuild';
 import { writeFile } from 'node:fs/promises';
-const result = await build({
+const options = {
     entryPoints: ['web/app.js'],
     bundle: true,
     format: 'esm',
@@ -12,5 +12,25 @@ const result = await build({
     target: ['chrome110', 'safari16'],
     metafile: true,
     logLevel: 'info',
-});
-await writeFile('web/dist/meta.json', JSON.stringify(result.metafile));
+    plugins: [
+        {
+            name: 'build-metadata',
+            setup(build) {
+                build.onEnd(async (result) => {
+                    if (!result.errors.length) await writeFile('web/dist/meta.json', JSON.stringify(result.metafile));
+                });
+            },
+        },
+    ],
+};
+if (process.argv.includes('--watch')) {
+    const watcher = await context(options);
+    await watcher.watch();
+    for (const signal of ['SIGINT', 'SIGTERM'])
+        process.once(signal, async () => {
+            await watcher.dispose();
+            process.exit(0);
+        });
+} else {
+    await build(options);
+}

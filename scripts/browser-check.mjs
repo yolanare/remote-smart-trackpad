@@ -153,6 +153,110 @@ try {
         '.data/browser-menu.png',
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
+    const slider = await evaluate(`(() => {
+        const input = document.querySelector('#mouse-speed'), rect = input.getBoundingClientRect();
+        return { x: rect.x, y: rect.y + rect.height / 2, width: rect.width, height: rect.height, fraction: (input.valueAsNumber - Number(input.min)) / (Number(input.max) - Number(input.min)) };
+    })()`);
+    assert.ok(slider.height >= 44, 'Slider needs a touch-sized interaction area');
+    await page('Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: [{ x: slider.x + 9 + (slider.width - 18) * slider.fraction, y: slider.y }],
+    });
+    await page('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x: slider.x + slider.width * 0.75, y: slider.y }],
+    });
+    await page('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    assert.ok(
+        await evaluate("document.querySelector('#mouse-speed').valueAsNumber > 1"),
+        'Touch drag must change speed'
+    );
+    await evaluate(`for (const [id, value] of [['mouse-speed', 8], ['scroll-speed', 24]]) {
+        const input = document.getElementById(id); input.value = value; input.dispatchEvent(new Event('input', { bubbles: true }));
+    }`);
+    await page('Page.reload');
+    await waitFor("document.querySelector('#connection').dataset.state === 'ready'");
+    assert.deepEqual(
+        await evaluate(
+            "[document.querySelector('#mouse-speed').valueAsNumber, document.querySelector('#scroll-speed').valueAsNumber]"
+        ),
+        [8, 24]
+    );
+    await evaluate(`for (const [id, value] of [['mouse-speed', 2], ['scroll-speed', 0.5]]) {
+        const input = document.getElementById(id); input.value = value; input.dispatchEvent(new Event('input', { bubbles: true }));
+    }`);
+    const scaledMotion = await evaluate(`(async () => {
+        const sent = [], original = WebSocket.prototype.send;
+        WebSocket.prototype.send = function(raw) {
+            const message = JSON.parse(raw);
+            if (!['move', 'scroll'].includes(message.action)) return original.call(this, raw);
+            sent.push({ action: message.action, ...message.data });
+            queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ id: message.id, ok: true }) })));
+        };
+        try {
+            document.dispatchEvent(new CustomEvent('motion', { detail: { action: 'move', dx: 10, dy: -5 } }));
+            document.dispatchEvent(new CustomEvent('motion', { detail: { action: 'scroll', dx: 10, dy: -6 } }));
+            await new Promise(resolve => setTimeout(resolve, 100));
+            return sent;
+        } finally { WebSocket.prototype.send = original; }
+    })()`);
+    assert.deepEqual(scaledMotion, [
+        { action: 'move', dx: 20, dy: -10 },
+        { action: 'scroll', dx: 5, dy: -3 },
+    ]);
+    await evaluate("document.querySelector('#options-toggle').click(); document.querySelector('#mouse-speed').focus()");
+    await page('Input.dispatchKeyEvent', {
+        type: 'keyDown',
+        key: 'ArrowRight',
+        code: 'ArrowRight',
+        windowsVirtualKeyCode: 39,
+    });
+    await page('Input.dispatchKeyEvent', {
+        type: 'keyUp',
+        key: 'ArrowRight',
+        code: 'ArrowRight',
+        windowsVirtualKeyCode: 39,
+    });
+    assert.equal(
+        await evaluate("document.querySelector('#mouse-speed').valueAsNumber"),
+        2 + (await evaluate("Number(document.querySelector('#mouse-speed').step)"))
+    );
+    await page('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    assert.equal(await evaluate('document.activeElement.id'), 'options-toggle');
+    await page('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+    await evaluate("document.querySelector('#options-toggle').click()");
+    assert.equal(await evaluate("document.querySelector('#options').getAnimations().length"), 0);
+    for (const [width, height] of [
+        [320, 568],
+        [844, 390],
+    ]) {
+        await page('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: true });
+        await evaluate('new Promise(resolve => setTimeout(resolve, 100))');
+        assert.ok(
+            await evaluate(`(() => { const menu = document.querySelector('#options'), rect = menu.getBoundingClientRect();
+            menu.scrollTop = menu.scrollHeight; const last = menu.querySelector('[name=sticky]').getBoundingClientRect();
+            return rect.left >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight && last.bottom <= rect.bottom;
+        })()`),
+            'Options must fit the viewport and allow access to the last setting'
+        );
+    }
+    await evaluate("document.querySelector('#options-dismiss').click()");
+    assert.equal(await evaluate("document.querySelector('#options').hidden"), true);
+    await page('Emulation.setEmulatedMedia', { features: [] });
+    await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 711, deviceScaleFactor: 1, mobile: true });
+    await evaluate(
+        "document.querySelector('#options-toggle').click(); document.querySelector('#options-toggle').click(); document.querySelector('#options-toggle').click()"
+    );
+    await evaluate('new Promise(resolve => setTimeout(resolve, 200))');
+    assert.equal(await evaluate("document.querySelector('#options').hidden"), false);
+    report.push({
+        name: 'speed-controls',
+        touch: true,
+        keyboard: true,
+        persisted: true,
+        scaledMotion,
+        reducedMotion: true,
+    });
     await evaluate(
         "document.querySelector('#options-toggle').click(); document.querySelector('#editor-open').click();"
     );
@@ -200,6 +304,50 @@ try {
     assert.equal(scroll.after - scroll.before, 300);
     assert.equal(scroll.native, 'scroll');
     assert.ok(scroll.before > 65536, 'Native rails must start away from either edge');
+    await evaluate(
+        "document.querySelector('#editor-close').click(); const sliding = document.querySelector('[name=mouseSliding]'); sliding.checked = true; sliding.dispatchEvent(new Event('change'));"
+    );
+    await page('Page.reload');
+    await waitFor("document.querySelector('#connection').dataset.state === 'ready'");
+    assert.equal(await evaluate("document.querySelector('[name=mouseSliding]').checked"), true);
+    await evaluate(`window.padMoves = [];
+        const pad = document.querySelector('pointer-pad');
+        pad.addEventListener('motion', event => { event.stopPropagation(); window.padMoves.push(event.detail); });
+        pad.addEventListener('command', event => event.stopPropagation());`);
+    const padPoint = await evaluate(
+        `(() => { const r = document.querySelector('.trackpad').getBoundingClientRect(); return { x: r.x + 30, y: r.y + r.height / 2 }; })()`
+    );
+    const swipe = async () => {
+        await page('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [padPoint] });
+        for (let step = 1; step <= 4; step++) {
+            await new Promise((resolve) => setTimeout(resolve, 16));
+            await page('Input.dispatchTouchEvent', {
+                type: 'touchMove',
+                touchPoints: [{ x: padPoint.x + step * 15, y: padPoint.y }],
+            });
+        }
+        await page('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    };
+    await swipe();
+    const lifted = await evaluate('window.padMoves.length');
+    await evaluate('new Promise(resolve => setTimeout(resolve, 100))');
+    assert.ok(
+        (await evaluate('window.padMoves.length')) > lifted,
+        'Enabled sliding must continue after finger release'
+    );
+    await page('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [padPoint] });
+    const stopped = await evaluate('window.padMoves.length');
+    await evaluate('new Promise(resolve => setTimeout(resolve, 100))');
+    assert.equal(await evaluate('window.padMoves.length'), stopped, 'New touch must stop the glide');
+    await page('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+    await evaluate(
+        "const sliding = document.querySelector('[name=mouseSliding]'); sliding.checked = false; sliding.dispatchEvent(new Event('change'));"
+    );
+    await swipe();
+    const disabled = await evaluate('window.padMoves.length');
+    await evaluate('new Promise(resolve => setTimeout(resolve, 100))');
+    assert.equal(await evaluate('window.padMoves.length'), disabled, 'Disabled sliding must stop at finger release');
+    report.push({ name: 'mouse-sliding', persisted: true, glide: true, touchStops: true, disabledStops: true });
     assert.deepEqual(exceptions, []);
     report.push({ name: 'editor-reduced-viewport', ...bounds }, { name: 'native-scroll', ...scroll });
     await writeFile('.data/browser-report.json', JSON.stringify(report, null, 2));

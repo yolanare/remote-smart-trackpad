@@ -1,27 +1,28 @@
 import { icon } from './icons.js';
 const rows = {
-    functions: Array.from({ length: 14 }, (_, index) => [`F${index + 1}`, `F${index + 1}`]),
+    // [key, label, icon (null for text), group]; matching adjacent groups share smaller corners.
+    functions: Array.from({ length: 14 }, (_, index) => [`F${index + 1}`, `F${index + 1}`, null, 'functions']),
     media: [
-        ['VolumeMute', 'Mute', 'mute'],
-        ['VolumeDown', 'Volume down', 'quieter'],
-        ['VolumeUp', 'Volume up', 'louder'],
-        ['PlayPause', 'Play / pause', 'play'],
+        ['PlayPause', 'Play / pause', 'play', null],
+        ['VolumeMute', 'Mute', 'mute', 'media'],
+        ['VolumeDown', 'Volume down', 'quieter', 'media'],
+        ['VolumeUp', 'Volume up', 'louder', 'media'],
     ],
     edit: [
-        ['Escape', 'ESC'],
-        ['X', 'Cut', 'cut'],
-        ['C', 'Copy', 'copy'],
-        ['V', 'Paste', 'paste'],
-        ['Backspace', 'Backspace', 'delete'],
-        ['Delete', 'Delete', 'delete'],
+        ['Escape', 'ESC', null, null],
+        ['X', 'Cut', 'cut', 'clipboard'],
+        ['C', 'Copy', 'copy', 'clipboard'],
+        ['V', 'Paste', 'paste', 'clipboard'],
+        ['Backspace', 'Backspace', 'delete', 'delete'],
+        ['Delete', 'Delete', 'delete', 'delete'],
     ],
     modifiers: [
-        ['Shift', 'Shift', 'shift'],
-        ['Control', 'CTRL'],
-        ['Alt', 'ALT'],
-        ['Win', 'Windows', 'windows'],
-        ['Tab', 'TAB'],
-        ['Enter', 'Enter', 'enter'],
+        ['Shift', 'Shift', 'shift', 'modifiers'],
+        ['Control', 'CTRL', null, 'modifiers'],
+        ['Alt', 'ALT', null, 'modifiers'],
+        ['Win', 'Windows', 'windows', null],
+        ['Tab', 'TAB', null, null],
+        ['Enter', 'Enter', 'enter', null],
     ],
 };
 const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'Win']);
@@ -34,8 +35,19 @@ class KeyRows extends HTMLElement {
             const row = document.createElement('div');
             row.className = `key-row ${name}`;
             row.dataset.row = name;
-            for (const [key, label, glyph] of keys) {
+            const columns = name === 'functions' ? 7 : keys.length;
+            row.style.setProperty('--columns', columns);
+            for (const [index, [key, label, glyph, group]] of keys.entries()) {
                 const button = document.createElement('button');
+                const matches = (neighbor) => group != null && keys[neighbor]?.[3] === group;
+                const left = index % columns > 0 && matches(index - 1);
+                const right = index % columns < columns - 1 && matches(index + 1);
+                const above = matches(index - columns);
+                const below = matches(index + columns);
+                button.classList.toggle('round-top-left', !left && !above);
+                button.classList.toggle('round-top-right', !right && !above);
+                button.classList.toggle('round-bottom-left', !left && !below);
+                button.classList.toggle('round-bottom-right', !right && !below);
                 button.dataset.key = key;
                 button.setAttribute('aria-label', label);
                 if (glyph) button.append(icon(glyph));

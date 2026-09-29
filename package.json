@@ -12,6 +12,7 @@
         "test": "node --test tests/*.test.mjs",
         "test:browser": "node scripts/browser-check.mjs",
         "build": "node scripts/build.mjs",
+        "watch": "node scripts/build.mjs --watch",
         "prestart": "npm run build"
     },
     "engines": {

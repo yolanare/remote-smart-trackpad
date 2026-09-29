@@ -54,7 +54,33 @@
                     </div>
                 </div>
             </div>
-            <div id="options" class="options" hidden>
+            <button id="options-dismiss" aria-label="Close options" tabindex="-1" hidden></button>
+            <div id="options" class="options" role="region" aria-label="Options" hidden>
+                <label
+                    ><input type="checkbox" name="mouseSliding" /><span class="checkbox" data-icon="check"></span>Mouse
+                    sliding</label
+                >
+                <div class="speed-setting">
+                    <label for="mouse-speed"
+                        >Mouse speed <output id="mouse-speed-value" for="mouse-speed">1×</output></label
+                    >
+                    <input id="mouse-speed" name="mouseSpeed" type="range" min="0.25" max="16" step="0.25" value="1" />
+                </div>
+                <div class="speed-setting">
+                    <label for="scroll-speed"
+                        >Scroll speed (X &amp; Y) <output id="scroll-speed-value" for="scroll-speed">1×</output></label
+                    >
+                    <input
+                        id="scroll-speed"
+                        name="scrollSpeed"
+                        type="range"
+                        min="0.25"
+                        max="32"
+                        step="0.25"
+                        value="1"
+                    />
+                </div>
+                <hr />
                 <label
                     ><input type="checkbox" name="functions" /><span class="checkbox" data-icon="check"></span>Show
                     F1–F14 keys rows</label

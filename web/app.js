@@ -8,10 +8,29 @@ import { createMirror } from './logic/mirror.js';
 import { createMotion } from './logic/motion.js';
 
 const $ = (selector) => document.querySelector(selector);
-const settings = { functions: false, media: false, edit: true, modifiers: true, sticky: false };
+const settings = {
+    functions: false,
+    media: false,
+    edit: true,
+    modifiers: true,
+    sticky: false,
+    mouseSliding: false,
+    mouseSpeed: 1,
+    scrollSpeed: 1,
+};
 try {
     Object.assign(settings, JSON.parse(localStorage.getItem('remote-smart-trackpad-layout') || '{}'));
 } catch {}
+for (const name of ['mouseSpeed', 'scrollSpeed']) {
+    const input = document.querySelector(`[name="${name}"]`);
+    if (!Number.isFinite(settings[name]) || settings[name] < Number(input.min) || settings[name] > Number(input.max))
+        settings[name] = 1;
+}
+function saveSettings() {
+    try {
+        localStorage.setItem('remote-smart-trackpad-layout', JSON.stringify(settings));
+    } catch {}
+}
 let editing = false,
     namingOnly = false,
     connected = false;
@@ -25,6 +44,7 @@ function status(message, state = 'warning') {
     $('#connection').setAttribute('aria-label', message || 'Connected');
 }
 function layout() {
+    $('pointer-pad').sliding = settings.mouseSliding === true;
     const unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
     const transitioning =
         $('.app').classList.contains('editing') !== editing && !matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -74,6 +94,7 @@ const connection = createConnection(({ state }) => {
         state
     );
     if (!connected) {
+        $('pointer-pad').cancelGesture();
         mirror.disconnected();
         motion.reset();
         rows.reset();
@@ -81,6 +102,8 @@ const connection = createConnection(({ state }) => {
 });
 const send = (action, data) => connection.send(action, data);
 const motion = createMotion(send, (message) => status(message));
+document.addEventListener('motion-stop', () => motion.reset());
+document.addEventListener('pointerdown', () => $('pointer-pad').stopSliding(), { capture: true });
 const mirror = createMirror(send, (state) => {
     editing = state.open;
     layout();
@@ -102,7 +125,11 @@ document.addEventListener('command', async (event) => {
         status(error.message);
     }
 });
-document.addEventListener('motion', (event) => motion.add(event.detail.action, event.detail.dx, event.detail.dy));
+document.addEventListener('motion', (event) => {
+    const { action, dx, dy } = event.detail;
+    const speed = action === 'move' ? settings.mouseSpeed : settings.scrollSpeed;
+    motion.add(action, dx * speed, dy * speed);
+});
 document.addEventListener('text-input', (event) =>
     mirror.input(event.detail.text, event.detail.start, event.detail.end)
 );
@@ -145,28 +172,68 @@ $('#pair-form').addEventListener('submit', async (event) => {
     }
 });
 const menu = $('#options');
-function closeMenu() {
-    menu.hidden = true;
-    $('#options-toggle').setAttribute('aria-expanded', 'false');
+let menuAnimation;
+function setMenu(open) {
+    if (open) $('pointer-pad').cancelGesture();
+    const current =
+        !menu.hidden ? { opacity: getComputedStyle(menu).opacity, transform: getComputedStyle(menu).transform } : null;
+    menuAnimation?.cancel();
+    if (!open && menu.contains(document.activeElement)) $('#options-toggle').focus({ preventScroll: true });
+    $('#options-toggle').setAttribute('aria-expanded', String(open));
+    $('#options-dismiss').hidden = !open;
+    $('#controls').inert = open;
+    $('#pairing').inert = open;
+    menu.inert = !open;
+    if (open) menu.hidden = false;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        menu.hidden = !open;
+        return;
+    }
+    const frames = [
+        { opacity: 0, transform: 'translateY(-0.25rem)' },
+        { opacity: 1, transform: 'translateY(0)' },
+    ];
+    menuAnimation = menu.animate([current ?? frames[0], frames[open ? 1 : 0]], {
+        duration: open ? 160 : 100,
+        easing: 'ease-out',
+    });
+    menuAnimation.onfinish = () => {
+        menu.hidden = !open;
+    };
 }
 $('#options-toggle').addEventListener('click', () => {
-    menu.hidden = !menu.hidden;
-    $('#options-toggle').setAttribute('aria-expanded', String(!menu.hidden));
+    setMenu($('#options-toggle').getAttribute('aria-expanded') !== 'true');
 });
-for (const input of menu.querySelectorAll('input')) {
+$('#options-dismiss').addEventListener('click', () => setMenu(false));
+for (const input of menu.querySelectorAll('input[type="range"]')) {
+    const update = () => {
+        const value = input.valueAsNumber;
+        settings[input.name] = value;
+        input.style.setProperty(
+            '--fill',
+            `${((value - Number(input.min)) / (Number(input.max) - Number(input.min))) * 100}%`
+        );
+        $(`#${input.id}-value`).value = `${Number(value.toFixed(2))}×`;
+        input.setAttribute('aria-valuetext', `${Number(value.toFixed(2))} times`);
+    };
+    input.value = settings[input.name];
+    update();
+    input.addEventListener('input', () => {
+        update();
+        saveSettings();
+    });
+}
+for (const input of menu.querySelectorAll('input[type="checkbox"]')) {
     input.checked = Boolean(settings[input.name]);
     input.addEventListener('change', () => {
         settings[input.name] = input.checked;
-        localStorage.setItem('remote-smart-trackpad-layout', JSON.stringify(settings));
+        saveSettings();
         rows.reset();
         layout();
     });
 }
-document.addEventListener('pointerdown', (event) => {
-    if (!menu.contains(event.target) && !$('#options-toggle').contains(event.target)) closeMenu();
-});
 document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeMenu();
+    if (event.key === 'Escape' && $('#options-toggle').getAttribute('aria-expanded') === 'true') setMenu(false);
 });
 function viewport() {
     const visible = window.visualViewport;
@@ -178,6 +245,7 @@ window.visualViewport?.addEventListener('resize', viewport);
 window.visualViewport?.addEventListener('scroll', viewport);
 window.addEventListener('resize', viewport);
 const release = () => {
+    $('pointer-pad').cancelGesture();
     motion.reset();
     rows.reset();
     send('release').catch(() => {});
