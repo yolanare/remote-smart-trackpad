@@ -330,10 +330,17 @@ scroll-rail {
 }
 /* The label clips itself so the box can collapse to a square; the check badge can then overflow the corner. */
 .hold-label {
+    display: flex;
     z-index: 1;
     position: relative;
+    justify-content: center;
     min-width: 0;
     overflow: hidden;
+}
+/* Always at its full width and centered (overflowing both sides equally), so the text stays still while the box
+   grows or shrinks around it: only the clipping changes. */
+.hold-text {
+    flex: none;
 }
 /* Active marker: a check on a black disc that cuts the border at the top-right corner, drawn under the label. */
 .hold-check {
