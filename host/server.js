@@ -1,5 +1,6 @@
 import http from 'node:http';
 import https from 'node:https';
+import net from 'node:net';
 import { randomInt, timingSafeEqual } from 'node:crypto';
 import { readFile, mkdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
@@ -11,6 +12,7 @@ import { discoveryHost, startDiscovery } from './discovery.js';
 import { openAccessStore } from './access.js';
 import { startBridge } from './bridge.js';
 import { createTransport } from './transport.js';
+import { openCertificates } from './certificates.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.env.REMOTE_SMART_TRACKPAD_PORT || 8765);
@@ -18,18 +20,10 @@ if (!Number.isInteger(port) || port < 1 || port > 65535)
     throw new Error('REMOTE_SMART_TRACKPAD_PORT must be a valid TCP port');
 const dataDirectory = process.env.REMOTE_SMART_TRACKPAD_DATA_DIRECTORY || path.join(root, '.data');
 await mkdir(dataDirectory, { recursive: true });
-const certificate = await readFile(path.join(dataDirectory, 'tls', 'cert.pem')).catch((error) => {
-    if (error.code === 'ENOENT') return null;
-    throw error;
-});
-const privateKey = await readFile(path.join(dataDirectory, 'tls', 'key.pem')).catch((error) => {
-    if (error.code === 'ENOENT') return null;
-    throw error;
-});
-if (Boolean(certificate) !== Boolean(privateKey))
-    throw new Error('Both tls/cert.pem and tls/key.pem are required for HTTPS');
-const tlsOptions = certificate ? { cert: certificate, key: privateKey } : null;
-const privateProtocol = tlsOptions ? 'https' : 'http';
+// The private network always uses HTTPS (the PWA needs a secure context); loopback setup stays on HTTP.
+const tls = await openCertificates(dataDirectory);
+await tls.ensure([...privateAddresses(), discoveryHost]);
+const privateProtocol = 'https';
 const tokenFile = path.join(dataDirectory, 'tokens.json');
 const access = await openAccessStore(tokenFile);
 let pairingCode = String(randomInt(100000, 1000000));
@@ -87,6 +81,10 @@ const staticFiles = new Map([
     ['/app.js', ['dist/app.js', 'text/javascript']],
     ['/style.css', ['dist/app.css', 'text/css']],
     ['/manifest.webmanifest', ['manifest.webmanifest', 'application/manifest+json']],
+    ['/sw.js', ['sw.js', 'text/javascript']],
+    ['/trust', ['trust.html', 'text/html']],
+    ['/trust.css', ['trust.css', 'text/css']],
+    ['/trust.js', ['trust.js', 'text/javascript']],
     ['/setup', ['setup.html', 'text/html']],
     ['/icon-192.png', ['icon-192.png', 'image/png']],
     ['/icon-512.png', ['icon-512.png', 'image/png']],
@@ -120,6 +118,15 @@ function privateUrls() {
     return [...listeningAddresses]
         .filter((address) => address !== '127.0.0.1')
         .map((address) => privateProtocol + '://' + address + ':' + port + '/');
+}
+
+// The trust page is the one plain-HTTP page on the private network: it hands out the local CA certificate.
+function trustUrls() {
+    if (!tls.managed) return [];
+    const hosts = [...(discoveryReady.size ? [discoveryHost] : []), ...listeningAddresses].filter(
+        (address) => address !== '127.0.0.1'
+    );
+    return hosts.map((host) => 'http://' + host + ':' + port + '/trust');
 }
 
 function discoveryUrl() {
@@ -165,6 +172,7 @@ const server = http.createServer(async (request, response) => {
                 app: 'remote-smart-trackpad',
                 urls: privateUrls(),
                 discoveryUrl: discoveryUrl(),
+                trustUrls: trustUrls(),
                 pairingCode: Date.now() < pairingExpires ? pairingCode : null,
                 pairingExpires,
             });
@@ -203,6 +211,15 @@ const server = http.createServer(async (request, response) => {
                     { state: bridge.available ? 'ready' : 'unavailable', needsName: !authorized(request).name }
                 :   { error: 'Pairing required' }
             );
+        if (request.method === 'GET' && pathname === '/remote-smart-trackpad-ca.crt') {
+            if (!tls.managed) return json(response, 404, { error: 'This PC uses its own certificate' });
+            response.writeHead(200, {
+                'Content-Type': 'application/x-x509-ca-cert',
+                'Content-Disposition': 'attachment; filename="remote-smart-trackpad-ca.crt"',
+                'Cache-Control': 'no-store',
+            });
+            return response.end(tls.ca);
+        }
         if (request.method === 'GET' && /^\/assets\/[a-zA-Z0-9_.-]+\.woff2?$/.test(pathname)) {
             const file = await readFile(path.join(root, 'web', 'dist', pathname));
             response.writeHead(200, {
@@ -270,14 +287,44 @@ function ensureDiscovery(address) {
         discoveryRetryAt.set(address, Date.now() + 60_000);
     }
 }
+const handleRequest = server.listeners('request')[0],
+    handleUpgrade = server.listeners('upgrade')[0];
+const secureServer = https.createServer({ cert: tls.cert, key: tls.key }, handleRequest);
+secureServer.on('upgrade', handleUpgrade);
+const plainServer = http.createServer((request, response) => {
+    const url = new URL(request.url, 'http://localhost');
+    if (['/trust', '/trust.css', '/trust.js', '/remote-smart-trackpad-ca.crt', '/icon-192.png'].includes(url.pathname))
+        return handleRequest(request, response);
+    response.writeHead(308, { Location: 'https://' + (request.headers.host || '') + request.url });
+    response.end();
+});
+// One port serves both: a TLS handshake starts with byte 0x16, anything else is plain HTTP.
+function acceptConnection(socket) {
+    socket.setTimeout(10_000, () => socket.destroy());
+    socket.on('error', () => socket.destroy());
+    socket.once('data', (chunk) => {
+        socket.pause();
+        socket.setTimeout(0);
+        socket.unshift(chunk);
+        (chunk[0] === 0x16 ? secureServer : plainServer).emit('connection', socket);
+        process.nextTick(() => socket.resume());
+    });
+}
+let certificateUpdate = Promise.resolve();
+function updateCertificate(addresses) {
+    certificateUpdate = certificateUpdate
+        .then(() => tls.ensure([...addresses, discoveryHost]))
+        .then((changed) => {
+            if (!changed) return;
+            secureServer.setSecureContext({ cert: tls.cert, key: tls.key });
+            console.log('HTTPS certificate updated for ' + addresses.join(', '));
+        })
+        .catch((error) => console.error(`Could not update the HTTPS certificate: ${error.message}`));
+}
 function startListener(address) {
     if (listeners.has(address)) return;
-    const listener =
-        address === '127.0.0.1' ? server
-        : tlsOptions ? https.createServer(tlsOptions, server.listeners('request')[0])
-        : http.createServer(server.listeners('request')[0]);
+    const listener = address === '127.0.0.1' ? server : net.createServer(acceptConnection);
     listeners.set(address, listener);
-    if (listener !== server) listener.on('upgrade', server.listeners('upgrade')[0]);
     listener.listen(port, address, () => {
         listeningAddresses.add(address);
         ensureDiscovery(address);
@@ -305,7 +352,9 @@ function startListener(address) {
     });
 }
 function syncListeners() {
-    const desired = new Set(['127.0.0.1', ...privateAddresses()]);
+    const addresses = privateAddresses();
+    const desired = new Set(['127.0.0.1', ...addresses]);
+    updateCertificate(addresses);
     for (const address of desired) startListener(address);
     for (const address of listeningAddresses) ensureDiscovery(address);
     for (const [address, listener] of listeners)

@@ -369,7 +369,25 @@ key-rows {
 }
 text-editor {
     display: block;
+    position: relative;
     padding: 0 var(--space-2);
+}
+.editor-hint {
+    display: none;
+    position: absolute;
+    top: var(--space-2);
+    right: calc(var(--space-2) + var(--space-3));
+    left: calc(var(--space-2) + var(--space-3));
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 0.875rem;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+}
+text-editor.show-hint .editor-hint {
+    display: block;
 }
 textarea {
     display: block;
@@ -490,6 +508,25 @@ textarea {
     border-radius: var(--radius-small);
     color: var(--text);
 }
+.options-hint {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: var(--space-2) var(--space-4);
+    gap: 0.625rem;
+    color: var(--muted);
+    line-height: 1.4;
+}
+.options-hint svg {
+    flex: none;
+    width: 1.125rem;
+    height: 1.125rem;
+}
+a.options-action {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+}
 .options-action svg {
     width: 1.125rem;
     height: 1.125rem;
@@ -499,6 +536,7 @@ textarea {
 }
 .options .speed-setting label {
     justify-content: space-between;
+    height: 1.25rem;
     margin: 0;
     padding: 0;
     cursor: default;
@@ -510,9 +548,11 @@ textarea {
 .speed-setting input[type='range'] {
     display: block;
     appearance: none;
+    position: relative;
     width: 100%;
     height: 2.75rem;
-    margin: 0;
+    /* Keeps a 44px touch target while overlapping the empty space above and below the track. */
+    margin: -0.5rem 0 -0.625rem;
     padding: 0;
     -webkit-appearance: none;
     border: 0;
@@ -665,4 +705,8 @@ textarea {
     textarea {
         max-height: 5rem;
     }
+}
+.trackpad.is-dragging {
+    border-color: var(--muted);
+    background: var(--surface);
 }

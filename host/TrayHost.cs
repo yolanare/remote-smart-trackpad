@@ -13,9 +13,18 @@ internal static class TrayHost {
     private static void Main(string[] args) {
         Application.EnableVisualStyles();
         string root = Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar)).FullName;
-        using (var mutex = new Mutex(false, "Local\\RemoteSmartTrackpad-" + Convert.ToBase64String(Encoding.UTF8.GetBytes(root)).Replace('/', '_'))) {
+        string id = Convert.ToBase64String(Encoding.UTF8.GetBytes(root)).Replace('/', '_');
+        string stopName = "Local\\RemoteSmartTrackpad-Stop-" + id;
+        // "--stop" asks the running tray of this checkout to shut its server down gracefully (used by the launcher).
+        if (args.Length > 0 && args[0] == "--stop") {
+            EventWaitHandle running;
+            if (EventWaitHandle.TryOpenExisting(stopName, out running)) using (running) running.Set();
+            return;
+        }
+        using (var mutex = new Mutex(false, "Local\\RemoteSmartTrackpad-" + id))
+        using (var stop = new EventWaitHandle(false, EventResetMode.AutoReset, stopName)) {
             if (!mutex.WaitOne(0)) return;
-            try { using (var context = new HostContext(root)) Application.Run(context); }
+            try { using (var context = new HostContext(root, stop)) Application.Run(context); }
             catch (Exception error) { MessageBox.Show(error.Message, "Remote Smart Trackpad", MessageBoxButtons.OK, MessageBoxIcon.Error); }
             finally { mutex.ReleaseMutex(); }
         }
@@ -36,7 +45,7 @@ internal sealed class HostContext : ApplicationContext {
     private readonly ToolStripMenuItem startup;
     private bool stopping;
 
-    public HostContext(string projectRoot) {
+    public HostContext(string projectRoot, WaitHandle stopSignal) {
         root = projectRoot;
         Icon appIcon = Icon.ExtractAssociatedIcon(Path.Combine(root, ".data", "RemoteSmartTrackpad.exe"));
         string data = Environment.GetEnvironmentVariable("REMOTE_SMART_TRACKPAD_DATA_DIRECTORY") ?? Path.Combine(root, ".data");
@@ -64,6 +73,11 @@ internal sealed class HostContext : ApplicationContext {
         server.ErrorDataReceived += delegate(object sender, DataReceivedEventArgs e) { Append(e.Data); };
         server.Exited += delegate { if (!stopping && !dispatcher.IsDisposed) dispatcher.BeginInvoke((Action)delegate { if (stopping) return; tray.Text = "Remote Smart Trackpad - stopped"; Append("Server stopped. Close the tray and launch again to retry."); ShowConsole(); }); };
         server.Start(); server.BeginOutputReadLine(); server.BeginErrorReadLine();
+        var stopWatcher = new Thread(delegate() {
+            stopSignal.WaitOne();
+            if (!dispatcher.IsDisposed) dispatcher.BeginInvoke((Action)ExitThread);
+        }) { IsBackground = true };
+        stopWatcher.Start();
     }
 
     private void Append(string line) {

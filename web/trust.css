@@ -1,0 +1,142 @@
+:root {
+    color-scheme: dark;
+    font-family:
+        system-ui,
+        -apple-system,
+        sans-serif;
+    --background: #000;
+    --surface: rgb(255 255 255 / 15%);
+    --border: rgb(255 255 255 / 30%);
+    --muted: rgb(255 255 255 / 60%);
+    --text: rgb(255 255 255 / 80%);
+    --radius: 0.75rem;
+}
+* {
+    box-sizing: border-box;
+}
+[hidden] {
+    display: none !important;
+}
+body {
+    margin: 0;
+    background: var(--background);
+    color: var(--text);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+}
+main {
+    width: min(100%, 30rem);
+    margin: 0 auto;
+    padding: 1.25rem 1rem 2.5rem;
+}
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 0.8125rem;
+}
+.brand img {
+    border-radius: 0.375rem;
+}
+h1 {
+    margin: 2rem 0 0.375rem;
+    font-weight: 600;
+    font-size: 1.625rem;
+    letter-spacing: -0.02em;
+}
+.lead {
+    margin: 0 0 1.5rem;
+    color: var(--muted);
+}
+.status {
+    margin: 0 0 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+.steps {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    gap: 0.75rem;
+    list-style: none;
+    counter-reset: step;
+}
+.step {
+    position: relative;
+    padding: 1rem 1rem 1.125rem 3.25rem;
+    border: 1px solid var(--border);
+    border-radius: 1.25rem;
+    counter-increment: step;
+}
+.step::before {
+    display: grid;
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 999rem;
+    background: var(--surface);
+    content: counter(step);
+    font-size: 0.75rem;
+}
+.is-trusted .setup-step {
+    display: none;
+}
+.is-trusted .steps {
+    counter-reset: step 2;
+}
+h2 {
+    margin: 0 0 0.5rem;
+    font-weight: 600;
+    font-size: 1rem;
+    line-height: 1.5rem;
+}
+p {
+    margin: 0 0 0.5rem;
+}
+strong {
+    color: rgb(255 255 255 / 92%);
+    font-weight: 600;
+}
+details {
+    margin-top: 0.25rem;
+    color: var(--muted);
+    font-size: 0.875rem;
+}
+summary {
+    cursor: pointer;
+}
+details[open] summary {
+    margin-bottom: 0.5rem;
+}
+.button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    margin-top: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-weight: 600;
+    text-decoration: none;
+}
+.button.primary {
+    border-color: transparent;
+    background: rgb(255 255 255 / 90%);
+    color: #000;
+}
+.button:active {
+    opacity: 0.7;
+}
+.button:focus-visible,
+summary:focus-visible {
+    outline: 1px solid var(--muted);
+    outline-offset: 2px;
+}

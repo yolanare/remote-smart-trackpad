@@ -63,7 +63,7 @@ function Read-Mirror {
     # "The editor is not accessible at this time…"). They are unreadable, so the phone types into them blind.
     if ($text.Length -and $text -ceq $element.Current.Name) {
         $script:mirror = $null
-        return @{ available=$false; text=''; selectionStart=0; selectionEnd=0; reason='Text not readable here · typing to PC' }
+        return @{ available=$false; text=''; selectionStart=0; selectionEnd=0; reason='Text not readable here' }
     }
     if ($element.Current.FrameworkId -eq 'Chrome') {
         if ($text.Length -and $script:placeholders.Contains((Get-PlaceholderKey $element $text))) { $text = ''; $start = 0; $end = 0 }
@@ -102,6 +102,16 @@ function Select-MirrorRange([int]$start, [int]$end, [string]$text) {
     if ($range.MoveEndpointByUnit([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, [System.Windows.Automation.Text.TextUnit]::Character, $to) -ne $to) { throw 'PC text range cannot be selected' }
     if ($range.MoveEndpointByUnit([System.Windows.Automation.Text.TextPatternRangeEndpoint]::Start, [System.Windows.Automation.Text.TextUnit]::Character, $from) -ne $from) { throw 'PC text range cannot be selected' }
     if ((Normalize-LineEndings ($range.GetText(262145))) -cne $text.Substring($start, $end - $start)) { throw 'PC text range differs' }
+    # A caret at the start of a line is ambiguous in Chromium: it can resolve to the end of the previous line. Place
+    # it instead right after the last real character before the line breaks, then step over them with Right.
+    if ($start -eq $end -and $start -gt 0 -and $text[$start - 1] -eq "`n" -and
+            -not ($held.Contains('Shift') -or $held.Contains('Control') -or $held.Contains('Alt'))) {
+        $anchor = $start
+        while ($anchor -gt 0 -and $text[$anchor - 1] -eq "`n") { $anchor-- }
+        Select-MirrorRange $anchor $anchor $text
+        for ($step = $anchor; $step -lt $start; $step++) { Tap-Key 'Right' }
+        return
+    }
     $range.Select()
 }
 
@@ -157,11 +167,17 @@ function Edit-Mirror($data) {
         if ($updated.session -cne $snapshot.session -or $updated.text -cne $next) { return @{ accepted=$false; snapshot=$updated } }
     }
     $script:mirror.lastOperation=[string]$data.operationId
-    if ($changed -and $selectionStart -eq $landed -and $selectionEnd -eq $landed) {
-        # The caret already sits after the edit; record that in case the provider reports it elsewhere.
-        if ($updated.selectionStart -ne $landed -or $updated.selectionEnd -ne $landed) {
-            $script:mirror.believed = @{ text=$next; reportedStart=$updated.selectionStart; reportedEnd=$updated.selectionEnd; start=$landed; end=$landed }
-        }
-    } else { Select-MirrorRange $selectionStart $selectionEnd $next }
-    return @{ accepted=$true; snapshot=(Read-Mirror) }
+    $natural = $changed -and $selectionStart -eq $landed -and $selectionEnd -eq $landed
+    # After typing the caret already sits after the edit; otherwise it is placed where the phone's caret is.
+    if (-not $natural) { Select-MirrorRange $selectionStart $selectionEnd $next }
+    # Chromium can report the caret at the start of a new empty paragraph one line up after typing; remember where
+    # typing put it. A placed caret is reported as is, so a failed placement stays visible on the phone.
+    $script:mirror.believed = $null
+    $final = Read-Mirror
+    if ($natural -and $final.session -ceq $snapshot.session -and $final.text -ceq $next -and
+            ($final.selectionStart -ne $selectionStart -or $final.selectionEnd -ne $selectionEnd)) {
+        $script:mirror.believed = @{ text=$next; reportedStart=$final.selectionStart; reportedEnd=$final.selectionEnd; start=$selectionStart; end=$selectionEnd }
+        $final = Read-Mirror
+    }
+    return @{ accepted=$true; snapshot=$final }
 }

@@ -1,7 +1,9 @@
 {
     "name": "Remote Smart Trackpad",
     "short_name": "Remote Smart Trackpad",
+    "id": "/",
     "start_url": "/",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#000000",
     "theme_color": "#000000",

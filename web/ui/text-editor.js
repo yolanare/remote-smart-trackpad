@@ -24,7 +24,7 @@ class TextEditor extends HTMLElement {
     connectedCallback() {
         if (this.firstChild) return;
         this.innerHTML =
-            '<textarea id="editor-text" aria-label="PC text field" spellcheck="true" autocapitalize="sentences"></textarea>';
+            '<textarea id="editor-text" aria-label="PC text field" spellcheck="true" autocapitalize="sentences"></textarea><span class="editor-hint" aria-hidden="true">Cannot retrieve text here. Start typing to edit</span>';
         const textarea = this.firstElementChild;
         textarea.value = anchor;
         this.composing = false;
@@ -52,6 +52,7 @@ class TextEditor extends HTMLElement {
                 emit('text-input', { text, start, end });
             }
             this.resize();
+            this.updateHint();
         };
         textarea.addEventListener('beforeinput', () => {
             this.caret = read().start;
@@ -84,6 +85,7 @@ class TextEditor extends HTMLElement {
         });
         textarea.addEventListener('compositionstart', () => {
             this.composing = true;
+            this.updateHint();
             this.invalidated = false;
             emit('text-composition', true);
         });
@@ -117,6 +119,11 @@ class TextEditor extends HTMLElement {
                 text: inserted,
             });
     }
+    /** The field's own placeholder cannot show behind the anchor, so blind typing gets an overlay hint. */
+    updateHint() {
+        const empty = this.firstElementChild.value.replace(anchor, '') === '';
+        this.classList.toggle('show-hint', this.passthrough && empty && !this.composing);
+    }
     write(text, start, end) {
         const field = this.firstElementChild;
         if (field.value !== anchor + text) field.value = anchor + text;
@@ -141,6 +148,7 @@ class TextEditor extends HTMLElement {
             this.write(state.text, state.selectionStart, state.selectionEnd);
         }
         this.resize();
+        this.updateHint();
     }
     focus() {
         this.firstElementChild.focus({ preventScroll: true });

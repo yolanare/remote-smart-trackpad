@@ -19,18 +19,31 @@ class PointerPad extends HTMLElement {
         if (this.firstChild) return;
         this.innerHTML = `<div class="mouse"><div class="trackpad" role="application" aria-label="Move PC pointer"><div class="dots"></div></div><button class="mouse-left" aria-label="Left click" data-button="left"></button><button class="mouse-right" aria-label="Right click" data-button="right"></button></div><scroll-rail axis="y"></scroll-rail><scroll-rail axis="x"></scroll-rail><button class="mouse-middle" aria-label="Middle click" data-button="middle"><span></span></button>`;
         const pad = this.querySelector('.trackpad');
+        // Gestures: one finger moves, a tap clicks (two quick taps double-click), and tap-then-touch-and-move drags
+        // with the left button held until the finger lifts. A single tap's click waits one double-tap window so a
+        // drag never starts with an extra click (which would open a file or maximize a window).
+        const tapSlop = 10,
+            tapDuration = 400,
+            doubleTapWindow = 250,
+            doubleTapDistance = 48;
         let pointer = null,
             x = 0,
             y = 0,
             startX = 0,
             startY = 0,
+            startTime = 0,
             patternX = -4,
             patternY = -6,
             velocityX = 0,
             velocityY = 0,
             lastMove = 0,
-            moved = false;
+            moved = false,
+            pendingTap = null,
+            secondTouch = false,
+            dragging = false,
+            buffered = [];
         const command = (detail) => this.dispatchEvent(new CustomEvent('command', { bubbles: true, detail }));
+        const click = () => command({ action: 'click', data: { button: 'left' } });
         // speed is the smoothed finger velocity in CSS px/ms, used for pointer acceleration.
         const move = (dx, dy, speed) => {
             const unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
@@ -39,8 +52,25 @@ class PointerPad extends HTMLElement {
             this.querySelector('.dots').style.backgroundPosition = `${patternX / unit}rem ${patternY / unit}rem`;
             this.dispatchEvent(new CustomEvent('motion', { bubbles: true, detail: { action: 'move', dx, dy, speed } }));
         };
+        const flushTap = () => {
+            if (!pendingTap) return;
+            clearTimeout(pendingTap.timer);
+            pendingTap = null;
+            click();
+        };
+        const setDragging = (value) => {
+            if (dragging === value) return;
+            dragging = value;
+            pad.classList.toggle('is-dragging', value);
+            command({ action: 'button', data: { button: 'left', down: value } });
+            if (value) navigator.vibrate?.(10);
+        };
         this.cancelGesture = () => {
             this.stopSliding();
+            flushTap();
+            setDragging(false);
+            secondTouch = false;
+            buffered = [];
             if (pointer !== null && pad.hasPointerCapture(pointer)) pad.releasePointerCapture(pointer);
             pointer = null;
         };
@@ -64,13 +94,18 @@ class PointerPad extends HTMLElement {
         pad.addEventListener('pointerdown', (event) => {
             if (pointer !== null) return;
             pointer = event.pointerId;
-            x = event.clientX;
-            y = event.clientY;
-            startX = x;
-            startY = y;
+            x = startX = event.clientX;
+            y = startY = event.clientY;
+            startTime = lastMove = performance.now();
             moved = false;
             velocityX = velocityY = 0;
-            lastMove = performance.now();
+            buffered = [];
+            // A touch right after a tap, near it, may become a double click or a drag; decide on move or lift.
+            if (pendingTap && Math.hypot(x - pendingTap.x, y - pendingTap.y) < doubleTapDistance) {
+                clearTimeout(pendingTap.timer);
+                pendingTap = null;
+                secondTouch = true;
+            } else flushTap();
             pad.setPointerCapture(pointer);
         });
         pad.addEventListener('pointermove', (event) => {
@@ -79,21 +114,48 @@ class PointerPad extends HTMLElement {
                 dy = event.clientY - y;
             x = event.clientX;
             y = event.clientY;
-            moved ||= Math.hypot(x - startX, y - startY) > 4;
+            moved ||= Math.hypot(x - startX, y - startY) > tapSlop;
             const now = performance.now();
             const elapsed = Math.max(1, now - lastMove);
             const blend = elapsed > 100 ? 1 : 0.5;
             velocityX = velocityX * (1 - blend) + (dx / elapsed) * blend;
             velocityY = velocityY * (1 - blend) + (dy / elapsed) * blend;
             lastMove = now;
-            move(dx, dy, Math.hypot(velocityX, velocityY));
+            const speed = Math.hypot(velocityX, velocityY);
+            if (secondTouch && !dragging) {
+                // Hold the first pixels back so the button goes down where the second touch landed.
+                buffered.push([dx, dy, speed]);
+                if (!moved) return;
+                setDragging(true);
+                for (const delta of buffered.splice(0)) move(...delta);
+                return;
+            }
+            move(dx, dy, speed);
         });
         pad.addEventListener('pointerup', (event) => {
             if (event.pointerId !== pointer) return;
             pointer = null;
-            if (!moved) command({ action: 'click', data: { button: 'left' } });
-            else if (this.slidingEnabled && performance.now() - lastMove < 100 && !this.querySelector('.is-held'))
+            const tap = !moved && performance.now() - startTime < tapDuration;
+            if (dragging) setDragging(false);
+            else if (secondTouch) {
+                if (tap) {
+                    click();
+                    click();
+                } else {
+                    // A second touch held without moving: still the first tap's click.
+                    click();
+                    for (const delta of buffered) move(...delta);
+                }
+            } else if (tap) {
+                const timer = setTimeout(() => {
+                    pendingTap = null;
+                    click();
+                }, doubleTapWindow);
+                pendingTap = { x: startX, y: startY, timer };
+            } else if (this.slidingEnabled && performance.now() - lastMove < 100 && !this.querySelector('.is-held'))
                 glide();
+            secondTouch = false;
+            buffered = [];
         });
         pad.addEventListener('pointercancel', this.cancelGesture);
         pad.addEventListener('lostpointercapture', () => {

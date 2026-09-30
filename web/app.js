@@ -481,6 +481,40 @@ document.addEventListener('visibilitychange', () => {
     }
     schedulePolling();
 });
+// Installing as an app needs a service worker, which needs HTTPS this phone trusts (the PC's /trust page explains).
+let installPrompt = null;
+function offerTrust() {
+    if (['localhost', '127.0.0.1'].includes(location.hostname)) return;
+    $('#trust-pc').href = `http://${location.host}/trust`;
+    $('#trust-pc').hidden = false;
+}
+addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    installPrompt = event;
+    $('#install-app').hidden = false;
+});
+addEventListener('appinstalled', () => {
+    installPrompt = null;
+    $('#install-app').hidden = true;
+});
+$('#install-app').addEventListener('click', async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    await installPrompt.userChoice.catch(() => {});
+    installPrompt = null;
+    $('#install-app').hidden = true;
+});
+const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+if ('serviceWorker' in navigator && isSecureContext)
+    navigator.serviceWorker
+        .register('/sw.js')
+        .then(() => {
+            // Firefox never fires beforeinstallprompt; on Android it installs from its own menu instead.
+            if (!installed && /Firefox/.test(navigator.userAgent) && /Android/.test(navigator.userAgent))
+                $('#install-hint').hidden = false;
+        })
+        .catch(offerTrust);
+else if (!installed) offerTrust();
 applyScale();
 layout();
 connection.connect();
