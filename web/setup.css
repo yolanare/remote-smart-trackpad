@@ -97,9 +97,13 @@ h1 {
     text-decoration: none;
     overflow-wrap: anywhere;
 }
-.address:hover,
 .address:focus-visible {
     color: var(--text);
+}
+@media (hover: hover) {
+    .address:hover {
+        color: var(--text);
+    }
 }
 .addresses {
     display: flex;

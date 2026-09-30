@@ -310,7 +310,18 @@ const unpress = (event) => {
     if (!entry) return;
     pressed.delete(event.pointerId);
     setTimeout(() => entry.button.classList.remove('is-pressed'), Math.max(0, 90 - (performance.now() - entry.at)));
+    // A tapped button gives focus back once its click ran, so it never lingers looking active.
+    if (event.pointerType !== 'mouse') setTimeout(() => document.activeElement === entry.button && entry.button.blur());
 };
+// Input modality for CSS: focus rings only after keyboard use (see :root[data-modality] in style.css).
+document.addEventListener(
+    'pointerdown',
+    (event) => (document.documentElement.dataset.modality = event.pointerType === 'mouse' ? 'mouse' : 'touch'),
+    { capture: true }
+);
+document.addEventListener('keydown', () => (document.documentElement.dataset.modality = 'keyboard'), {
+    capture: true,
+});
 document.addEventListener('pointerup', unpress, { capture: true });
 document.addEventListener('pointercancel', unpress, { capture: true });
 
@@ -420,6 +431,12 @@ toggle.addEventListener('click', () => setMenu(toggle.getAttribute('aria-expande
 backdrop.addEventListener('click', () => setMenu(false));
 document.addEventListener('keydown', (event) => {
     // Escape inside the reset confirmation only closes the dialog.
+    // Escape is the way out, e.g. when the remote is opened on the PC it controls: release every press at once
+    // (held and latched mouse buttons, hold mode, modifiers, drag, glide) here and on the PC.
+    if (event.key === 'Escape') {
+        pad.setHolding(false);
+        release();
+    }
     if (event.key === 'Escape' && !$('#reset-confirm').open && toggle.getAttribute('aria-expanded') === 'true')
         setMenu(false);
 });

@@ -87,13 +87,28 @@ button {
     /* Pans only: no pinch or double-tap zoom (unlike manipulation, which still allows pinch). */
     touch-action: pan-x pan-y;
 }
+/*
+ * Button states stay distinct: pressed (while the finger is down), on (aria-pressed), keyboard focus (ring) and
+ * hover (real pointers only). Press feedback comes from .is-pressed / .is-held, set by app.js around each touch;
+ * :active is left to mouse pointers because mobile browsers can keep it after a tap, so a released button looked on.
+ */
 /* Push: press in fast, spring back slower. */
-button:active,
 button.is-pressed,
 button.is-held {
     transform: scale(var(--press-scale));
     opacity: 0.7;
     transition-duration: 0ms, 70ms;
+}
+@media (hover: hover) and (pointer: fine) {
+    button:active {
+        transform: scale(var(--press-scale));
+        opacity: 0.7;
+        transition-duration: 0ms, 70ms;
+    }
+    button:active:not([aria-pressed='true'], .mouse-hold, .mouse-middle) {
+        background: var(--surface);
+        color: var(--text);
+    }
 }
 button:disabled {
     cursor: default;
@@ -102,7 +117,7 @@ button:disabled {
 button {
     user-select: none;
 }
-button:active,
+button.is-pressed,
 button[aria-pressed='true'] {
     background: var(--surface);
     color: var(--text);
@@ -112,6 +127,18 @@ input:focus-visible,
 .rail-viewport:focus-visible {
     outline: var(--stroke) solid var(--muted);
     outline-offset: 0.125rem;
+}
+/* Focus rings are for keyboard use; some mobile browsers still match :focus-visible right after a tap. */
+:root[data-modality='touch'] :focus-visible,
+:root[data-modality='touch'] .options input:focus-visible + .checkbox {
+    outline: none;
+}
+/* Separate rules: a browser drops a whole rule that contains another engine's pseudo-element. */
+:root[data-modality='touch'] .speed-setting input:focus-visible:not(:active)::-webkit-slider-thumb {
+    box-shadow: 0 0 0 0 var(--surface);
+}
+:root[data-modality='touch'] .speed-setting input:focus-visible:not(:active)::-moz-range-thumb {
+    box-shadow: 0 0 0 0 var(--surface);
 }
 svg {
     display: block;
@@ -193,7 +220,8 @@ pointer-pad {
     grid-template-rows: minmax(0, 1fr) 1.75rem;
     grid-template-columns: 1fr auto 1fr;
     min-height: 0;
-    gap: 0.375rem;
+    /* No horizontal gap: every tap on the button row lands on a button, never in dead space between them. */
+    gap: 0.375rem 0;
     transition: grid-template-rows var(--layout-transition);
 }
 .trackpad {
@@ -262,7 +290,6 @@ scroll-rail {
 .hold-box {
     display: flex;
     position: relative;
-    isolation: isolate;
     align-items: center;
     justify-content: center;
     min-width: 1.125rem;
@@ -272,6 +299,7 @@ scroll-rail {
     padding: 0;
     border: var(--stroke) solid var(--border);
     border-radius: var(--radius-small);
+    isolation: isolate;
     color: transparent;
     font-weight: 600;
     font-size: 0.5rem;
@@ -295,18 +323,18 @@ scroll-rail {
 }
 /* The label clips itself so the box can collapse to a square; the check badge can then overflow the corner. */
 .hold-label {
-    position: relative;
     z-index: 1;
+    position: relative;
     min-width: 0;
     overflow: hidden;
 }
 /* Active marker: a check on a black disc that cuts the border at the top-right corner, drawn under the label. */
 .hold-check {
     display: grid;
+    z-index: 0;
     position: absolute;
     top: -0.3125rem;
     right: -0.3125rem;
-    z-index: 0;
     place-items: center;
     width: 0.8rem;
     height: 0.6rem;
@@ -327,26 +355,50 @@ scroll-rail {
 /* A button kept down by hold mode. */
 .mouse-left.is-latched,
 .mouse-right.is-latched,
-.mouse-middle.is-latched span {
+.mouse-middle.is-latched .middle-fill {
     background: rgb(255 255 255 / 22%);
     box-shadow: inset 0 0 0 var(--stroke) var(--border);
 }
 /* Middle click between left and right: a little wider than tall so it is easy to hit. */
 .mouse-middle {
-    width: 2.5rem;
+    width: 3.5rem;
     height: 100%;
+    /* Outer padding: transparent space around the fill; the whole width stays tappable. */
+    padding: 0 0.5rem;
     border: none;
     border-radius: 999rem;
     touch-action: none;
 }
-.mouse-middle span {
+.mouse-middle,
+.mouse-middle.is-pressed,
+.mouse-middle.is-held {
+    background: transparent;
+}
+/* The pressed fill, with its own padding around the dot pill, stops short of the neighbouring buttons. */
+.middle-fill {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    padding: 0.25rem;
+    border-radius: 999rem;
+    transition: background-color 120ms ease-out;
+}
+.mouse-middle.is-pressed .middle-fill,
+.mouse-middle.is-held .middle-fill {
+    background: var(--surface);
+}
+@media (hover: hover) and (pointer: fine) {
+    .mouse-middle:active .middle-fill {
+        background: var(--surface);
+    }
+}
+.middle-dot {
     position: relative;
-    width: 1.75rem;
-    height: 1.25rem;
+    flex: 1;
     border-radius: 999rem;
     background: var(--surface);
 }
-.mouse-middle span::after {
+.middle-dot::after {
     position: absolute;
     width: 0.3125rem;
     height: 0.3125rem;

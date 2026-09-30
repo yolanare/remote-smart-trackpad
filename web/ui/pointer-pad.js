@@ -22,7 +22,7 @@ class PointerPad extends HTMLElement {
     }
     connectedCallback() {
         if (this.firstChild) return;
-        this.innerHTML = `<div class="mouse"><div class="trackpad" role="application" aria-label="Move PC pointer"><div class="dots"></div></div><button class="mouse-left" aria-label="Left click" data-button="left"></button><button class="mouse-middle" aria-label="Middle click" data-button="middle"><span></span></button><button class="mouse-right" aria-label="Right click" data-button="right"></button></div><scroll-rail axis="y"></scroll-rail><scroll-rail axis="x"></scroll-rail><button class="mouse-hold" aria-label="Hold mouse buttons" aria-pressed="false"><span class="hold-box"><span class="hold-label">HOLD<br />CLICKS</span><span class="hold-check"></span></span></button>`;
+        this.innerHTML = `<div class="mouse"><div class="trackpad" role="application" aria-label="Move PC pointer"><div class="dots"></div></div><button class="mouse-left" aria-label="Left click" data-button="left"></button><button class="mouse-middle" aria-label="Middle click" data-button="middle"><span class="middle-fill"><span class="middle-dot"></span></span></button><button class="mouse-right" aria-label="Right click" data-button="right"></button></div><scroll-rail axis="y"></scroll-rail><scroll-rail axis="x"></scroll-rail><button class="mouse-hold" aria-label="Hold mouse buttons" aria-pressed="false"><span class="hold-box"><span class="hold-label">HOLD<br />CLICKS</span><span class="hold-check"></span></span></button>`;
         const pad = this.querySelector('.trackpad');
         // Gestures: one finger moves, a tap clicks (two quick taps double-click), and tap-then-touch-and-move drags
         // with the left button held until the finger lifts. A single tap's click waits one double-tap window so a
@@ -181,11 +181,12 @@ class PointerPad extends HTMLElement {
             for (const button of [...latched]) setLatched(button, false);
         };
         hold.addEventListener('pointerdown', (event) => event.preventDefault());
-        hold.addEventListener('click', () => {
-            this.holding = !this.holding;
-            hold.setAttribute('aria-pressed', String(this.holding));
-            if (!this.holding) this.releaseButtons();
-        });
+        this.setHolding = (value) => {
+            this.holding = value;
+            hold.setAttribute('aria-pressed', String(value));
+            if (!value) this.releaseButtons();
+        };
+        hold.addEventListener('click', () => this.setHolding(!this.holding));
         this.querySelectorAll('[data-button]').forEach((button) => {
             let held = false,
                 last = null;
@@ -206,17 +207,17 @@ class PointerPad extends HTMLElement {
                     command({ action: 'button', data: { button: button.dataset.button, down: false } });
                 }
             };
-            // Dragging from the held middle button moves the pointer too (middle-drag panning, autoscroll).
-            if (button.dataset.button === 'middle')
-                button.addEventListener('pointermove', (event) => {
-                    if (!held || !last) return;
-                    const dx = event.clientX - last.x,
-                        dy = event.clientY - last.y,
-                        now = performance.now();
-                    if (!dx && !dy) return;
-                    move(dx, dy, Math.hypot(dx, dy) / Math.max(1, now - last.time));
-                    last = { x: event.clientX, y: event.clientY, time: now };
-                });
+            // Dragging from a held button moves the pointer too: click-and-drag with one finger (left: select or move,
+            // right: context gestures, middle: panning or autoscroll).
+            button.addEventListener('pointermove', (event) => {
+                if (!held || !last) return;
+                const dx = event.clientX - last.x,
+                    dy = event.clientY - last.y,
+                    now = performance.now();
+                if (!dx && !dy) return;
+                move(dx, dy, Math.hypot(dx, dy) / Math.max(1, now - last.time));
+                last = { x: event.clientX, y: event.clientY, time: now };
+            });
             button.addEventListener('pointerup', release);
             button.addEventListener('pointercancel', release);
             button.addEventListener('lostpointercapture', release);
