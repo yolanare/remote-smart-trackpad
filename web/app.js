@@ -307,7 +307,7 @@ document.addEventListener('pointerdown', () => pad.stopSliding(), { capture: tru
 // pressed class is reliable on touch (:active can stick or never show) and held for a short beat, so quick taps still
 // visibly press. A slider's own label only names it, so it has no press state.
 // Inside something that scrolls (the options menu), a touch may be the start of a scroll: like native lists, the
-// press (and its vibration) waits a beat and is dropped if the finger moves or the browser takes over to scroll.
+// press state waits a beat and is dropped if the finger moves or the browser takes over to scroll.
 const pressable = 'button, label:not(.speed-setting label), a[href], summary';
 const pressDelay = 100,
     pressSlop = 8;
@@ -325,7 +325,6 @@ const showPress = (entry) => {
     entry.shown = true;
     entry.at = performance.now();
     entry.element.classList.add('is-pressed');
-    tick();
 };
 document.addEventListener(
     'pointerdown',
@@ -562,12 +561,14 @@ for (const input of fields) {
     if (input.type === 'radio')
         input.addEventListener('change', () => {
             settings[input.name] = input.value;
+            tick();
             saveSettings();
             applyTheme();
         });
     if (input.type === 'checkbox')
         input.addEventListener('change', () => {
             settings[input.name] = input.checked;
+            tick();
             saveSettings();
             rows.reset({ force: true });
             layout({ animate: true });
@@ -585,6 +586,7 @@ for (const { stepper, name, steps } of steppers)
                 :   steps.findLast((step) => step < current - 1e-6);
             if (next === undefined) return;
             settings[name] = next;
+            tick();
             showSetting(menu.querySelector(`input[name="${name}"]`));
             saveSettings();
             updateSteppers();

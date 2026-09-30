@@ -208,7 +208,10 @@ class PointerPad extends HTMLElement {
             hold.setAttribute('aria-pressed', String(value));
             if (!value) this.releaseButtons();
         };
-        hold.addEventListener('click', () => this.setHolding(!this.holding));
+        hold.addEventListener('click', () => {
+            this.setHolding(!this.holding);
+            tick();
+        });
         this.querySelectorAll('[data-button]').forEach((button) => {
             // held: the finger holds the button down (outside hold mode). last: the finger is down and followed, in
             // both modes, so a press can drag the pointer (in hold mode the button then stays latched after lifting).

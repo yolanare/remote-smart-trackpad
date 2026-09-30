@@ -1,4 +1,5 @@
 import { icon } from './icons.js';
+import { tick } from './haptics.js';
 // [key, label, icon (null for text), group]. Adjacent keys of the same group share one bordered container.
 const functionKey = (index) => [`F${index + 1}`, `F${index + 1}`, null, 'functions'];
 const rows = {
@@ -108,7 +109,11 @@ class KeyRows extends HTMLElement {
         if (key === 'Delete') button.classList.add('forward-delete');
         if (modifierKeys.has(key)) button.classList.add('modifier');
         if (modifierKeys.has(key) || key === 'VolumeMute') button.setAttribute('aria-pressed', 'false');
-        button.addEventListener('pointerdown', (event) => event.preventDefault());
+        button.addEventListener('pointerdown', (event) => {
+            event.preventDefault();
+            // Like a phone keyboard: the tick comes on touch down.
+            tick();
+        });
         button.addEventListener('click', () => {
             if (modifierKeys.has(key)) {
                 if (key === 'Win' && !this.sticky) {
