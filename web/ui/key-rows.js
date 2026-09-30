@@ -31,7 +31,7 @@ const rows = {
 const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'Win']);
 // Auto-repeat timing: the first repeat after the delay (about a long press), then this many ms apart.
 const repeatDelay = 700,
-    repeatInterval = 60;
+    repeatInterval = 30;
 // Function keys fill lines of at most this many keys, split evenly: 4 and 8 on one line, 12 and 16 on two, 18 and
 // 24 on three. Computed, so a wider layout only needs a larger number.
 const functionKeysPerLine = 8;
