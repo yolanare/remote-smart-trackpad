@@ -68,12 +68,23 @@ while ($null -ne ($line = [Console]::ReadLine())) {
                     if (-not $down -and $held.Contains($name)) { Send-Key $name $false; [void]$held.Remove($name) }
                 } else { Tap-Key $name }
             }
+            'text' {
+                # Raw typing for PC focus without a readable text field.
+                $backspaces = [int]$data.backspace; $deletes = [int]$data.delete; $value = [string]$data.text
+                if ($backspaces -lt 0 -or $deletes -lt 0 -or $backspaces + $deletes -gt 4096 -or $value.Length -gt 16384) { throw 'Invalid text operation' }
+                for ($index = 0; $index -lt $backspaces; $index++) { Tap-Key 'Backspace' }
+                for ($index = 0; $index -lt $deletes; $index++) { Tap-Key 'Delete' }
+                if ($value.Length) {
+                    try { Insert-Text $value; Start-Sleep -Milliseconds 150 } finally { [ClipboardText]::Restore() }
+                }
+            }
+            'media-state' { $result = Get-MediaState }
             'mirror-read' {
                 $result = Read-Mirror
                 if ($result.available -and $result.session -ceq [string]$data.session -and $result.revision -eq $data.revision) { $result = @{ unchanged=$true } }
             }
             'mirror-edit' { $result = Edit-Mirror $data }
-            'mirror-close' { $script:mirror = $null; Release-All }
+            'mirror-close' { $script:mirror = $null }
             'release' { Release-All }
             default { throw 'Unknown command' }
         }

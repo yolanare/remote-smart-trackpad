@@ -31,12 +31,13 @@ class PointerPad extends HTMLElement {
             lastMove = 0,
             moved = false;
         const command = (detail) => this.dispatchEvent(new CustomEvent('command', { bubbles: true, detail }));
-        const move = (dx, dy) => {
+        // speed is the smoothed finger velocity in CSS px/ms, used for pointer acceleration.
+        const move = (dx, dy, speed) => {
             const unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
             patternX = (patternX + dx) % (1.5 * unit);
             patternY = (patternY + dy) % (1.5 * unit);
             this.querySelector('.dots').style.backgroundPosition = `${patternX / unit}rem ${patternY / unit}rem`;
-            this.dispatchEvent(new CustomEvent('motion', { bubbles: true, detail: { action: 'move', dx, dy } }));
+            this.dispatchEvent(new CustomEvent('motion', { bubbles: true, detail: { action: 'move', dx, dy, speed } }));
         };
         this.cancelGesture = () => {
             this.stopSliding();
@@ -53,7 +54,7 @@ class PointerPad extends HTMLElement {
                     return;
                 }
                 const decay = Math.exp(-elapsed / 240);
-                move(velocityX * 240 * (1 - decay), velocityY * 240 * (1 - decay));
+                move(velocityX * 240 * (1 - decay), velocityY * 240 * (1 - decay), Math.hypot(velocityX, velocityY));
                 velocityX *= decay;
                 velocityY *= decay;
                 this.slideFrame = requestAnimationFrame(step);
@@ -85,7 +86,7 @@ class PointerPad extends HTMLElement {
             velocityX = velocityX * (1 - blend) + (dx / elapsed) * blend;
             velocityY = velocityY * (1 - blend) + (dy / elapsed) * blend;
             lastMove = now;
-            move(dx, dy);
+            move(dx, dy, Math.hypot(velocityX, velocityY));
         });
         pad.addEventListener('pointerup', (event) => {
             if (event.pointerId !== pointer) return;

@@ -53,6 +53,8 @@ export function createMirror(send, render) {
             state.available = false;
             state.error = error.message;
             dirty = false;
+            // Forget the confirmed snapshot so the next poll rereads the PC instead of hearing "unchanged".
+            confirmed = null;
             publish();
         } finally {
             if (current === generation) {
@@ -80,6 +82,7 @@ export function createMirror(send, render) {
             if (current === generation) {
                 state.available = false;
                 state.error = error.message;
+                confirmed = null;
                 publish();
             }
         } finally {

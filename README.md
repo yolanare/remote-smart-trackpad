@@ -14,19 +14,19 @@ Keep the project and Node.js at their registered locations. After moving either,
 
 ## Device access
 
-[Manage Tokens.cmd](Manage%20Tokens.cmd) opens the terminal manager: arrows select, Delete requests revocation, Y confirms, R refreshes, Q exits. Run it while the server is running. Revocation closes the device's active socket and releases input; the phone must pair again.
+[Manage Tokens.cmd](Manage%20Tokens.cmd) opens the terminal manager: arrows select, Delete requests revocation, Y confirms, R refreshes, Q exits. Run it while the server is running. Revocation closes the device's active socket and releases input; the phone must pair again. Several paired phones can control the PC at once; each releases only the keys and buttons it pressed.
 
 `.data/tokens.json` stores hashes, user names and first-connection timestamps. Old hash-only tokens migrate without revoking access; their phones are prompted for a name. Their historical first connection cannot be reconstructed and remains unknown until identification. Raw tokens stay in the phone's local storage. There is no phone-side access management.
 
 ## Controls and text
 
-The pointer area moves the PC cursor and its dot pattern. Left/right buttons support holding while moving; the middle button sits between the two native scroll rails. Native browser scrolling supplies momentum; each rail recenters only after scrolling settles. The menu toggles function (function keys, as drawn in Figma), media, edit and modifier rows, plus sticky modifiers.
+The pointer area moves the PC cursor and its dot pattern. Left/right buttons support holding while moving; the middle button sits between the two native scroll rails. Native browser scrolling supplies momentum; each rail recenters only after scrolling settles. The menu holds mouse sliding, acceleration (an S-curve that damps slow strokes and amplifies flicks; 0 turns it off), speeds, X/Y inversion for mouse and scroll, the function, media, edit and modifier rows, sticky modifiers and an interface scale (0.25× to 8×). Defaults are the input attributes in `web/index.html`; values changed on the phone are stored locally and **Reset options to defaults** clears them. Play/pause and mute show the PC's playback and mute state, polled every 3 s only while the media row is visible.
 
-Opening the editor reads the entire focused editable UI Automation text field, including its selection. While open it follows PC focus, text and selection changes. It closes only through **Close text editor**. Non-text, password, read-only and unsupported fields clear/disable the mirror without closing it. Only the enabled modifier row remains visible during editing. The viewport follows the visible area above the native phone keyboard.
+Opening the editor reads the entire focused editable UI Automation text field, including its selection. While open it follows PC focus, text and selection changes. It closes only through **Close text editor**. Non-text, password, read-only and unsupported fields clear the mirror without closing it; typing is then sent to the PC as raw keystrokes. An invisible anchor character keeps Backspace working in an empty field, and Escape/Tab are always forwarded. Fields that only expose their accessible name (VS Code's editor and terminal) count as unreadable. CSS placeholders in Chromium rich-text fields read exactly like text: the first edit that reveals one (typing turns the whole text into the typed text, or Backspace at the end changes nothing) records it per field kind in `.data/placeholders.json`, and it reads as empty from then on. The phone's Enter never presses plain Enter on the PC, which would send chat messages: Chromium rich-text fields receive Shift+Enter, the only break that keeps their caret on the new line; other fields receive a pasted line break (the clipboard is restored and excluded from clipboard history). Edits at the caret use Backspace and typing without repositioning the PC caret. Only the enabled modifier row remains visible during editing. The viewport follows the visible area above the native phone keyboard.
 
 The phone sends changed spans, serializes edits and waits for IME composition to commit. Windows verifies field identity and revision before applying changes. A changed PC field wins over pending mobile state; rejected or uncertain edits are reconciled from a fresh PC snapshot, never replayed into another field. Reconnection rereads the PC. This deliberately replaces the previous persistent-draft workflow. Text is not stored in browser persistence.
 
-The mirror polls while visible every 200 ms and only sends full snapshots when something changes. A field is limited to 262,144 UTF-16 code units; larger fields are reported as unavailable. Inserts are split at grapheme boundaries into at most 16,384 code units. UI Automation providers differ in their character units, so the bridge checks selected text before replacement and refuses ranges it cannot verify. Windows may reject input into elevated apps.
+The mirror polls every 200 ms only while the editor is open and the page is visible, and only sends full snapshots when something changes. With no editor open the host reads no text; idle phones only exchange WebSocket heartbeats. A crashed Windows bridge restarts automatically and phones reconnect on their own. A field is limited to 262,144 UTF-16 code units; larger fields are reported as unavailable. Inserts are split at grapheme boundaries into at most 16,384 code units. UI Automation providers differ in their character units, so the bridge checks selected text before replacement and refuses ranges it cannot verify. Windows may reject input into elevated apps.
 
 ## Network and HTTPS
 
@@ -36,17 +36,17 @@ LAN HTTP is unencrypted. For trusted HTTPS, put the certificate and key in `.dat
 
 ## Structure and validation
 
-| Module                                           | Responsibility                                                  |
-| ------------------------------------------------ | --------------------------------------------------------------- |
-| `host/server.js`                                 | HTTP routes, listener lifecycle, setup and discovery            |
-| `host/access.js`                                 | Token persistence, migration, identity and revocation           |
-| `host/transport.js`                              | WebSocket framing, active controller, ordering and heartbeat    |
-| `host/bridge.js`                                 | Windows child process and acknowledged commands                 |
-| `host/windows-input.ps1`, `host/text-mirror.ps1` | Native input and authoritative text snapshots/edits             |
-| `host/TrayHost.cs`                               | Native tray, hidden server, console and startup preference      |
-| `web/logic/`                                     | Connection, motion batching and mirror state                    |
-| `web/ui/`                                        | Pointer, native scroll, keys and text Web Components            |
-| `web/style.css`                                  | Shared colors, spacing, rem dimensions and compact editor state |
+| Module                                           | Responsibility                                                   |
+| ------------------------------------------------ | ---------------------------------------------------------------- |
+| `host/server.js`                                 | HTTP routes, listener lifecycle, setup and discovery             |
+| `host/access.js`                                 | Token persistence, migration, identity and revocation            |
+| `host/transport.js`                              | WebSocket framing, per-device ordering, held input and heartbeat |
+| `host/bridge.js`                                 | Windows child process and acknowledged commands                  |
+| `host/windows-input.ps1`, `host/text-mirror.ps1` | Native input and authoritative text snapshots/edits              |
+| `host/TrayHost.cs`                               | Native tray, hidden server, console and startup preference       |
+| `web/logic/`                                     | Connection, motion batching and mirror state                     |
+| `web/ui/`                                        | Pointer, native scroll, keys and text Web Components             |
+| `web/style.css`                                  | Shared colors, spacing, rem dimensions and compact editor state  |
 
 `npm run build` bundles with esbuild and tree-shakes named Lucide imports. Inter fonts are local. `web/dist` is generated; runtime needs no CDN. `npm run check` checks JavaScript syntax; `npm test` covers transport/revocation, mirror races, IME and Unicode diffs. With Node.js 22+ and Chrome installed at its standard Windows path, `npm run test:browser` exercises pairing, Figma-sized layouts, row settings and native scroll; it writes screenshots and `.data/browser-report.json`.
 

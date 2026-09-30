@@ -23,11 +23,11 @@ public static class NativeInput {
         Input input = new Input { Type = 1, Data = new InputUnion { Keyboard = new KeyboardInput { VirtualKey = (ushort)code, Flags = flags } } };
         return SendInput(1, new [] { input }, Marshal.SizeOf(typeof(Input))) == 1;
     }
+    // Text containing line breaks goes through ClipboardText.Paste instead: Enter can send a message.
     public static bool Text(string text) {
         foreach (char character in text) {
-            if (character == '\n' || character == '\t') {
-                int key = character == '\n' ? 0x0D : 0x09;
-                if (!Key(key, true) || !Key(key, false)) return false;
+            if (character == '\t') {
+                if (!Key(0x09, true) || !Key(0x09, false)) return false;
                 continue;
             }
             Input down = new Input { Type = 1, Data = new InputUnion { Keyboard = new KeyboardInput { ScanCode = character, Flags = 4 } } };
@@ -39,6 +39,116 @@ public static class NativeInput {
     public static bool Mouse(uint flags, int data = 0) {
         Input input = new Input { Type = 0, Data = new InputUnion { Mouse = new MouseInput { Flags = flags, MouseData = unchecked((uint)data) } } };
         return SendInput(1, new [] { input }, Marshal.SizeOf(typeof(Input))) == 1;
+    }
+}
+
+// Inserts text by pasting it, so line breaks become real paragraph breaks and never press Enter. The user's
+// clipboard is saved first and restored by Restore once the paste has landed.
+public static class ClipboardText {
+    [DllImport("user32.dll")] static extern bool OpenClipboard(IntPtr owner);
+    [DllImport("user32.dll")] static extern bool CloseClipboard();
+    [DllImport("user32.dll")] static extern bool EmptyClipboard();
+    [DllImport("user32.dll")] static extern uint EnumClipboardFormats(uint format);
+    [DllImport("user32.dll")] static extern IntPtr GetClipboardData(uint format);
+    [DllImport("user32.dll")] static extern IntPtr SetClipboardData(uint format, IntPtr data);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern uint RegisterClipboardFormat(string name);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr CreateWindowEx(uint exStyle, string className, string name, uint style, int x, int y, int width, int height, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr parameter);
+    [DllImport("kernel32.dll")] static extern IntPtr GlobalAlloc(uint flags, UIntPtr bytes);
+    [DllImport("kernel32.dll")] static extern IntPtr GlobalLock(IntPtr memory);
+    [DllImport("kernel32.dll")] static extern bool GlobalUnlock(IntPtr memory);
+    [DllImport("kernel32.dll")] static extern UIntPtr GlobalSize(IntPtr memory);
+    static IntPtr owner;
+    static System.Collections.Generic.List<Tuple<uint, byte[]>> saved;
+
+    static bool Open() {
+        // SetClipboardData fails without an owner window; a message-only window serves.
+        if (owner == IntPtr.Zero) owner = CreateWindowEx(0, "STATIC", "", 0, 0, 0, 0, 0, new IntPtr(-3), IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+        for (int attempt = 0; attempt < 25; attempt++) {
+            if (OpenClipboard(owner)) return true;
+            System.Threading.Thread.Sleep(10);
+        }
+        return false;
+    }
+    static void Put(uint format, byte[] bytes) {
+        IntPtr memory = GlobalAlloc(0x0002, (UIntPtr)bytes.Length);
+        IntPtr target = GlobalLock(memory);
+        Marshal.Copy(bytes, 0, target, bytes.Length);
+        GlobalUnlock(memory);
+        SetClipboardData(format, memory);
+    }
+    // Keeps the pasted text out of Windows clipboard history and cloud sync.
+    static void PutPrivacyMarkers() {
+        Put(RegisterClipboardFormat("ExcludeClipboardContentFromMonitorProcessing"), new byte[4]);
+        Put(RegisterClipboardFormat("CanIncludeInClipboardHistory"), new byte[4]);
+        Put(RegisterClipboardFormat("CanUploadToCloudClipboard"), new byte[4]);
+    }
+    static bool Copyable(uint format) {
+        // GDI handles cannot be copied as memory; bitmaps survive through their CF_DIB form.
+        return format != 2 && format != 3 && format != 9 && format != 14 && !(format >= 0x80 && format <= 0x8E) && !(format >= 0x300 && format <= 0x3FF);
+    }
+    public static bool Set(string text) {
+        if (!Open()) return false;
+        try {
+            if (saved == null) {
+                saved = new System.Collections.Generic.List<Tuple<uint, byte[]>>();
+                for (uint format = EnumClipboardFormats(0); format != 0; format = EnumClipboardFormats(format)) {
+                    if (!Copyable(format)) continue;
+                    IntPtr memory = GetClipboardData(format);
+                    if (memory == IntPtr.Zero) continue;
+                    int size = (int)GlobalSize(memory);
+                    IntPtr source = GlobalLock(memory);
+                    if (source == IntPtr.Zero) continue;
+                    byte[] bytes = new byte[size];
+                    Marshal.Copy(source, bytes, 0, size);
+                    GlobalUnlock(memory);
+                    saved.Add(Tuple.Create(format, bytes));
+                }
+            }
+            EmptyClipboard();
+            Put(13, System.Text.Encoding.Unicode.GetBytes(text.Replace("\n", "\r\n") + "\0"));
+            PutPrivacyMarkers();
+            return true;
+        } finally { CloseClipboard(); }
+    }
+    public static void Restore() {
+        if (saved == null || !Open()) return;
+        try {
+            EmptyClipboard();
+            foreach (var entry in saved) Put(entry.Item1, entry.Item2);
+            PutPrivacyMarkers();
+        } finally {
+            saved = null;
+            CloseClipboard();
+        }
+    }
+}
+
+// Core Audio: only the vtable slots up to GetMute are declared.
+[Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IAudioEndpointVolume {
+    int RegisterControlChangeNotify(IntPtr notify); int UnregisterControlChangeNotify(IntPtr notify); int GetChannelCount(out uint count);
+    int SetMasterVolumeLevel(float level, IntPtr context); int SetMasterVolumeLevelScalar(float level, IntPtr context);
+    int GetMasterVolumeLevel(out float level); int GetMasterVolumeLevelScalar(out float level);
+    int SetChannelVolumeLevel(uint channel, float level, IntPtr context); int SetChannelVolumeLevelScalar(uint channel, float level, IntPtr context);
+    int GetChannelVolumeLevel(uint channel, out float level); int GetChannelVolumeLevelScalar(uint channel, out float level);
+    int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, IntPtr context); int GetMute([MarshalAs(UnmanagedType.Bool)] out bool mute);
+}
+[Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IMMDevice { int Activate(ref Guid id, int context, IntPtr parameters, [MarshalAs(UnmanagedType.IUnknown)] out object value); }
+[Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IMMDeviceEnumerator { int EnumAudioEndpoints(int flow, int state, out IntPtr devices); int GetDefaultAudioEndpoint(int flow, int role, out IMMDevice device); }
+[ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] public class MMDeviceEnumerator {}
+
+public static class SpeakerVolume {
+    public static bool Muted() {
+        IMMDevice device;
+        Marshal.ThrowExceptionForHR(((IMMDeviceEnumerator)new MMDeviceEnumerator()).GetDefaultAudioEndpoint(0, 1, out device));
+        Guid id = typeof(IAudioEndpointVolume).GUID;
+        object volume;
+        Marshal.ThrowExceptionForHR(device.Activate(ref id, 23, IntPtr.Zero, out volume));
+        bool muted;
+        Marshal.ThrowExceptionForHR(((IAudioEndpointVolume)volume).GetMute(out muted));
+        return muted;
     }
 }
 '@
@@ -82,10 +192,58 @@ function Tap-Key($name) {
         [void]$held.Remove($name)
     }
 }
+# A line break must never press plain Enter, which sends the message in chat inputs. Chromium rich-text fields get
+# Shift+Enter: it is their newline and the only break that leaves their caret on the new line. Other fields get a
+# pasted line break, a real paragraph break. The caller restores the clipboard with [ClipboardText]::Restore().
+function Insert-Text([string]$text) {
+    if (-not $text.Contains("`n")) {
+        if (-not [NativeInput]::Text($text)) { throw 'Windows rejected text input' }
+        return
+    }
+    $element = [System.Windows.Automation.AutomationElement]::FocusedElement
+    $rich = $null -ne $element -and $element.Current.FrameworkId -eq 'Chrome' -and
+        $null -ne [System.Windows.Automation.TreeWalker]::RawViewWalker.GetFirstChild($element)
+    if ($rich) {
+        $lines = $text.Split("`n")
+        for ($index = 0; $index -lt $lines.Count; $index++) {
+            if ($index) {
+                $shift = -not $held.Contains('Shift')
+                if ($shift) { Send-Key 'Shift' $true }
+                try { Tap-Key 'Enter' } finally { if ($shift) { Send-Key 'Shift' $false } }
+            }
+            if ($lines[$index].Length -and -not [NativeInput]::Text($lines[$index])) { throw 'Windows rejected text input' }
+        }
+        return
+    }
+    if (-not [ClipboardText]::Set($text)) { throw 'Clipboard unavailable' }
+    $control = -not $held.Contains('Control')
+    if ($control) { Send-Key 'Control' $true }
+    try { Tap-Key 'V' } finally { if ($control) { Send-Key 'Control' $false } }
+}
 function Release-All {
     foreach ($name in @($held)) {
         if ($buttons.ContainsKey($name)) { [void][NativeInput]::Mouse($buttons[$name][1]) }
         elseif ($keyCodes.ContainsKey($name)) { [void][NativeInput]::Key($keyCodes[$name], $false) }
         [void]$held.Remove($name)
     }
+}
+
+$script:mediaSessions = $null
+function Get-MediaState {
+    $muted = $null
+    try { $muted = [SpeakerVolume]::Muted() } catch {}
+    $playing = $null
+    try {
+        if ($null -eq $script:mediaSessions) {
+            Add-Type -AssemblyName System.Runtime.WindowsRuntime
+            $managerType = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType=WindowsRuntime]
+            $asTask = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
+                $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'
+            } | Select-Object -First 1
+            $script:mediaSessions = $asTask.MakeGenericMethod($managerType).Invoke($null, @($managerType::RequestAsync())).Result
+        }
+        $session = $script:mediaSessions.GetCurrentSession()
+        $playing = $null -ne $session -and [string]$session.GetPlaybackInfo().PlaybackStatus -eq 'Playing'
+    } catch {}
+    return @{ muted=$muted; playing=$playing }
 }

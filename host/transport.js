@@ -1,8 +1,21 @@
 import { createHash } from 'node:crypto';
 
-export function createTransport({ authorized, hasAccess, command }) {
+export function createTransport({ authorized, hasAccess, command, available }) {
     const clients = new Set();
-    let activeClient = null;
+    // Several devices may control the PC at once; each releases only the keys and buttons it pressed.
+    async function releaseHeld(client) {
+        for (const entry of client.held) {
+            const [kind, name] = entry.split(':');
+            await command(kind, { data: { [kind]: name, down: false } }).catch(() => {});
+        }
+        client.held.clear();
+    }
+    function trackHeld(client, action, data) {
+        if ((action !== 'key' && action !== 'button') || typeof data.down !== 'boolean') return;
+        const entry = `${action}:${data[action]}`;
+        if (data.down) client.held.add(entry);
+        else client.held.delete(entry);
+    }
     function handleUpgrade(request, socket) {
         let pathname;
         let sameOrigin = false;
@@ -39,6 +52,7 @@ export function createTransport({ authorized, hasAccess, command }) {
             chain: Promise.resolve(),
             lastId: 0,
             queued: 0,
+            held: new Set(),
             lastPong: Date.now(),
             send(value) {
                 if (socket.destroyed) return;
@@ -58,14 +72,7 @@ export function createTransport({ authorized, hasAccess, command }) {
             },
         };
         clients.add(client);
-        if (activeClient && activeClient !== client) {
-            activeClient.send({ type: 'status', state: 'another-device' });
-            command('release').catch((error) =>
-                console.error(`Could not release previous device input: ${error.message}`)
-            );
-        }
-        activeClient = client;
-        client.send({ type: 'status', state: 'ready' });
+        client.send({ type: 'status', state: available() ? 'ready' : 'unavailable' });
         const heartbeat = setInterval(() => {
             if (socket.destroyed) return;
             if (Date.now() - client.lastPong > 15_000) return socket.destroy();
@@ -116,13 +123,6 @@ export function createTransport({ authorized, hasAccess, command }) {
                 client.chain = client.chain
                     .then(async () => {
                         if (!hasAccess(client.accessId)) return socket.destroy();
-                        if (client !== activeClient)
-                            return client.send({
-                                type: 'ack',
-                                id: message.id,
-                                ok: false,
-                                error: 'Another device is active',
-                            });
                         if (!Number.isSafeInteger(message.id) || message.id <= client.lastId) return;
                         client.lastId = message.id;
                         const allowed = new Set([
@@ -133,14 +133,22 @@ export function createTransport({ authorized, hasAccess, command }) {
                             'key',
                             'shortcut',
                             'release',
+                            'text',
+                            'media-state',
                             'mirror-read',
                             'mirror-edit',
                             'mirror-close',
                         ]);
                         if (!allowed.has(message.action))
                             return client.send({ type: 'ack', id: message.id, ok: false, error: 'Unknown command' });
+                        const data = message.data || {};
+                        if (message.action === 'release' && clients.size > 1) {
+                            await releaseHeld(client);
+                            return client.send({ type: 'ack', id: message.id, ok: true });
+                        }
                         try {
-                            const result = await command(message.action, { data: message.data || {} });
+                            const result = await command(message.action, { data });
+                            if (result.ok) trackHeld(client, message.action, data);
                             client.send({
                                 type: 'ack',
                                 id: message.id,
@@ -165,10 +173,11 @@ export function createTransport({ authorized, hasAccess, command }) {
             released = true;
             clearInterval(heartbeat);
             clients.delete(client);
-            if (activeClient === client) {
-                activeClient = null;
-                command('mirror-close').catch(() => {});
-            }
+            client.chain = client.chain.then(async () => {
+                if (clients.size) return releaseHeld(client);
+                await command('release').catch(() => {});
+                await command('mirror-close').catch(() => {});
+            });
         };
         socket.on('close', release);
         socket.on('error', release);

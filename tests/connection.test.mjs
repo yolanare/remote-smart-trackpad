@@ -121,6 +121,10 @@ test('a paired phone can reconnect and receives command acknowledgements', async
     socket.close();
     const reconnected = await openSocket(url, token);
     assert.equal((await exchange(reconnected, { id: 1, action: 'release', data: {} })).ok, true);
+    const second = await openSocket(url, token);
+    assert.equal((await exchange(second, { id: 1, action: 'release', data: {} })).ok, true);
+    assert.equal((await exchange(reconnected, { id: 2, action: 'release', data: {} })).ok, true);
+    second.close();
     const devices = await (await fetch(`${url}/api/setup/tokens`)).json();
     assert.equal(devices[0].name, 'Test phone');
     assert.ok(Date.parse(devices[0].firstConnectedAt));

@@ -40,10 +40,27 @@ function refreshPairingCode() {
     console.log(`Pairing code: ${pairingCode} (10 minutes)`);
 }
 const pairingAttempts = new Map();
-const bridge = startBridge(path.join(root, 'host', 'windows-bridge.ps1'), (error) => {
-    console.error(error.message);
-    transport.notify('unavailable');
-});
+let stopping = false;
+let bridge,
+    bridgeStarted = 0,
+    bridgeDelay = 1000;
+// A crashed Windows bridge is restarted with backoff; phones see "unavailable" until it is back.
+function launchBridge() {
+    bridgeStarted = Date.now();
+    bridge = startBridge(path.join(root, 'host', 'windows-bridge.ps1'), (error) => {
+        console.error(error.message);
+        transport.notify('unavailable');
+        if (stopping) return;
+        if (Date.now() - bridgeStarted > 30_000) bridgeDelay = 1000;
+        setTimeout(() => {
+            if (stopping) return;
+            launchBridge();
+            transport.notify('ready');
+        }, bridgeDelay);
+        bridgeDelay = Math.min(bridgeDelay * 2, 30_000);
+    });
+}
+launchBridge();
 const command = (action, data) => bridge.command(action, data);
 
 function authorized(request) {
@@ -216,6 +233,7 @@ const transport = createTransport({
     authorized,
     hasAccess: (id) => access.list().some((record) => record.id === id),
     command,
+    available: () => bridge.available,
 });
 server.on('upgrade', transport.handleUpgrade);
 
@@ -301,7 +319,6 @@ function syncListeners() {
 syncListeners();
 const listenerTimer = setInterval(syncListeners, 10_000);
 console.log(`Pairing code: ${pairingCode} (10 minutes)`);
-let stopping = false;
 async function shutdown() {
     if (stopping) return;
     stopping = true;
@@ -309,6 +326,7 @@ async function shutdown() {
     transport.close();
     for (const stop of discoveryStops.values()) stop();
     for (const listener of listeners.values()) listener.close();
+    await command('release').catch(() => {});
     await command('mirror-close').catch(() => {});
     bridge.stop();
     process.exit(0);

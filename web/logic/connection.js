@@ -40,8 +40,10 @@ export function createConnection(changed) {
                 const message = JSON.parse(event.data);
                 if (message.type === 'status') {
                     active = message.state === 'ready';
-                    delay = 500;
+                    if (active) delay = 500;
                     changed({ state: message.state });
+                    // The PC restarts its Windows bridge on its own; reconnecting picks up its state if a push was missed.
+                    if (message.state === 'unavailable') retry(current);
                     return;
                 }
                 const request = pending.get(message.id);
@@ -73,6 +75,12 @@ export function createConnection(changed) {
     }
     return {
         connect,
+        /** Reconnects immediately, e.g. when the page becomes visible again. */
+        wake() {
+            if (active || !token) return;
+            delay = 500;
+            connect();
+        },
         async pair(name, code) {
             const response = await fetch(code ? '/api/pair' : '/api/profile', {
                 method: 'POST',

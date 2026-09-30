@@ -29,6 +29,8 @@
     --radius: 0.75rem;
     --stroke: 1px;
     --transition: 180ms ease;
+    --layout-transition: 320ms cubic-bezier(0.2, 0, 0, 1);
+    --press-scale: 0.95;
 }
 * {
     box-sizing: border-box;
@@ -67,14 +69,23 @@ button {
     background: transparent;
     color: var(--muted);
     cursor: pointer;
-    transition: opacity 120ms ease-out;
+    transition:
+        opacity 120ms ease-out,
+        transform 220ms cubic-bezier(0.2, 0, 0, 1);
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
 }
+/* Push: press in fast, spring back slower. */
 button:active,
+button.is-pressed,
 button.is-held {
+    transform: scale(var(--press-scale));
     opacity: 0.7;
-    transition-duration: 0ms;
+    transition-duration: 0ms, 70ms;
+}
+button:disabled {
+    cursor: default;
+    opacity: 0.35;
 }
 button {
     user-select: none;
@@ -128,8 +139,7 @@ svg {
     border-radius: 999rem;
     background: var(--border);
 }
-#connection[data-state='warning'] .status-dot,
-#connection[data-state='disconnected'] .status-dot {
+#connection:not([data-state='ready']) .status-dot {
     background: #d2aa68;
 }
 #connection-label {
@@ -163,8 +173,8 @@ pointer-pad {
     min-height: 3rem;
     padding: var(--space-2) 0 var(--space-4) var(--space-4);
     transition:
-        padding var(--transition),
-        grid-template-rows var(--transition);
+        padding var(--layout-transition),
+        grid-template-rows var(--layout-transition);
 }
 .mouse {
     display: grid;
@@ -172,23 +182,42 @@ pointer-pad {
     grid-template-columns: 1fr 1fr;
     min-height: 0;
     gap: 0.375rem;
-    transition: grid-template-rows var(--transition);
+    transition: grid-template-rows var(--layout-transition);
 }
 .trackpad {
     grid-column: 1 / -1;
-    padding: 1rem;
     overflow: hidden;
     border: var(--stroke) solid var(--border);
     border-radius: 1.5rem 1.5rem 0.5rem 0.5rem;
     touch-action: none;
     user-select: none;
 }
+/* Eased edge fades (smoothstep stops) for patterns that scroll out of view; set --fade per element. */
+.dots,
+scroll-rail {
+    --fade-in:
+        transparent 0, rgb(0 0 0 / 16%) calc(var(--fade) * 0.25), rgb(0 0 0 / 50%) calc(var(--fade) * 0.5),
+        rgb(0 0 0 / 84%) calc(var(--fade) * 0.75), #000 var(--fade);
+    --fade-out:
+        #000 calc(100% - var(--fade)), rgb(0 0 0 / 84%) calc(100% - var(--fade) * 0.75),
+        rgb(0 0 0 / 50%) calc(100% - var(--fade) * 0.5), rgb(0 0 0 / 16%) calc(100% - var(--fade) * 0.25),
+        transparent 100%;
+}
+/* Two intersected linear fades give a box-shaped falloff that follows the trackpad's rectangle. */
 .dots {
+    --fade: 2.5rem;
     height: 100%;
-    border-radius: var(--radius);
+    -webkit-mask-image:
+        linear-gradient(to right, var(--fade-in), var(--fade-out)),
+        linear-gradient(to bottom, var(--fade-in), var(--fade-out));
+    mask-image:
+        linear-gradient(to right, var(--fade-in), var(--fade-out)),
+        linear-gradient(to bottom, var(--fade-in), var(--fade-out));
+    -webkit-mask-composite: source-in;
     background-image: radial-gradient(circle, rgb(255 255 255 / 10%) 0.045rem, transparent 0.065rem);
     background-position: -0.25rem -0.375rem;
     background-size: 1.5rem 1.5rem;
+    mask-composite: intersect;
 }
 .mouse-left,
 .mouse-right {
@@ -224,11 +253,18 @@ pointer-pad {
     content: '';
 }
 scroll-rail {
+    --fade: 35%;
     display: block;
     position: relative;
     min-width: 0;
     min-height: 0;
     overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, var(--fade-in), var(--fade-out));
+    mask-image: linear-gradient(to bottom, var(--fade-in), var(--fade-out));
+}
+scroll-rail[axis='x'] {
+    -webkit-mask-image: linear-gradient(to right, var(--fade-in), var(--fade-out));
+    mask-image: linear-gradient(to right, var(--fade-in), var(--fade-out));
 }
 .rail-viewport {
     position: absolute;
@@ -267,6 +303,18 @@ scroll-rail[axis='x'] .rail-content {
     flex: none;
     min-height: 0;
 }
+.input-dock.is-morphing {
+    overflow: hidden;
+}
+/* Focused before the layout moves so the phone keyboard opens within the tap; invisible until then. */
+.input-dock.editor-pending text-editor {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    opacity: 0;
+    pointer-events: none;
+}
 key-rows {
     display: flex;
     flex-direction: column;
@@ -276,6 +324,11 @@ key-rows {
 .key-row {
     display: flex;
     gap: var(--space-1);
+}
+.mouse-left,
+.mouse-right,
+#editor-open {
+    --press-scale: 0.97;
 }
 .key-row button {
     flex: 1;
@@ -371,6 +424,7 @@ textarea {
     background: linear-gradient(110deg, #202020, #191919);
     box-shadow: 0 0.5rem 2rem #0006;
     font-size: 0.75rem;
+    touch-action: pan-y;
 }
 .options label {
     display: flex;
@@ -394,11 +448,51 @@ textarea {
 #options-dismiss {
     z-index: 4;
     position: absolute;
-    inset: 2.75rem 0 0;
+    inset: 0;
+    transform: none;
     border: 0;
     border-radius: 0;
-    background: transparent;
+    background: rgb(0 0 0 / 60%);
     opacity: 1;
+}
+.scale-setting {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--space-3) 0 var(--space-4);
+    gap: var(--space-2);
+}
+.stepper {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+.stepper button {
+    width: 2.25rem;
+    height: 2.25rem;
+    border: none;
+    border-radius: 999rem;
+}
+.stepper output {
+    min-width: 2.75rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+.options-action {
+    justify-content: flex-start;
+    width: calc(100% - 2 * var(--space-2));
+    height: 2.25rem;
+    margin: 0 var(--space-2);
+    padding: 0 var(--space-2);
+    gap: 0.625rem;
+    border: none;
+    border-radius: var(--radius-small);
+    color: var(--text);
+}
+.options-action svg {
+    width: 1.125rem;
+    height: 1.125rem;
 }
 .speed-setting {
     padding: 0 var(--space-4);
@@ -556,6 +650,12 @@ textarea {
     }
     :root {
         --transition: 0ms;
+        --layout-transition: 0ms;
+    }
+    button:active,
+    button.is-pressed,
+    button.is-held {
+        transform: none;
     }
 }
 @media (max-height: 22rem) {

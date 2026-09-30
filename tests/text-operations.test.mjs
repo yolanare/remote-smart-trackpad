@@ -52,3 +52,8 @@ test('a large committed paste is split into whole-character operations', () => {
     }
     assert.equal(applied, target);
 });
+test('a new line typed next to another is placed at the caret', () => {
+    assert.deepEqual(replacementFor('abc\n', 'abc\n\n', 4), { start: 3, end: 3, text: '\n', position: 4 });
+    assert.deepEqual(replacementFor('abc\n\n', 'abc\n', 3), { start: 3, end: 4, text: '', position: 3 });
+    assert.deepEqual(replacementFor('aa', 'aaa', 1), { start: 0, end: 0, text: 'a', position: 1 });
+});

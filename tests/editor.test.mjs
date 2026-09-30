@@ -85,3 +85,16 @@ test('unavailable fields clear the mirror but keep the editor open', async () =>
     assert.equal(h.changes.at(-1).open, true);
     assert.equal(h.changes.at(-1).available, false);
 });
+test('a failed edit rereads the PC so typing resumes without refocusing', async () => {
+    const h = harness();
+    h.mirror.open();
+    await h.reply(snapshot('ab\n\nc'));
+    h.mirror.input('ab\n\n', 4, 4);
+    h.requests.shift().reject(new Error('PC text range differs'));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.changes.at(-1).available, false);
+    h.mirror.poll();
+    assert.equal(h.requests[0].data.session, undefined, 'the poll must not ask for "unchanged"');
+    await h.reply(snapshot('ab\n\nc'));
+    assert.equal(h.changes.at(-1).available, true);
+});

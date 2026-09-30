@@ -29,6 +29,8 @@ const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'Win']);
 class KeyRows extends HTMLElement {
     held = new Set();
     sticky = false;
+    playing = null;
+    muted = null;
     connectedCallback() {
         if (this.firstChild) return;
         for (const [name, keys] of Object.entries(rows)) {
@@ -53,7 +55,7 @@ class KeyRows extends HTMLElement {
                 if (glyph) button.append(icon(glyph));
                 else button.textContent = label;
                 if (key === 'Delete') button.classList.add('forward-delete');
-                if (modifierKeys.has(key)) button.setAttribute('aria-pressed', 'false');
+                if (modifierKeys.has(key) || key === 'VolumeMute') button.setAttribute('aria-pressed', 'false');
                 button.addEventListener('pointerdown', (event) => event.preventDefault());
                 button.addEventListener('click', () => {
                     if (modifierKeys.has(key)) {
@@ -68,6 +70,8 @@ class KeyRows extends HTMLElement {
                         this.updatePressed();
                         return;
                     }
+                    if (key === 'PlayPause' && this.playing != null) this.media({ playing: !this.playing });
+                    if (key === 'VolumeMute' && this.muted != null) this.media({ muted: !this.muted });
                     const modifiers = [...this.held];
                     if (['C', 'V', 'X'].includes(key) && !modifiers.includes('Control')) modifiers.push('Control');
                     this.dispatchEvent(
@@ -84,9 +88,21 @@ class KeyRows extends HTMLElement {
         }
     }
     updatePressed() {
-        this.querySelectorAll('[aria-pressed]').forEach((button) =>
-            button.setAttribute('aria-pressed', String(this.held.has(button.dataset.key)))
-        );
+        for (const key of modifierKeys)
+            this.querySelector(`[data-key="${key}"]`).setAttribute('aria-pressed', String(this.held.has(key)));
+    }
+    /** Mirrors the PC's playback and mute state; null leaves a value unknown. */
+    media({ playing = this.playing, muted = this.muted }) {
+        this.playing = playing;
+        this.muted = muted;
+        const play = this.querySelector('[data-key="PlayPause"]');
+        const next = playing ? 'pause' : 'play';
+        if (play.dataset.glyph !== next) {
+            play.dataset.glyph = next;
+            play.replaceChildren(icon(next));
+            play.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+        }
+        this.querySelector('[data-key="VolumeMute"]').setAttribute('aria-pressed', String(muted === true));
     }
     reset() {
         for (const key of this.held)

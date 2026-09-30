@@ -55,11 +55,27 @@
                 </div>
             </div>
             <button id="options-dismiss" aria-label="Close options" tabindex="-1" hidden></button>
+            <!-- Option defaults live in these attributes; values stored on the phone override them. -->
             <div id="options" class="options" role="region" aria-label="Options" hidden>
                 <label
                     ><input type="checkbox" name="mouseSliding" /><span class="checkbox" data-icon="check"></span>Mouse
                     sliding</label
                 >
+                <div class="speed-setting">
+                    <label for="mouse-acceleration"
+                        >Mouse acceleration
+                        <output id="mouse-acceleration-value" for="mouse-acceleration">1×</output></label
+                    >
+                    <input
+                        id="mouse-acceleration"
+                        name="mouseAcceleration"
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="0.25"
+                        value="1"
+                    />
+                </div>
                 <div class="speed-setting">
                     <label for="mouse-speed"
                         >Mouse speed <output id="mouse-speed-value" for="mouse-speed">1×</output></label
@@ -82,6 +98,23 @@
                 </div>
                 <hr />
                 <label
+                    ><input type="checkbox" name="invertMouseX" /><span class="checkbox" data-icon="check"></span>Invert
+                    mouse X</label
+                >
+                <label
+                    ><input type="checkbox" name="invertMouseY" /><span class="checkbox" data-icon="check"></span>Invert
+                    mouse Y</label
+                >
+                <label
+                    ><input type="checkbox" name="invertScrollX" /><span class="checkbox" data-icon="check"></span
+                    >Invert scroll X</label
+                >
+                <label
+                    ><input type="checkbox" name="invertScrollY" /><span class="checkbox" data-icon="check"></span
+                    >Invert scroll Y</label
+                >
+                <hr />
+                <label
                     ><input type="checkbox" name="functions" /><span class="checkbox" data-icon="check"></span>Show
                     Function keys rows</label
                 >
@@ -90,18 +123,47 @@
                     keys row</label
                 >
                 <label
-                    ><input type="checkbox" name="edit" /><span class="checkbox" data-icon="check"></span>Show edit keys
-                    row</label
+                    ><input type="checkbox" name="edit" checked /><span class="checkbox" data-icon="check"></span>Show
+                    edit keys row</label
                 >
                 <label
-                    ><input type="checkbox" name="modifiers" /><span class="checkbox" data-icon="check"></span>Show
-                    modifier keys row</label
+                    ><input type="checkbox" name="modifiers" checked /><span class="checkbox" data-icon="check"></span
+                    >Show modifier keys row</label
                 >
                 <hr />
                 <label
                     ><input type="checkbox" name="sticky" /><span class="checkbox" data-icon="check"></span>Sticky
                     modifier keys</label
                 >
+                <hr />
+                <div class="scale-setting">
+                    <span id="ui-scale-label">Interface scale</span>
+                    <div
+                        class="stepper"
+                        role="group"
+                        aria-labelledby="ui-scale-label"
+                        data-steps="0.25 0.33 0.5 0.67 0.75 0.8 0.9 1 1.1 1.25 1.5 1.75 2 2.5 3 4 5 6 8"
+                    >
+                        <button
+                            type="button"
+                            aria-label="Decrease interface scale"
+                            data-step="-1"
+                            data-icon="minus"
+                        ></button>
+                        <output id="ui-scale-value" for="ui-scale" aria-live="polite">1×</output>
+                        <button
+                            type="button"
+                            aria-label="Increase interface scale"
+                            data-step="1"
+                            data-icon="plus"
+                        ></button>
+                    </div>
+                    <input id="ui-scale" name="uiScale" type="hidden" min="0.25" max="8" value="1" />
+                </div>
+                <hr />
+                <button id="options-reset" class="options-action" type="button">
+                    <span data-icon="reset"></span>Reset options to defaults
+                </button>
             </div>
         </main>
         <script src="/app.js" type="module"></script>

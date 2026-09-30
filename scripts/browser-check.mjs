@@ -182,7 +182,7 @@ try {
         ),
         [8, 24]
     );
-    await evaluate(`for (const [id, value] of [['mouse-speed', 2], ['scroll-speed', 0.5]]) {
+    await evaluate(`for (const [id, value] of [['mouse-acceleration', 0], ['mouse-speed', 2], ['scroll-speed', 0.5]]) {
         const input = document.getElementById(id); input.value = value; input.dispatchEvent(new Event('input', { bubbles: true }));
     }`);
     const scaledMotion = await evaluate(`(async () => {
@@ -293,10 +293,11 @@ try {
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
     await evaluate("document.querySelector('#editor-close').click()");
-    assert.equal(await evaluate("document.querySelector('text-editor').hidden"), true);
+    await waitFor("document.querySelector('text-editor').hidden");
     await evaluate(
         "const input = document.querySelector('[name=modifiers]'); input.checked = false; input.dispatchEvent(new Event('change')); document.querySelector('#editor-open').click()"
     );
+    await waitFor("document.querySelector('.app').classList.contains('editing')");
     assert.equal(await evaluate("[...document.querySelectorAll('.key-row')].filter(row => !row.hidden).length"), 0);
     const scroll = await evaluate(
         "(() => { const rail = document.querySelector('scroll-rail[axis=y] .rail-viewport'); const before = rail.scrollTop; rail.scrollTop += 300; return { before, after: rail.scrollTop, native: getComputedStyle(rail).overflowY }; })()"

@@ -46,3 +46,16 @@ export function createMotion(send, onError) {
         },
     };
 }
+
+/**
+ * Pointer gain for a finger speed in CSS px/ms. A smoothstep S-curve eases from a damped precision gain for slow
+ * strokes to an amplified gain for flicks, like Windows' "Enhance pointer precision" and libinput's adaptive profile
+ * (https://wayland.freedesktop.org/libinput/doc/latest/pointer-acceleration.html). Strength 0 disables it; the gain
+ * is raised to the strength so stronger settings widen both ends without going negative.
+ */
+export function pointerGain(speed, strength) {
+    if (!strength) return 1;
+    const progress = Math.min(Math.max((speed - 0.1) / 1.5, 0), 1);
+    const eased = progress * progress * (3 - 2 * progress);
+    return (0.5 + eased * 2) ** strength;
+}

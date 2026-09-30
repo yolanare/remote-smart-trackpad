@@ -20,6 +20,20 @@ export function replacementFor(previous, current, position) {
         && previous[previous.length - 1 - suffix] === current[current.length - 1 - suffix]
     )
         suffix++;
+    // With repeated neighbours ("\n" typed after "\n") a pure insertion or deletion could sit at several places; slide
+    // it back to the caret so the PC can apply it where its caret already is.
+    const inserted = current.length - previous.length;
+    if (Number.isInteger(position) && previous.length - suffix === start) {
+        while (start > 0 && start + inserted > position && previous[start - 1] === current[start - 1 + inserted]) {
+            start--;
+            suffix++;
+        }
+    } else if (Number.isInteger(position) && current.length - suffix === start) {
+        while (start > position && previous[start - 1] === previous[previous.length - suffix - 1]) {
+            start--;
+            suffix++;
+        }
+    }
     start = Math.min(boundaryBefore(previous, start), boundaryBefore(current, start));
     let end = boundaryAfter(previous, previous.length - suffix);
     let currentEnd = boundaryAfter(current, current.length - suffix);
