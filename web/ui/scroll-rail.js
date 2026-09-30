@@ -1,3 +1,5 @@
+import { tick } from './haptics.js';
+
 export class ScrollRail extends HTMLElement {
     #sliding = true;
     #viewport = null;
@@ -36,7 +38,22 @@ export class ScrollRail extends HTMLElement {
         // speed: smoothed scroll velocity in CSS px/ms, like the trackpad's finger speed, for scroll acceleration.
         let speed = 0,
             lastEmit = 0;
+        // Scroll haptics: a light tick each time a tick mark reaches the middle of the rail. At rest (center) a mark
+        // sits there, so marks pass it at every whole period from the center; recentering jumps by whole periods and
+        // re-bases the count instead of ticking. At most one tick per 30ms, so a fast fling stays a light buzz.
+        const mark = () => Math.floor((viewport[property] - center()) / ticks().period);
+        let lastMark = null,
+            lastTick = 0;
+        const feel = () => {
+            const current = mark();
+            if (lastMark !== null && current !== lastMark && performance.now() - lastTick > 30) {
+                lastTick = performance.now();
+                tick(4, 'scroll');
+            }
+            lastMark = current;
+        };
         const emit = (delta) => {
+            feel();
             const now = performance.now(),
                 elapsed = now - lastEmit;
             const blend = elapsed > 100 ? 1 : 0.5;
@@ -69,6 +86,7 @@ export class ScrollRail extends HTMLElement {
             resetting = true;
             viewport[property] = center() + ((((previous - center()) % period) + period) % period);
             previous = viewport[property];
+            lastMark = mark();
             requestAnimationFrame(() => {
                 resetting = false;
             });

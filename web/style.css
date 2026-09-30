@@ -78,6 +78,10 @@ button {
  * hover (real pointers only). Press feedback comes from .is-pressed / .is-held, set by app.js around each touch;
  * :active is left to mouse pointers because mobile browsers can keep it after a tap, so a released button looked on.
  */
+/* iOS haptics come from a native switch laid over the button (haptics.js); without it, taps reach the button. */
+:root[data-no-button-haptics] [data-haptic-trigger] {
+    display: none;
+}
 /* Push: press in fast, spring back slower. */
 button.is-pressed,
 button.is-held {

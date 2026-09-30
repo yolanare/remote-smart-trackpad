@@ -3,7 +3,7 @@ import './ui/pointer-pad.js';
 import './ui/key-rows.js';
 import './ui/text-editor.js';
 import { addIcons } from './ui/icons.js';
-import { attachHaptics, tick } from './ui/haptics.js';
+import { attachHaptics, setHaptics, tick } from './ui/haptics.js';
 import { createConnection } from './logic/connection.js';
 import { createMirror } from './logic/mirror.js';
 import { createMotion, pointerGain } from './logic/motion.js';
@@ -96,10 +96,13 @@ let editing = false,
     shownEditing = false,
     switching = false,
     morphs = 0;
+const applyHaptics = () =>
+    setHaptics({ button: settings.buttonHaptics !== false, scroll: settings.scrollHaptics !== false });
 function applyLayout() {
     pad.sliding = settings.mouseSliding === true;
     pad.edgeMotion = settings.edgeMotion === true;
     pad.scrollSliding = settings.scrollSliding !== false;
+    applyHaptics();
     app.classList.toggle('editing', shownEditing);
     $('#editor-open').hidden = shownEditing;
     $('#editor-close').hidden = !shownEditing;
@@ -441,10 +444,12 @@ editor.firstElementChild.addEventListener('beforeinput', (event) => {
     if (!rows.sticky) rows.reset();
 });
 $('#editor-open').addEventListener('click', () => {
+    tick();
     mirror.open();
     editor.focus();
 });
 $('#editor-close').addEventListener('click', () => {
+    tick();
     editor.blur();
     mirror.close();
     rows.reset();
@@ -489,7 +494,12 @@ function setMenu(open) {
         menu.hidden = backdrop.hidden = !open;
     };
 }
-toggle.addEventListener('click', () => setMenu(toggle.getAttribute('aria-expanded') !== 'true'));
+toggle.addEventListener('click', () => {
+    const open = toggle.getAttribute('aria-expanded') !== 'true';
+    // Opening ticks, closing stays silent.
+    if (open) tick();
+    setMenu(open);
+});
 backdrop.addEventListener('click', () => setMenu(false));
 document.addEventListener('keydown', (event) => {
     // Escape inside the reset confirmation only closes the dialog.
@@ -568,6 +578,8 @@ for (const input of fields) {
     if (input.type === 'checkbox')
         input.addEventListener('change', () => {
             settings[input.name] = input.checked;
+            // After applying, so turning button haptics on ticks and turning them off does not.
+            applyHaptics();
             tick();
             saveSettings();
             rows.reset({ force: true });

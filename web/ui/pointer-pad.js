@@ -220,6 +220,7 @@ class PointerPad extends HTMLElement {
             button.addEventListener('pointerdown', (event) => {
                 event.preventDefault();
                 if (last) return;
+                tick();
                 button.setPointerCapture(event.pointerId);
                 last = { x: event.clientX, y: event.clientY, time: performance.now() };
                 if (this.holding) return setLatched(button, !latched.has(button));
