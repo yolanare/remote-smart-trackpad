@@ -548,7 +548,7 @@ key-rows {
     display: flex;
     flex: var(--keys, 1) 1 0;
     min-width: 0;
-    --key-height: 2.5rem;
+    --key-height: 2.75rem;
     --group-radius: var(--radius);
     border: var(--stroke) solid var(--border);
     border-radius: var(--group-radius);
@@ -579,14 +579,14 @@ key-rows {
     flex: none;
     align-self: stretch;
     width: var(--stroke);
-    margin: 0.5rem 0;
+    margin: 0.8rem 0;
     border: 0;
-    background: var(--border);
+    background: var(--surface);
 }
 /* Function keys: one container, several lines; only vertical rules, the gaps they leave show the lines. */
 .function-keys {
     flex-direction: column;
-    --key-height: 1.875rem;
+    --key-height: 2rem;
 }
 .key-line {
     display: flex;
@@ -595,7 +595,7 @@ key-rows {
     height: var(--key-height);
 }
 .function-keys .key-separator {
-    margin: 0.375rem 0;
+    margin: 0.6rem 0;
 }
 .forward-delete svg {
     transform: scaleX(-1);

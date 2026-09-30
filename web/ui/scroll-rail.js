@@ -43,9 +43,9 @@ export class ScrollRail extends HTMLElement {
         // and re-bases the count instead of ticking. The Vibration API has no intensity, only a duration, so the
         // shortest pulse is the most discreet. Capped so fast scrolling never turns into a buzz: at most one tick per
         // 70ms (about 14 per second), and none at all above fling speed.
-        const tickPulse = 2,
-            tickGap = 70,
-            tickMaxSpeed = 1; // CSS px/ms, about 30 marks per second
+        const tickPulse = 1,
+            tickGap = 20,
+            tickMaxSpeed = 20; // CSS px/ms
         const mark = () => Math.floor((viewport[property] - center()) / ticks().period);
         let lastMark = null,
             lastTick = 0;
