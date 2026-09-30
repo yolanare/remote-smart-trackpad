@@ -306,23 +306,59 @@ document.addEventListener('pointerdown', () => pad.stopSliding(), { capture: tru
 // Press feedback for everything tappable: buttons, option rows and segments (labels), links, disclosures. The
 // pressed class is reliable on touch (:active can stick or never show) and held for a short beat, so quick taps still
 // visibly press. A slider's own label only names it, so it has no press state.
+// Inside something that scrolls (the options menu), a touch may be the start of a scroll: like native lists, the
+// press (and its vibration) waits a beat and is dropped if the finger moves or the browser takes over to scroll.
 const pressable = 'button, label:not(.speed-setting label), a[href], summary';
+const pressDelay = 100,
+    pressSlop = 8;
 const pressed = new Map();
+const inScroller = (element) => {
+    for (let node = element.parentElement; node; node = node.parentElement) {
+        const { overflowX, overflowY } = getComputedStyle(node);
+        if (/auto|scroll/.test(overflowY) && node.scrollHeight > node.clientHeight) return true;
+        if (/auto|scroll/.test(overflowX) && node.scrollWidth > node.clientWidth) return true;
+    }
+    return false;
+};
+const showPress = (entry) => {
+    if (entry.shown) return;
+    entry.shown = true;
+    entry.at = performance.now();
+    entry.element.classList.add('is-pressed');
+    tick();
+};
 document.addEventListener(
     'pointerdown',
     (event) => {
         const element = event.target.closest?.(pressable);
         if (!element || element.disabled) return;
-        element.classList.add('is-pressed');
-        tick();
-        pressed.set(event.pointerId, { element, at: performance.now() });
+        const entry = { element, x: event.clientX, y: event.clientY, shown: false };
+        pressed.set(event.pointerId, entry);
+        if (event.pointerType !== 'mouse' && inScroller(element))
+            entry.timer = setTimeout(() => showPress(entry), pressDelay);
+        else showPress(entry);
     },
     { capture: true }
+);
+document.addEventListener(
+    'pointermove',
+    (event) => {
+        const entry = pressed.get(event.pointerId);
+        if (!entry || entry.shown) return;
+        if (Math.hypot(event.clientX - entry.x, event.clientY - entry.y) < pressSlop) return;
+        clearTimeout(entry.timer);
+        pressed.delete(event.pointerId);
+    },
+    { capture: true, passive: true }
 );
 const unpress = (event) => {
     const entry = pressed.get(event.pointerId);
     if (!entry) return;
     pressed.delete(event.pointerId);
+    clearTimeout(entry.timer);
+    // A quick tap lifts before the delay: it still presses. A scroll (pointercancel) never does.
+    if (event.type === 'pointerup') showPress(entry);
+    if (!entry.shown) return;
     setTimeout(() => entry.element.classList.remove('is-pressed'), Math.max(0, 90 - (performance.now() - entry.at)));
     // A tapped control gives focus back once its click ran, so it never lingers looking active.
     if (event.pointerType !== 'mouse')
