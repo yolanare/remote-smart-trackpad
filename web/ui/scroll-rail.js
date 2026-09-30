@@ -38,27 +38,33 @@ export class ScrollRail extends HTMLElement {
         // speed: smoothed scroll velocity in CSS px/ms, like the trackpad's finger speed, for scroll acceleration.
         let speed = 0,
             lastEmit = 0;
-        // Scroll haptics: a light tick each time a tick mark reaches the middle of the rail. At rest (center) a mark
-        // sits there, so marks pass it at every whole period from the center; recentering jumps by whole periods and
-        // re-bases the count instead of ticking. At most one tick per 30ms, so a fast fling stays a light buzz.
+        // Scroll haptics: a very light tick each time a tick mark reaches the middle of the rail. At rest (center) a
+        // mark sits there, so marks pass it at every whole period from the center; recentering jumps by whole periods
+        // and re-bases the count instead of ticking. The Vibration API has no intensity, only a duration, so the
+        // shortest pulse is the most discreet. Capped so fast scrolling never turns into a buzz: at most one tick per
+        // 70ms (about 14 per second), and none at all above fling speed.
+        const tickPulse = 2,
+            tickGap = 70,
+            tickMaxSpeed = 1; // CSS px/ms, about 30 marks per second
         const mark = () => Math.floor((viewport[property] - center()) / ticks().period);
         let lastMark = null,
             lastTick = 0;
         const feel = () => {
-            const current = mark();
-            if (lastMark !== null && current !== lastMark && performance.now() - lastTick > 30) {
-                lastTick = performance.now();
-                tick(4, 'scroll');
+            const current = mark(),
+                now = performance.now();
+            if (lastMark !== null && current !== lastMark && speed <= tickMaxSpeed && now - lastTick > tickGap) {
+                lastTick = now;
+                tick(tickPulse, 'scroll');
             }
             lastMark = current;
         };
         const emit = (delta) => {
-            feel();
             const now = performance.now(),
                 elapsed = now - lastEmit;
             const blend = elapsed > 100 ? 1 : 0.5;
             speed = speed * (1 - blend) + (Math.abs(delta) / Math.max(1, elapsed)) * blend;
             lastEmit = now;
+            feel();
             this.dispatchEvent(
                 new CustomEvent('motion', {
                     bubbles: true,
