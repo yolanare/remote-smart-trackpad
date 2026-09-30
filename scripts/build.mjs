@@ -1,5 +1,6 @@
 import { build, context } from 'esbuild';
 import { readFile, writeFile, rm } from 'node:fs/promises';
+import { watch } from 'node:fs';
 const watching = process.argv.includes('--watch');
 const revisionFile = 'web/dist/dev-build.json';
 const options = {
@@ -38,8 +39,17 @@ const options = {
 if (watching) {
     const watcher = await context(options);
     await watcher.watch();
+    // esbuild only watches files the bundle imports, and polls them; every save anywhere in web/ (HTML, setup and
+    // trust pages, service worker, manifest…) must rebuild too, so open pages reload through dev-build.json.
+    let pending;
+    const files = watch('web', { recursive: true }, (event, name) => {
+        if (!name || /^dist([\\/]|$)/.test(name)) return;
+        clearTimeout(pending);
+        pending = setTimeout(() => watcher.rebuild().catch(() => {}), 80);
+    });
     for (const signal of ['SIGINT', 'SIGTERM'])
         process.once(signal, async () => {
+            files.close();
             await watcher.dispose();
             process.exit(0);
         });
