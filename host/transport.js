@@ -135,6 +135,7 @@ export function createTransport({ authorized, hasAccess, command, available }) {
                             'release',
                             'text',
                             'media-state',
+                            'glide',
                             'mirror-read',
                             'mirror-edit',
                             'mirror-close',

@@ -62,6 +62,55 @@ public static class NativeInput {
 
 // Inserts text by pasting it, so line breaks become real paragraph breaks and never press Enter. The user's
 // clipboard is saved first and restored by Restore once the paste has landed.
+// Edge motion: the phone sends a velocity and the pointer glides here, on a ~8 ms timer, so the motion is smooth
+// whatever the network latency. The phone renews the velocity every 100 ms; without news for 300 ms the glide
+// stops on its own, so a dropped connection never leaves the pointer moving.
+public static class Glider {
+    [DllImport("winmm.dll")] static extern uint timeBeginPeriod(uint period);
+    [DllImport("winmm.dll")] static extern uint timeEndPeriod(uint period);
+    static readonly object gate = new object();
+    static System.Threading.Thread worker;
+    static readonly System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
+    static double velocityX, velocityY, deadline;
+    public static long Moved;
+
+    /** Velocity in pixels per millisecond; zero stops. */
+    public static void Set(double x, double y) {
+        lock (gate) {
+            velocityX = x; velocityY = y;
+            deadline = clock.Elapsed.TotalMilliseconds + 300;
+            if ((x == 0 && y == 0) || worker != null) return;
+            worker = new System.Threading.Thread(Run) { IsBackground = true, Priority = System.Threading.ThreadPriority.AboveNormal };
+            worker.Start();
+        }
+    }
+    public static void Stop() { lock (gate) { velocityX = velocityY = 0; deadline = 0; } }
+    // A steady 8 ms cadence (the finer system timer makes Sleep(1) precise), with sub-pixel remainders carried over.
+    static void Run() {
+        timeBeginPeriod(1);
+        try {
+            double carryX = 0, carryY = 0, last = clock.Elapsed.TotalMilliseconds, next = last + 8;
+            while (true) {
+                double now = clock.Elapsed.TotalMilliseconds;
+                if (now < next) { System.Threading.Thread.Sleep(1); continue; }
+                next += 8;
+                if (next < now) next = now + 8;
+                double vx, vy;
+                lock (gate) {
+                    if (now > deadline || (velocityX == 0 && velocityY == 0)) { worker = null; return; }
+                    vx = velocityX; vy = velocityY;
+                }
+                double elapsed = Math.Min(50, now - last);
+                last = now;
+                carryX += vx * elapsed; carryY += vy * elapsed;
+                int dx = (int)Math.Round(carryX), dy = (int)Math.Round(carryY);
+                carryX -= dx; carryY -= dy;
+                if ((dx != 0 || dy != 0) && NativeInput.MoveBy(dx, dy)) Moved += Math.Abs(dx) + Math.Abs(dy);
+            }
+        } finally { timeEndPeriod(1); }
+    }
+}
+
 public static class ClipboardText {
     [DllImport("user32.dll")] static extern bool OpenClipboard(IntPtr owner);
     [DllImport("user32.dll")] static extern bool CloseClipboard();
@@ -239,6 +288,7 @@ function Insert-Text([string]$text) {
     try { Tap-Key 'V' } finally { if ($control) { Send-Key 'Control' $false } }
 }
 function Release-All {
+    [Glider]::Stop()
     foreach ($name in @($held)) {
         if ($buttons.ContainsKey($name)) { [void][NativeInput]::Mouse($buttons[$name][1]) }
         elseif ($keyCodes.ContainsKey($name)) { [void][NativeInput]::Key($keyCodes[$name], $false) }

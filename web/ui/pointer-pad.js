@@ -1,9 +1,16 @@
 import './scroll-rail.js';
 import { icon } from './icons.js';
+import { createEdgeMotion } from './edge-motion.js';
 
 class PointerPad extends HTMLElement {
     holding = false;
     slidingEnabled = false;
+    #edgeMotion = false;
+    /** Keep moving the pointer while a dragging finger rests near a screen edge (see edge-motion.js). */
+    set edgeMotion(value) {
+        this.#edgeMotion = value;
+        if (!value) this.edges?.end();
+    }
     slideFrame = 0;
     set sliding(value) {
         if (this.slidingEnabled && !value) this.stopSliding();
@@ -50,14 +57,23 @@ class PointerPad extends HTMLElement {
         const command = (detail) => this.dispatchEvent(new CustomEvent('command', { bubbles: true, detail }));
         const click = () => command({ action: 'click', data: { button: 'left' } });
         // speed is the smoothed finger velocity in CSS px/ms, used for pointer acceleration.
-        const move = (dx, dy, speed) => {
+        const shiftPattern = (dx, dy) => {
             const unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
             patternX = (patternX + dx) % (1.5 * unit);
             patternY = (patternY + dy) % (1.5 * unit);
             this.querySelector('.dots').style.backgroundPosition =
                 `calc(50% + ${patternX / unit}rem) calc(50% + ${patternY / unit}rem)`;
+        };
+        const move = (dx, dy, speed) => {
+            shiftPattern(dx, dy);
             this.dispatchEvent(new CustomEvent('motion', { bubbles: true, detail: { action: 'move', dx, dy, speed } }));
         };
+        const edges = (this.edges = createEdgeMotion({
+            glide: (vx, vy, speed) =>
+                this.dispatchEvent(new CustomEvent('edge-glide', { bubbles: true, detail: { vx, vy, speed } })),
+            animate: shiftPattern,
+        }));
+        const dragAt = (event) => this.#edgeMotion && edges.update(event.clientX, event.clientY);
         const flushTap = () => {
             if (!pendingTap) return;
             clearTimeout(pendingTap.timer);
@@ -73,6 +89,7 @@ class PointerPad extends HTMLElement {
         };
         this.cancelGesture = () => {
             this.stopSliding();
+            edges.end();
             this.releaseButtons?.();
             flushTap();
             setDragging(false);
@@ -135,13 +152,16 @@ class PointerPad extends HTMLElement {
                 if (!moved) return;
                 setDragging(true);
                 for (const delta of buffered.splice(0)) move(...delta);
+                dragAt(event);
                 return;
             }
             move(dx, dy, speed);
+            dragAt(event);
         });
         pad.addEventListener('pointerup', (event) => {
             if (event.pointerId !== pointer) return;
             pointer = null;
+            edges.end();
             const tap = !moved && performance.now() - startTime < tapDuration;
             if (dragging) setDragging(false);
             else if (secondTouch) {
@@ -189,19 +209,23 @@ class PointerPad extends HTMLElement {
         };
         hold.addEventListener('click', () => this.setHolding(!this.holding));
         this.querySelectorAll('[data-button]').forEach((button) => {
+            // held: the finger holds the button down (outside hold mode). last: the finger is down and followed, in
+            // both modes, so a press can drag the pointer (in hold mode the button then stays latched after lifting).
             let held = false,
                 last = null;
             button.addEventListener('pointerdown', (event) => {
                 event.preventDefault();
-                if (this.holding) return setLatched(button, !latched.has(button));
-                if (held) return;
+                if (last) return;
                 button.setPointerCapture(event.pointerId);
-                held = true;
                 last = { x: event.clientX, y: event.clientY, time: performance.now() };
+                if (this.holding) return setLatched(button, !latched.has(button));
+                held = true;
                 button.classList.add('is-held');
                 command({ action: 'button', data: { button: button.dataset.button, down: true } });
             });
             const release = () => {
+                edges.end();
+                last = null;
                 if (held) {
                     held = false;
                     button.classList.remove('is-held');
@@ -211,13 +235,14 @@ class PointerPad extends HTMLElement {
             // Dragging from a held button moves the pointer too: click-and-drag with one finger (left: select or move,
             // right: context gestures, middle: panning or autoscroll).
             button.addEventListener('pointermove', (event) => {
-                if (!held || !last) return;
+                if (!last) return;
                 const dx = event.clientX - last.x,
                     dy = event.clientY - last.y,
                     now = performance.now();
                 if (!dx && !dy) return;
                 move(dx, dy, Math.hypot(dx, dy) / Math.max(1, now - last.time));
                 last = { x: event.clientX, y: event.clientY, time: now };
+                dragAt(event);
             });
             button.addEventListener('pointerup', release);
             button.addEventListener('pointercancel', release);

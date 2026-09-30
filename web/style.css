@@ -591,6 +591,8 @@ textarea {
         var(--viewport-height, 100dvh) - 3rem - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--space-4)
     );
     padding: var(--space-3) 0;
+    /* optical alignement, same empty space as the very bottom buttons that have vertical padding */
+    padding-top: var(--space-5);
     overflow-y: auto;
     overscroll-behavior: contain;
     border-radius: calc(1rem * var(--corner));
@@ -672,6 +674,69 @@ textarea {
     border-color: transparent;
     background: var(--danger);
     color: var(--on-danger);
+}
+/* Edge motion (edge-motion.js): bands along the screen edges, shown only while a drag nears them. */
+.edge-motion {
+    z-index: 3;
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+}
+.edge-motion > div {
+    --edge-color: var(--edge-motion);
+    position: absolute;
+    opacity: var(--proximity, 0);
+    transition: opacity 200ms ease-out;
+}
+.edge-motion > .is-active {
+    --edge-color: var(--edge-motion-active);
+}
+/* Eased falloff: opacity follows (1 - t)³, dense against the edge then a long, very soft tail; 16 stops keep the
+   curve free of visible steps. */
+.edge-motion > div {
+    --edge-fade:
+        var(--edge-color) 0%, color-mix(in srgb, var(--edge-color) 82.4%, transparent) 6.25%,
+        color-mix(in srgb, var(--edge-color) 67%, transparent) 12.5%,
+        color-mix(in srgb, var(--edge-color) 53.6%, transparent) 18.75%,
+        color-mix(in srgb, var(--edge-color) 42.2%, transparent) 25%,
+        color-mix(in srgb, var(--edge-color) 32.5%, transparent) 31.25%,
+        color-mix(in srgb, var(--edge-color) 24.4%, transparent) 37.5%,
+        color-mix(in srgb, var(--edge-color) 17.8%, transparent) 43.75%,
+        color-mix(in srgb, var(--edge-color) 12.5%, transparent) 50%,
+        color-mix(in srgb, var(--edge-color) 8.4%, transparent) 56.25%,
+        color-mix(in srgb, var(--edge-color) 5.3%, transparent) 62.5%,
+        color-mix(in srgb, var(--edge-color) 3.1%, transparent) 68.75%,
+        color-mix(in srgb, var(--edge-color) 1.6%, transparent) 75%,
+        color-mix(in srgb, var(--edge-color) 0.7%, transparent) 81.25%,
+        color-mix(in srgb, var(--edge-color) 0.2%, transparent) 87.5%,
+        color-mix(in srgb, var(--edge-color) 0%, transparent) 93.75%, transparent 100%;
+}
+/* Band sizes come from edge-motion.js, which uses the same numbers to detect the zones. */
+.edge-motion-left,
+.edge-motion-right {
+    top: 0;
+    bottom: 0;
+}
+.edge-motion-top,
+.edge-motion-bottom {
+    right: 0;
+    left: 0;
+}
+.edge-motion-left {
+    left: 0;
+    background: linear-gradient(to right, var(--edge-fade));
+}
+.edge-motion-right {
+    right: 0;
+    background: linear-gradient(to left, var(--edge-fade));
+}
+.edge-motion-top {
+    top: 0;
+    background: linear-gradient(to bottom, var(--edge-fade));
+}
+.edge-motion-bottom {
+    bottom: 0;
+    background: linear-gradient(to top, var(--edge-fade));
 }
 #options-dismiss {
     z-index: 4;

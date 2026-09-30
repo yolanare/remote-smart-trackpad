@@ -77,6 +77,11 @@ while ($null -ne ($line = [Console]::ReadLine())) {
                 }
             }
             'media-state' { $result = Get-MediaState }
+            'glide' {
+                $vx = [double]$data.vx; $vy = [double]$data.vy
+                if ([double]::IsNaN($vx) -or [double]::IsNaN($vy) -or [Math]::Abs($vx) -gt 20 -or [Math]::Abs($vy) -gt 20) { throw 'Invalid glide velocity' }
+                [Glider]::Set($vx, $vy)
+            }
             'mirror-read' {
                 $result = Read-Mirror
                 if ($result.available -and $result.session -ceq [string]$data.session -and $result.revision -eq $data.revision) { $result = @{ unchanged=$true } }

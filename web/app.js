@@ -89,6 +89,7 @@ let editing = false,
     morphs = 0;
 function applyLayout() {
     pad.sliding = settings.mouseSliding === true;
+    pad.edgeMotion = settings.edgeMotion === true;
     pad.scrollSliding = settings.scrollSliding !== false;
     app.classList.toggle('editing', shownEditing);
     $('#editor-open').hidden = shownEditing;
@@ -348,6 +349,15 @@ document.addEventListener('motion', (event) => {
     const signX = settings[mouse ? 'invertMouseX' : 'invertScrollX'] ? -1 : 1;
     const signY = settings[mouse ? 'invertMouseY' : 'invertScrollY'] ? -1 : 1;
     motion.add(action, dx * gain * signX, dy * gain * signY);
+});
+// Edge motion sends a velocity; the PC glides the pointer smoothly with the same speed, acceleration and inversion.
+document.addEventListener('edge-glide', (event) => {
+    const { vx, vy, speed } = event.detail;
+    const gain = settings.mouseSpeed * pointerGain(speed, settings.mouseAcceleration);
+    send('glide', {
+        vx: vx * gain * (settings.invertMouseX ? -1 : 1),
+        vy: vy * gain * (settings.invertMouseY ? -1 : 1),
+    }).catch(() => {});
 });
 document.addEventListener('text-input', (event) =>
     mirror.input(event.detail.text, event.detail.start, event.detail.end)
