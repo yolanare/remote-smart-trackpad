@@ -85,6 +85,7 @@ const staticFiles = new Map([
     ['/sw.js', ['sw.js', 'text/javascript']],
     ['/trust', ['trust.html', 'text/html']],
     ['/trust.css', ['trust.css', 'text/css']],
+    ['/tokens.css', ['tokens.css', 'text/css']],
     ['/trust.js', ['trust.js', 'text/javascript']],
     ['/setup', ['setup.html', 'text/html']],
     ['/icon-192.png', ['icon-192.png', 'image/png']],
@@ -94,10 +95,13 @@ const staticFiles = new Map([
     ['/vendor/qrcode.min.js', ['vendor/qrcode.min.js', 'text/javascript']],
 ]);
 
-const isLoopback = (request) =>
-    request.socket.remoteAddress === '127.0.0.1'
-    || request.socket.remoteAddress === '::1'
-    || request.socket.remoteAddress === '::ffff:127.0.0.1';
+// The PC itself: loopback, or one of its own addresses (opening https://<its LAN IP>/setup on the PC arrives from
+// that IP). Other devices cannot originate TCP from the PC's addresses, so phones stay out of setup.
+const isThisPc = (request) => {
+    const address = (request.socket.remoteAddress || '').replace(/^::ffff:/, '');
+    if (address === '127.0.0.1' || address === '::1') return true;
+    return Object.values(networkInterfaces()).some((entries) => entries?.some((entry) => entry.address === address));
+};
 const listeningAddresses = new Set();
 const discoveryStops = new Map();
 const discoveryReady = new Set();
@@ -151,7 +155,7 @@ const server = http.createServer(async (request, response) => {
             || pathname === '/vendor/qrcode.min.js'
             || pathname.startsWith('/api/setup')
         ) {
-            if (!isLoopback(request)) return json(response, 403, { error: 'Setup is available on the PC only' });
+            if (!isThisPc(request)) return json(response, 403, { error: 'Setup is available on the PC only' });
         }
         if (pathname === '/api/setup/tokens') {
             if (request.method === 'GET') return json(response, 200, access.list());
@@ -294,7 +298,11 @@ const secureServer = https.createServer({ cert: tls.cert, key: tls.key }, handle
 secureServer.on('upgrade', handleUpgrade);
 const plainServer = http.createServer((request, response) => {
     const url = new URL(request.url, 'http://localhost');
-    if (['/trust', '/trust.css', '/trust.js', '/remote-smart-trackpad-ca.crt', '/icon-192.png'].includes(url.pathname))
+    if (
+        ['/trust', '/trust.css', '/tokens.css', '/trust.js', '/remote-smart-trackpad-ca.crt', '/icon-192.png'].includes(
+            url.pathname
+        )
+    )
         return handleRequest(request, response);
     response.writeHead(308, { Location: 'https://' + (request.headers.host || '') + request.url });
     response.end();

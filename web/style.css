@@ -1,3 +1,4 @@
+@import './tokens.css';
 @font-face {
     font-style: normal;
     font-weight: 100 900;
@@ -16,41 +17,9 @@
     color-scheme: dark;
     font-size: 100%;
     font-family: Inter, sans-serif;
-    --background: #000;
-    --surface: rgb(255 255 255 / 15%);
-    --border: rgb(255 255 255 / 30%);
-    --muted: rgb(255 255 255 / 60%);
-    --text: rgb(255 255 255 / 80%);
-    --space-1: 0.25rem;
-    --space-2: 0.5rem;
-    --space-3: 0.75rem;
-    --space-4: 1rem;
-    --corner: 1;
-    --radius-small: calc(0.375rem * var(--corner));
-    --radius: calc(0.75rem * var(--corner));
-    --stroke: 1px;
-    --transition: 180ms ease;
-    --layout-transition: 320ms cubic-bezier(0.2, 0, 0, 1);
-    --press-scale: 0.95;
 }
 * {
     box-sizing: border-box;
-}
-/*
- * Superellipse corners where supported (corner-shape, Chromium 139+). A superellipse with the same radius hugs the
- * corner more tightly and reads as less rounded, so every radius is scaled by --corner to keep the corner's inset on
- * the diagonal (where roundness is perceived) equal to the round version: superellipse(1.5) cuts 0.2175r there
- * against 0.2929r for a circle, hence 1.35. A full squircle would need 1.84× and look exaggerated.
- */
-@supports (corner-shape: superellipse(1.5)) {
-    :root {
-        --corner: 1.35;
-    }
-    *,
-    ::before,
-    ::after {
-        corner-shape: superellipse(1.5);
-    }
 }
 [hidden] {
     display: none !important;
@@ -197,7 +166,7 @@ svg {
     background: var(--border);
 }
 #connection:not([data-state='ready']) .status-dot {
-    background: #d2aa68;
+    background: var(--warning);
 }
 #connection-label {
     overflow: hidden;
@@ -244,7 +213,7 @@ pointer-pad {
     transition: grid-template-rows var(--layout-transition);
 }
 .trackpad {
-    --dot-color: rgb(255 255 255 / 10%);
+    --dot-color: var(--dot);
     grid-column: 1 / -1;
     overflow: hidden;
     border: var(--stroke) solid var(--border);
@@ -380,7 +349,7 @@ scroll-rail {
 .mouse-left.is-latched,
 .mouse-right.is-latched,
 .mouse-middle.is-latched .middle-fill {
-    background: rgb(255 255 255 / 22%);
+    background: var(--latched);
     box-shadow: inset 0 0 0 var(--stroke) var(--border);
 }
 /* Middle click between left and right: a little wider than tall so it is easy to hit. */
@@ -625,8 +594,8 @@ textarea {
     overflow-y: auto;
     overscroll-behavior: contain;
     border-radius: calc(1rem * var(--corner));
-    background: linear-gradient(110deg, #202020, #191919);
-    box-shadow: 0 0.5rem 2rem #0006;
+    background: var(--panel);
+    box-shadow: var(--panel-shadow);
     font-size: 0.75rem;
     touch-action: pan-y;
 }
@@ -672,13 +641,13 @@ textarea {
     padding: 1.25rem;
     border: 0;
     border-radius: calc(1rem * var(--corner));
-    background: linear-gradient(110deg, #202020, #191919);
-    box-shadow: 0 0.5rem 2rem #0006;
+    background: var(--panel);
+    box-shadow: var(--panel-shadow);
     color: var(--text);
     font-size: 0.875rem;
 }
 .confirm::backdrop {
-    background: rgb(0 0 0 / 60%);
+    background: var(--overlay);
 }
 .confirm h2 {
     margin: 0 0 var(--space-2);
@@ -701,8 +670,8 @@ textarea {
 }
 .confirm-actions .danger {
     border-color: transparent;
-    background: #e6a1a1;
-    color: #000;
+    background: var(--danger);
+    color: var(--on-danger);
 }
 #options-dismiss {
     z-index: 4;
@@ -711,7 +680,7 @@ textarea {
     transform: none;
     border: 0;
     border-radius: 0;
-    background: rgb(0 0 0 / 60%);
+    background: var(--overlay);
     opacity: 1;
 }
 .scale-setting {
@@ -920,7 +889,7 @@ a.options-action {
     padding: var(--space-3);
 }
 #pair-error {
-    color: #e6a1a1;
+    color: var(--danger);
 }
 @media (prefers-reduced-motion: reduce) {
     button,
@@ -952,7 +921,7 @@ a.options-action {
     }
 }
 .trackpad.is-dragging {
-    --dot-color: rgb(255 255 255 / 18%);
+    --dot-color: var(--dot-active);
     border-color: var(--muted);
-    background: rgb(255 255 255 / 2%);
+    background: var(--drag-fill);
 }

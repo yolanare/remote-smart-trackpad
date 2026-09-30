@@ -31,7 +31,6 @@ h1 {
     margin: 2.5rem 0 1.5rem;
     font-weight: 500;
     font-size: clamp(1.5rem, 3.5vw, 2rem);
-    letter-spacing: -0.03em;
 }
 .muted {
     color: var(--muted);
@@ -82,9 +81,9 @@ h1 {
     gap: var(--space-3);
 }
 .qr-image {
-    padding: var(--space-3);
+    padding: var(--space-1);
     border-radius: var(--radius);
-    background: #fff;
+    background: var(--qr-background);
     line-height: 0;
 }
 .qr-image svg {
@@ -196,7 +195,7 @@ h1 {
     gap: 1.5rem;
 }
 .trust .qr-image svg {
-    width: 8rem;
+    width: 10rem;
 }
 .trust p {
     max-width: 22rem;

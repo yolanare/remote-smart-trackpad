@@ -493,10 +493,59 @@ for (const button of menu.querySelectorAll('[data-step]'))
         saveSettings();
         applyScale();
     });
+// Reset confirmation: fades and scales in; Cancel, Reset and Escape play the reverse before the dialog really closes.
+const confirmDialog = $('#reset-confirm');
+let closingDialog = false;
+function animateDialog(opening) {
+    if (reducedMotion()) return Promise.resolve();
+    const panel = [
+        { opacity: 0, transform: 'scale(0.96)' },
+        { opacity: 1, transform: 'scale(1)' },
+    ];
+    const shade = [{ opacity: 0 }, { opacity: 1 }];
+    const timing = {
+        duration: opening ? 180 : 120,
+        easing: opening ? 'cubic-bezier(0.2, 0, 0, 1)' : 'ease-in',
+        fill: 'forwards',
+    };
+    const animation = confirmDialog.animate(opening ? panel : panel.reverse(), timing);
+    try {
+        confirmDialog.animate(opening ? shade : shade.reverse(), { ...timing, pseudoElement: '::backdrop' });
+    } catch {}
+    return animation.finished.catch(() => {});
+}
+async function closeDialog(value) {
+    if (closingDialog || !confirmDialog.open) return;
+    closingDialog = true;
+    await animateDialog(false);
+    confirmDialog.close(value);
+    for (const animation of confirmDialog.getAnimations({ subtree: true })) animation.cancel();
+    closingDialog = false;
+}
+confirmDialog.querySelector('form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    closeDialog(event.submitter?.value ?? 'cancel');
+});
+confirmDialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    closeDialog('cancel');
+});
+// Browsers only let `cancel` be vetoed after a user gesture; stopping Escape itself keeps the exit animation.
+document.addEventListener(
+    'keydown',
+    (event) => {
+        if (event.key !== 'Escape' || !confirmDialog.open) return;
+        event.preventDefault();
+        closeDialog('cancel');
+    },
+    { capture: true }
+);
+$('#options-reload').addEventListener('click', () => location.reload());
 $('#options-reset').addEventListener('click', () => {
     // Escape leaves returnValue untouched, so clear the previous answer first.
-    $('#reset-confirm').returnValue = '';
-    $('#reset-confirm').showModal();
+    confirmDialog.returnValue = '';
+    confirmDialog.showModal();
+    animateDialog(true);
 });
 $('#reset-confirm').addEventListener('close', () => {
     if ($('#reset-confirm').returnValue !== 'reset') return;
