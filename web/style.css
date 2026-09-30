@@ -554,11 +554,10 @@ key-rows {
 .key-group button > .fill {
     border-radius: calc(var(--radius) - var(--stroke) - 0.25rem);
 }
-@supports (corner-shape: superellipse(1.5)) {
-    .key-group button,
-    .key-group button > .fill {
-        corner-shape: superellipse(1.5);
-    }
+/* Back to the shared shape (tokens.css): .fill-button is a round pill by default. */
+.key-group button,
+.key-group button > .fill {
+    corner-shape: var(--corner-shape);
 }
 /* Vertical rule between buttons, inset top and bottom so it floats. */
 .key-separator {
