@@ -123,6 +123,7 @@ try {
             WebSocket.prototype.send = function (raw) {
                 const message = JSON.parse(raw);
                 if (allowed.has(message.action)) return send.call(this, raw);
+                (window.__blocked ??= []).push(message);
                 const reply = message.action === 'mirror-edit' ? { ok: false, error: 'Blocked by the browser check' } : { ok: true, result: {} };
                 queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ id: message.id, ...reply }) })));
             };
@@ -161,6 +162,29 @@ try {
         await writeFile(path.join(output, 'browser-' + name + '.png'), Buffer.from(screenshot.data, 'base64'));
         report.push({ name, ...dimensions });
     }
+    // Auto-repeat: a held repeating key (Volume up) is sent again until released; a plain key (Escape) once.
+    const holdKey = async (key, duration) => {
+        const box = await evaluate(`(() => {
+            window.__blocked = [];
+            const rect = document.querySelector('key-rows [data-key="${key}"]').getBoundingClientRect();
+            return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+        })()`);
+        await page('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [box] });
+        await evaluate(`new Promise(resolve => setTimeout(resolve, ${duration}))`);
+        await page('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        const sent = () =>
+            evaluate(
+                `window.__blocked.filter(message => message.action === 'shortcut' && message.data?.key === '${key}').length`
+            );
+        const released = await sent();
+        await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
+        assert.equal(await sent(), released, key + ' must stop repeating once released');
+        return released;
+    };
+    const repeated = await holdKey('VolumeUp', 900);
+    assert.ok(repeated >= 4, 'A held Volume up must repeat, sent ' + repeated);
+    assert.equal(await holdKey('Escape', 900), 1, 'A held Escape must be sent once');
+    report.push({ name: 'auto-repeat', volumeUpHeld900ms: repeated, escapeHeld900ms: 1 });
     await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 711, deviceScaleFactor: 1, mobile: true });
     await evaluate(
         "document.querySelectorAll('#options input').forEach(input => { if (['functions','media'].includes(input.name)) { input.checked = false; input.dispatchEvent(new Event('change')); } }); document.querySelector('#options-toggle').click();"
@@ -170,6 +194,21 @@ try {
         path.join(output, 'browser-menu.png'),
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
+    // Interface scale: the stepper stays at the same height in the menu, ready for the next tap.
+    const scaleStepper = 'document.querySelector(\'.stepper[data-setting="uiScale"]\')';
+    const scaleTop = () => evaluate(scaleStepper + '.getBoundingClientRect().top');
+    await evaluate(scaleStepper + ".scrollIntoView({ block: 'center' })");
+    for (const step of ['1', '1', '-1', '-1']) {
+        const before = await scaleTop();
+        await evaluate(scaleStepper + `.querySelector('[data-step="${step}"]').click()`);
+        await evaluate(
+            'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 50))))'
+        );
+        const after = await scaleTop();
+        assert.ok(Math.abs(after - before) <= 2, `Scale stepper moved from ${before} to ${after}`);
+    }
+    report.push({ name: 'scale-keeps-stepper', top: await scaleTop() });
+    await evaluate("document.querySelector('.options').scrollTop = 0");
     const slider = await evaluate(`(() => {
         const input = document.querySelector('#mouse-speed'), rect = input.getBoundingClientRect();
         return { x: rect.x, y: rect.y + rect.height / 2, width: rect.width, height: rect.height, fraction: (input.valueAsNumber - Number(input.min)) / (Number(input.max) - Number(input.min)) };

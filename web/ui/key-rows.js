@@ -1,33 +1,37 @@
 import { icon } from './icons.js';
 import { tick } from './haptics.js';
-// [key, label, icon (null for text), group]. Adjacent keys of the same group share one bordered container.
+// [key, label, icon (null for text), group, repeat]. Adjacent keys of the same group share one bordered container.
+// repeat (auto-repeat, like a physical keyboard): held down, the key is sent again and again until released.
 const functionKey = (index) => [`F${index + 1}`, `F${index + 1}`, null, 'functions'];
 const rows = {
     functions: [],
     media: [
         ['PlayPause', 'Play / pause', 'play', null],
         ['VolumeMute', 'Mute', 'mute', 'media'],
-        ['VolumeDown', 'Volume down', 'quieter', 'media'],
-        ['VolumeUp', 'Volume up', 'louder', 'media'],
+        ['VolumeDown', 'Volume down', 'quieter', 'media', true],
+        ['VolumeUp', 'Volume up', 'louder', 'media', true],
     ],
     edit: [
         ['Escape', 'ESC', null, null],
         ['X', 'Cut', 'cut', 'clipboard'],
         ['C', 'Copy', 'copy', 'clipboard'],
         ['V', 'Paste', 'paste', 'clipboard'],
-        ['Backspace', 'Backspace', 'delete', 'delete'],
-        ['Delete', 'Delete', 'delete', 'delete'],
+        ['Backspace', 'Backspace', 'delete', 'delete', true],
+        ['Delete', 'Delete', 'delete', 'delete', true],
     ],
     modifiers: [
         ['Shift', 'Shift', 'shift', 'modifiers'],
         ['Control', 'CTRL', null, 'modifiers'],
         ['Alt', 'ALT', null, 'modifiers'],
         ['Win', 'Windows', 'windows', null],
-        ['Tab', 'TAB', null, null],
+        ['Tab', 'TAB', null, null, true],
         ['Enter', 'Enter', 'enter', null],
     ],
 };
 const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'Win']);
+// Auto-repeat timing: the first repeat after the delay (about a long press), then this many ms apart.
+const repeatDelay = 500,
+    repeatInterval = 70;
 // Function keys fill lines of at most this many keys, split evenly: 4 and 8 on one line, 12 and 16 on two, 18 and
 // 24 on three. Computed, so a wider layout only needs a larger number.
 const functionKeysPerLine = 8;
@@ -66,13 +70,13 @@ class KeyRows extends HTMLElement {
     /** Consecutive keys of the same group go in one bordered container; a key without a group gets its own. */
     fillRow(row, keys) {
         let group = null;
-        keys.forEach(([key, label, glyph, name], index) => {
+        keys.forEach(([key, label, glyph, name, repeat], index) => {
             if (!group || name == null || keys[index - 1][3] !== name) {
                 group = document.createElement('div');
                 group.className = 'key-group';
                 row.append(group);
             } else group.append(separator());
-            group.append(this.button(key, label, glyph));
+            group.append(this.button(key, label, glyph, repeat));
             group.style.setProperty('--keys', group.querySelectorAll('button').length);
         });
     }
@@ -95,7 +99,7 @@ class KeyRows extends HTMLElement {
         row.replaceChildren(group);
         this.dispatchEvent(new CustomEvent('keys-rendered', { bubbles: true }));
     }
-    button(key, label, glyph) {
+    button(key, label, glyph, repeat = false) {
         const button = document.createElement('button');
         button.dataset.key = key;
         button.setAttribute('aria-label', label);
@@ -114,7 +118,8 @@ class KeyRows extends HTMLElement {
             // Like a phone keyboard: the tick comes on touch down.
             tick();
         });
-        button.addEventListener('click', () => {
+        if (repeat) this.repeatOnHold(button, key);
+        button.addEventListener('click', (event) => {
             if (modifierKeys.has(key)) {
                 if (key === 'Win' && !this.sticky) {
                     // Windows acts on release (Start menu): outside sticky mode a tap presses it at once.
@@ -123,19 +128,53 @@ class KeyRows extends HTMLElement {
                 } else this.press(key, !this.held.has(key));
                 return;
             }
+            // A repeating key already went on touch down; only keyboard activation (no pointer: detail 0) remains.
+            if (repeat && event.detail > 0) return;
             if (key === 'PlayPause' && this.playing != null) this.media({ playing: !this.playing });
             if (key === 'VolumeMute' && this.muted != null) this.media({ muted: !this.muted });
-            const modifiers = [...this.held];
-            if (['C', 'V', 'X'].includes(key) && !modifiers.includes('Control')) modifiers.push('Control');
-            this.dispatchEvent(
-                new CustomEvent('command', {
-                    bubbles: true,
-                    detail: { action: 'shortcut', data: { key, modifiers } },
-                })
-            );
+            this.send(key);
             if (!this.sticky) this.reset();
         });
         return button;
+    }
+    /** Sends the key with the active modifiers (Cut, Copy and Paste always with Control). */
+    send(key) {
+        const modifiers = [...this.held];
+        if (['C', 'V', 'X'].includes(key) && !modifiers.includes('Control')) modifiers.push('Control');
+        this.dispatchEvent(
+            new CustomEvent('command', {
+                bubbles: true,
+                detail: { action: 'shortcut', data: { key, modifiers } },
+            })
+        );
+    }
+    /**
+     * Auto-repeat: sent on touch down, then after repeatDelay every repeatInterval until the finger lifts (or the
+     * browser takes the touch to scroll). Modifiers apply to every repeat and are released at the end, once.
+     */
+    repeatOnHold(button, key) {
+        let pointer = null,
+            timer;
+        const stop = (event) => {
+            if (event.pointerId !== pointer) return;
+            pointer = null;
+            clearTimeout(timer);
+            if (!this.sticky) this.reset();
+        };
+        const again = () => {
+            this.send(key);
+            timer = setTimeout(again, repeatInterval);
+        };
+        button.addEventListener('pointerdown', (event) => {
+            if (pointer !== null || event.button !== 0) return;
+            pointer = event.pointerId;
+            button.setPointerCapture(event.pointerId);
+            this.send(key);
+            timer = setTimeout(again, repeatDelay);
+        });
+        for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(type, stop);
+        // A long press must not open anything (context menu, selection) while the key repeats.
+        button.addEventListener('contextmenu', (event) => event.preventDefault());
     }
     press(key, down) {
         if (down) this.held.add(key);

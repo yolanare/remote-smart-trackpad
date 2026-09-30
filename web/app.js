@@ -562,6 +562,13 @@ function applyTheme() {
     themeColor.content = getComputedStyle(document.body).backgroundColor;
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+// A scale change reflows the whole options menu: scroll it so the element stays where it was on screen, under the
+// finger for the next tap. Again once the top bar's height has followed (ResizeObserver, after this frame).
+function keepInPlace(element, top) {
+    const adjust = () => (menu.scrollTop += element.getBoundingClientRect().top - top);
+    adjust();
+    requestAnimationFrame(() => requestAnimationFrame(adjust));
+}
 function applyScale() {
     document.documentElement.style.fontSize = `${settings.uiScale * 100}%`;
     updateSteppers();
@@ -604,12 +611,16 @@ for (const { stepper, name, steps } of steppers)
                     steps.find((step) => step > current + 1e-6)
                 :   steps.findLast((step) => step < current - 1e-6);
             if (next === undefined) return;
+            const top = stepper.getBoundingClientRect().top;
             settings[name] = next;
             tick();
             showSetting(menu.querySelector(`input[name="${name}"]`));
             saveSettings();
             updateSteppers();
-            if (name === 'uiScale') applyScale();
+            if (name === 'uiScale') {
+                applyScale();
+                keepInPlace(stepper, top);
+            }
             if (name === 'functionKeys') layout({ animate: true });
         });
 // Reset confirmation: fades and scales in; Cancel, Reset and Escape play the reverse before the dialog really closes.
