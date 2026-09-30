@@ -309,6 +309,15 @@ document.addEventListener('pointerdown', () => pad.stopSliding(), { capture: tru
 // Press feedback for everything tappable: buttons, option rows and segments (labels), links, disclosures. The
 // pressed class is reliable on touch (:active can stick or never show) and held for a short beat, so quick taps still
 // visibly press. A slider's own label only names it, so it has no press state.
+// Button haptics: every button and link ticks when it acts. Those listed tick on their own terms (keys and mouse
+// buttons on touch down, the stepper only when the value changes, the options toggle only when it opens), and the
+// backdrop stays silent, like dismissing a native sheet.
+const ticksItself =
+    'key-rows button, .mouse-left, .mouse-right, .mouse-middle, .mouse-hold, .stepper button, #options-toggle, #options-dismiss';
+document.addEventListener('click', (event) => {
+    const target = event.target.closest?.('button, a[href], summary');
+    if (target && !target.matches(ticksItself)) tick();
+});
 // Inside something that scrolls (the options menu), a touch may be the start of a scroll: like native lists, the
 // press state waits a beat and is dropped if the finger moves or the browser takes over to scroll.
 const pressable = 'button, label:not(.speed-setting label), a[href], summary';
@@ -444,12 +453,10 @@ editor.firstElementChild.addEventListener('beforeinput', (event) => {
     if (!rows.sticky) rows.reset();
 });
 $('#editor-open').addEventListener('click', () => {
-    tick();
     mirror.open();
     editor.focus();
 });
 $('#editor-close').addEventListener('click', () => {
-    tick();
     editor.blur();
     mirror.close();
     rows.reset();
