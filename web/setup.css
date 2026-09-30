@@ -53,7 +53,7 @@ h1 {
     padding: 1.5rem;
     gap: 1.25rem;
     border: var(--stroke) solid var(--border);
-    border-radius: 1.25rem;
+    border-radius: calc(1.25rem * var(--corner));
 }
 .step h2 {
     display: flex;
@@ -70,6 +70,7 @@ h1 {
     width: 1.5rem;
     height: 1.5rem;
     border-radius: 999rem;
+    corner-shape: round;
     background: var(--surface);
     font-size: 0.75rem;
     font-variant-numeric: tabular-nums;
@@ -115,6 +116,7 @@ h1 {
     height: 1.75rem;
     padding: 0 var(--space-3);
     border-radius: 999rem;
+    corner-shape: round;
     font-size: 0.75rem;
 }
 .code {
@@ -155,7 +157,7 @@ h1 {
 .optional {
     margin-top: var(--space-3);
     border: var(--stroke) solid var(--border);
-    border-radius: 1.25rem;
+    border-radius: calc(1.25rem * var(--corner));
 }
 .optional summary {
     display: grid;
@@ -184,7 +186,7 @@ h1 {
     content: '−';
 }
 .optional summary:focus-visible {
-    border-radius: 1.25rem;
+    border-radius: calc(1.25rem * var(--corner));
     outline: var(--stroke) solid var(--muted);
 }
 .trust {

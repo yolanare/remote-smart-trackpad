@@ -9,10 +9,20 @@
     --border: rgb(255 255 255 / 30%);
     --muted: rgb(255 255 255 / 60%);
     --text: rgb(255 255 255 / 80%);
-    --radius: 0.75rem;
+    --corner: 1;
+    --radius: calc(0.75rem * var(--corner));
 }
 * {
     box-sizing: border-box;
+}
+/* Superellipse corners where supported, radii scaled to keep the same optical roundness (see style.css). */
+@supports (corner-shape: superellipse(1.5)) {
+    :root {
+        --corner: 1.35;
+    }
+    * {
+        corner-shape: superellipse(1.5);
+    }
 }
 [hidden] {
     display: none !important;
@@ -38,7 +48,7 @@ main {
     font-size: 0.8125rem;
 }
 .brand img {
-    border-radius: 0.375rem;
+    border-radius: calc(0.375rem * var(--corner));
 }
 h1 {
     margin: 2rem 0 0.375rem;
@@ -69,7 +79,7 @@ h1 {
     position: relative;
     padding: 1rem 1rem 1.125rem 3.25rem;
     border: 1px solid var(--border);
-    border-radius: 1.25rem;
+    border-radius: calc(1.25rem * var(--corner));
     counter-increment: step;
 }
 .step::before {
@@ -81,6 +91,7 @@ h1 {
     width: 1.5rem;
     height: 1.5rem;
     border-radius: 999rem;
+    corner-shape: round;
     background: var(--surface);
     content: counter(step);
     font-size: 0.75rem;
