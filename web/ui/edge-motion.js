@@ -7,7 +7,7 @@
 const zone = { left: 0.12, right: 0.12, top: 0.05, bottom: 0.08 };
 const approach = 2;
 // Bands are drawn 5% larger than their zone, so the gradient's tail runs a little past the real trigger.
-const bandScale = 2;
+const bandScale = 1.75;
 // Pointer speed deep in a zone, in CSS px/ms before mouse speed and acceleration apply.
 const edgeSpeed = 0.8;
 // Along each edge, the middle 40% of the screen moves straight (perpendicular to the edge); beyond it the direction
