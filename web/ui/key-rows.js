@@ -101,6 +101,7 @@ class KeyRows extends HTMLElement {
         if (glyph) button.append(icon(glyph));
         else button.textContent = label;
         if (key === 'Delete') button.classList.add('forward-delete');
+        if (modifierKeys.has(key)) button.classList.add('modifier');
         if (modifierKeys.has(key) || key === 'VolumeMute') button.setAttribute('aria-pressed', 'false');
         button.addEventListener('pointerdown', (event) => event.preventDefault());
         button.addEventListener('click', () => {

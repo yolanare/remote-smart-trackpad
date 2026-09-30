@@ -360,12 +360,14 @@ scroll-rail {
 .mouse-hold[aria-pressed='true'] .hold-check {
     opacity: 1;
 }
-/* A button kept down by hold mode. */
+/* Kept down until released: a mouse button in hold mode, an active modifier (until the next key, or sticky). */
 .mouse-left.is-latched,
 .mouse-right.is-latched,
-.mouse-middle.is-latched > .fill {
+.mouse-middle.is-latched > .fill,
+.modifier[aria-pressed='true'] {
     background: var(--latched);
     box-shadow: inset 0 0 0 var(--stroke) var(--border);
+    color: var(--text);
 }
 /*
  * Fill button (design system): the button keeps a transparent margin (--fill-inset) around an inner .fill that
