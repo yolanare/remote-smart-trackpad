@@ -10,7 +10,8 @@ $reservation.Start()
 $port = $reservation.LocalEndpoint.Port
 $reservation.Stop()
 $env:REMOTE_SMART_TRACKPAD_PORT = [string]$port
-$env:REMOTE_SMART_TRACKPAD_DATA_DIRECTORY = Join-Path $projectRoot ('.data\tray-check-' + [guid]::NewGuid().ToString('N'))
+# Throwaway data and the report go to the system temp folder, which the OS cleans up.
+$env:REMOTE_SMART_TRACKPAD_DATA_DIRECTORY = Join-Path ([IO.Path]::GetTempPath()) ('remote-smart-trackpad-tray-check-' + [guid]::NewGuid().ToString('N'))
 $registryPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 $startupName = 'Remote Smart Trackpad'
 $previousStartup = Get-ItemPropertyValue -LiteralPath $registryPath -Name $startupName -ErrorAction SilentlyContinue
@@ -18,7 +19,8 @@ $context = $null
 function Assert($condition, $message) { if (-not $condition) { throw $message } }
 try {
     Assert (Test-Path -LiteralPath (Join-Path $projectRoot '.data\tray-initialized')) 'Run the normal tray once before this integration check'
-    $context = $type.GetConstructor([type[]]@([string])).Invoke([object[]]@([string]$projectRoot))
+    $stopSignal = New-Object Threading.EventWaitHandle($false, [Threading.EventResetMode]::AutoReset)
+    $context = $type.GetConstructor([type[]]@([string], [Threading.WaitHandle])).Invoke([object[]]@([string]$projectRoot, $stopSignal))
     $tray = $type.GetField('tray', $flags).GetValue($context)
     $console = $type.GetField('console', $flags).GetValue($context)
     $server = $type.GetField('server', $flags).GetValue($context)
@@ -55,7 +57,9 @@ try {
     try { Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/setup" -TimeoutSec 1 | Out-Null; $responding = $true } catch { }
     Assert (-not $responding) 'Stop server menu left a listener running'
     $report = @{ hiddenLaunch=$true; serverReady=$true; showConsole=$true; hideConsole=$true; startupToggle=$true; stopServer=$true }
-    $report | ConvertTo-Json | Set-Content -Encoding UTF8 -LiteralPath (Join-Path $projectRoot '.data\tray-report.json')
+    $reportPath = Join-Path ([IO.Path]::GetTempPath()) 'remote-smart-trackpad-tray-report.json'
+    $report | ConvertTo-Json | Set-Content -Encoding UTF8 -LiteralPath $reportPath
+    Write-Output "Report: $reportPath"
     $report | ConvertTo-Json -Compress
 } finally {
     if ($null -ne $context) { $context.ExitThread(); $context.Dispose() }

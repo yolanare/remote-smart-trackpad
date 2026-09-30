@@ -42,6 +42,8 @@ try {
     $changed = Read-Mirror
     Assert ($changed.text -eq 'PC replacement' -and $changed.selectionEnd -eq 2) 'PC edits and selection must be mirrored'
     $result = @{ fullField=$true; mobileEdit=$true; staleFocusRejected=$true; pcEdit=$true; selection=$true }
-    $result | ConvertTo-Json | Set-Content -Encoding UTF8 -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) '.data\windows-mirror-report.json')
+    $reportPath = Join-Path ([IO.Path]::GetTempPath()) 'remote-smart-trackpad-windows-mirror-report.json'
+    $result | ConvertTo-Json | Set-Content -Encoding UTF8 -LiteralPath $reportPath
+    Write-Output "Report: $reportPath"
     $result | ConvertTo-Json -Compress
 } finally { Release-All; [MirrorFixture]::Stop() }

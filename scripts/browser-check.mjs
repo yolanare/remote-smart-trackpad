@@ -1,14 +1,18 @@
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createServer } from 'node:net';
 import assert from 'node:assert/strict';
-await mkdir('.data', { recursive: true });
+// Everything this check produces lives in the system temp folder, cleaned up by the OS: the throwaway host data and
+// Chrome profile are removed at the end, the screenshots and report stay in `output` for inspection.
+const temp = (name) => mkdtemp(path.join(tmpdir(), `remote-smart-trackpad-${name}-`));
+const output = await temp('browser-check');
 const reservation = createServer();
 await new Promise((resolve) => reservation.listen(0, '127.0.0.1', resolve));
 const port = reservation.address().port;
 await new Promise((resolve) => reservation.close(resolve));
-const hostData = await mkdtemp(path.resolve('.data/browser-host-'));
+const hostData = await temp('browser-host');
 const host = spawn(process.execPath, ['host/server.js'], {
     windowsHide: true,
     stdio: 'ignore',
@@ -20,7 +24,7 @@ const host = spawn(process.execPath, ['host/server.js'], {
     },
 });
 const url = 'http://127.0.0.1:' + port;
-const profile = await mkdtemp(path.resolve('.data/chrome-probe-'));
+const profile = await temp('chrome-profile');
 const child = spawn(
     'C:/Program Files/Google/Chrome/Application/chrome.exe',
     [
@@ -154,7 +158,7 @@ try {
         assert.ok(dimensions.scrollWidth <= dimensions.width, 'Page overflow in ' + name);
         assert.ok(dimensions.padHeight > 0);
         const screenshot = await page('Page.captureScreenshot', { format: 'png' });
-        await writeFile('.data/browser-' + name + '.png', Buffer.from(screenshot.data, 'base64'));
+        await writeFile(path.join(output, 'browser-' + name + '.png'), Buffer.from(screenshot.data, 'base64'));
         report.push({ name, ...dimensions });
     }
     await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 711, deviceScaleFactor: 1, mobile: true });
@@ -163,7 +167,7 @@ try {
     );
     await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
     await writeFile(
-        '.data/browser-menu.png',
+        path.join(output, 'browser-menu.png'),
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
     const slider = await evaluate(`(() => {
@@ -304,7 +308,7 @@ try {
         "document.querySelector('text-editor').render({ available: true, text: 'Ceci est un texte écrit ou récupéré depuis l’ordinateur. '.repeat(16), selectionStart: 0, selectionEnd: 0 }); document.querySelector('#connection-label').textContent = ''; document.querySelector('#connection').dataset.state = 'ready';"
     );
     await writeFile(
-        '.data/browser-editor.png',
+        path.join(output, 'browser-editor.png'),
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
     await evaluate("document.querySelector('#editor-close').click()");
@@ -366,8 +370,9 @@ try {
     report.push({ name: 'mouse-sliding', persisted: true, glide: true, touchStops: true, disabledStops: true });
     assert.deepEqual(exceptions, []);
     report.push({ name: 'editor-reduced-viewport', ...bounds }, { name: 'native-scroll', ...scroll });
-    await writeFile('.data/browser-report.json', JSON.stringify(report, null, 2));
+    await writeFile(path.join(output, 'browser-report.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report));
+    console.log('Screenshots and report: ' + output);
     await send('Browser.close');
 } catch (error) {
     console.error(error.message);
@@ -376,4 +381,8 @@ try {
     socket?.close();
     if (child.exitCode === null) child.kill();
     host.kill();
+    // Chrome and the host release their files a moment after exiting.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    for (const directory of [hostData, profile])
+        await rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }).catch(() => {});
 }
