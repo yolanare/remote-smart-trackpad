@@ -121,8 +121,26 @@ export class ScrollRail extends HTMLElement {
         viewport.addEventListener('lostpointercapture', endDrag);
 
         // Native mode (sliding on, mouse wheel, keyboard): scroll events carry the movement, fling included.
-        viewport.addEventListener('touchstart', () => (flinging = false), { passive: true });
-        viewport.addEventListener('touchend', () => (flinging = true), { passive: true });
+        // Touch feedback: the ticks brighten while a finger is on the rail (touch events last through native
+        // panning, unlike the pointer, which the browser cancels once it scrolls).
+        viewport.addEventListener(
+            'touchstart',
+            () => {
+                flinging = false;
+                this.classList.add('is-touched');
+            },
+            { passive: true }
+        );
+        const untouch = () => this.classList.remove('is-touched');
+        viewport.addEventListener(
+            'touchend',
+            (event) => {
+                flinging = true;
+                if (!event.touches.length) untouch();
+            },
+            { passive: true }
+        );
+        viewport.addEventListener('touchcancel', untouch, { passive: true });
         viewport.addEventListener('wheel', () => (flinging = false), { passive: true });
         viewport.addEventListener(
             'scroll',

@@ -1,26 +1,32 @@
 /*
- * Design tokens shared by every page.
+ * Design tokens shared by every page. Colors are light-dark(light, dark): the color-scheme below picks one,
+ * following the device (Auto) or the "Color scheme" option (data-theme on <html>, set by app.js).
+ * Light is built for sunlight, with WCAG contrast steps on white: text 18.4:1, muted 9.3:1 (AAA), border 3.95:1
+ * (above the 3:1 minimum for UI), dots 2.4:1, surface 1.25:1; warning 5.9:1 and danger 6.5:1.
  */
 :root {
-    --background: #000;
-    --surface: rgb(255 255 255 / 16%);
-    --border: rgb(255 255 255 / 50%);
-    --muted: rgb(255 255 255 / 72%);
-    --text: rgb(255 255 255 / 90%);
+    color-scheme: light dark;
+    --background: light-dark(#fff, #000);
+    --surface: light-dark(rgb(0 0 0 / 10%), rgb(255 255 255 / 16%));
+    --border: light-dark(rgb(0 0 0 / 50%), rgb(255 255 255 / 50%));
+    --muted: light-dark(rgb(0 0 0 / 72%), rgb(255 255 255 / 72%));
+    --text: light-dark(rgb(0 0 0 / 92%), rgb(255 255 255 / 90%));
     /* Accents and surfaces: every color in the interface comes from these tokens. */
-    --warning: #d2aa68;
-    --danger: #e07575;
-    --on-danger: #000;
-    --panel: linear-gradient(110deg, #202020, #191919);
-    --panel-shadow: 0 0.5rem 2rem #0006;
-    --overlay: rgb(0 0 0 / 60%);
-    --latched: rgb(255 255 255 / 35%);
-    --dot: rgb(255 255 255 / 15%);
-    --dot-active: rgb(255 255 255 / 20%);
-    --drag-fill: rgb(255 255 255 / 2%);
+    --warning: light-dark(#8a5a0f, #d2aa68);
+    --danger: light-dark(#b3261e, #e07575);
+    --on-danger: light-dark(#fff, #000);
+    --panel-from: light-dark(#fff, #202020);
+    --panel-to: light-dark(#f3f3f3, #191919);
+    --panel: linear-gradient(110deg, var(--panel-from), var(--panel-to));
+    --panel-shadow: 0 0.5rem 2rem light-dark(rgb(0 0 0 / 24%), #0006);
+    --overlay: light-dark(rgb(0 0 0 / 40%), rgb(0 0 0 / 60%));
+    --latched: light-dark(rgb(0 0 0 / 26%), rgb(255 255 255 / 35%));
+    --dot: light-dark(rgb(0 0 0 / 34%), rgb(255 255 255 / 15%));
+    --dot-active: light-dark(rgb(0 0 0 / 46%), rgb(255 255 255 / 20%));
+    --drag-fill: light-dark(rgb(0 0 0 / 5%), rgb(255 255 255 / 2%));
     /* Edge motion bands: approaching a screen edge while dragging, then inside its zone. */
-    --edge-motion: rgb(255 255 255 / 8%);
-    --edge-motion-active: rgb(255 255 255 / 20%);
+    --edge-motion: light-dark(rgb(0 0 0 / 12%), rgb(255 255 255 / 8%));
+    --edge-motion-active: light-dark(rgb(0 0 0 / 26%), rgb(255 255 255 / 20%));
     --space-1: 0.25rem;
     --space-2: 0.5rem;
     --space-3: 0.75rem;
@@ -33,12 +39,18 @@
     --transition: 180ms ease;
     --layout-transition: 320ms cubic-bezier(0.2, 0, 0, 1);
     --press-scale: 0.95;
-    /* Setup page: QR codes need a light background to scan. */
+    /* Setup page: QR codes need a light background to scan, in either scheme. */
     --qr-background: #fff;
     /* Trust page: emphasized text and its main button. */
-    --strong: rgb(255 255 255 / 90%);
-    --primary: rgb(255 255 255 / 80%);
-    --on-primary: #000;
+    --strong: light-dark(rgb(0 0 0 / 95%), rgb(255 255 255 / 90%));
+    --primary: light-dark(rgb(0 0 0 / 90%), rgb(255 255 255 / 80%));
+    --on-primary: light-dark(#fff, #000);
+}
+:root[data-theme='dark'] {
+    color-scheme: dark;
+}
+:root[data-theme='light'] {
+    color-scheme: light;
 }
 /*
  * Superellipse corners where supported (corner-shape, Chromium 139+). A superellipse with the same radius hugs the

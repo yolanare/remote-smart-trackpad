@@ -14,6 +14,9 @@ import {
     Download,
     ShieldCheck,
     RefreshCw,
+    SunMoon,
+    Moon,
+    Sun,
     Scissors,
     Copy,
     ClipboardPaste,
@@ -38,6 +41,9 @@ const icons = {
     install: Download,
     trust: ShieldCheck,
     reload: RefreshCw,
+    auto: SunMoon,
+    dark: Moon,
+    light: Sun,
     cut: Scissors,
     copy: Copy,
     paste: ClipboardPaste,
@@ -47,10 +53,10 @@ const icons = {
     enter: CornerDownLeft,
     text: TextCursor,
 };
+// Sized in CSS (rem), not with width/height attributes in pixels, so icons follow the interface scale.
 export function icon(name) {
     return createElement(icons[name], {
-        width: name === 'more' ? 24 : 18,
-        height: name === 'more' ? 24 : 18,
+        class: name === 'more' ? 'icon icon-large' : 'icon',
         'stroke-width': 1.5,
         'aria-hidden': 'true',
         focusable: 'false',

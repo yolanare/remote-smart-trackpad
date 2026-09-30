@@ -3,6 +3,7 @@ import './ui/pointer-pad.js';
 import './ui/key-rows.js';
 import './ui/text-editor.js';
 import { addIcons } from './ui/icons.js';
+import { attachHaptics, tick } from './ui/haptics.js';
 import { createConnection } from './logic/connection.js';
 import { createMirror } from './logic/mirror.js';
 import { createMotion, pointerGain } from './logic/motion.js';
@@ -10,6 +11,9 @@ import { createMotion, pointerGain } from './logic/motion.js';
 const $ = (selector) => document.querySelector(selector);
 const storageKey = 'remote-smart-trackpad-layout';
 addIcons(document);
+attachHaptics(document);
+// Function keys are re-rendered when their count changes; their new buttons get haptics too.
+document.addEventListener('keys-rendered', (event) => attachHaptics(event.target));
 const app = $('.app'),
     dock = $('.input-dock'),
     pad = $('pointer-pad'),
@@ -23,11 +27,16 @@ const rem = (pixels) => `${pixels / parseFloat(getComputedStyle(document.documen
 
 // The option inputs' HTML attributes are the defaults; values stored on this phone override them.
 const fields = [...menu.querySelectorAll('input[name]')];
-const defaultOf = (input) => (input.type === 'checkbox' ? input.defaultChecked : Number(input.defaultValue));
+// A radio group (segmented control) is one text setting: its default is the radio checked in the markup.
+const radios = (name) => [...menu.querySelectorAll(`input[type="radio"][name="${name}"]`)];
+const defaultOf = (input) =>
+    input.type === 'checkbox' ? input.defaultChecked
+    : input.type === 'radio' ? radios(input.name).find((radio) => radio.defaultChecked).value
+    : Number(input.defaultValue);
 const isValid = (input, value) =>
-    input.type === 'checkbox' ?
-        typeof value === 'boolean'
-    :   Number.isFinite(value) && value >= Number(input.min) && value <= Number(input.max);
+    input.type === 'checkbox' ? typeof value === 'boolean'
+    : input.type === 'radio' ? radios(input.name).some((radio) => radio.value === value)
+    : Number.isFinite(value) && value >= Number(input.min) && value <= Number(input.max);
 // Captured once: writing a hidden input's value also rewrites its default.
 const defaults = Object.fromEntries(fields.map((input) => [input.name, defaultOf(input)]));
 const settings = { ...defaults };
@@ -294,15 +303,19 @@ for (const type of ['gesturestart', 'gesturechange'])
 document.addEventListener('motion-stop', () => motion.reset());
 document.addEventListener('motion-release', (event) => motion.clear(event.detail.action));
 document.addEventListener('pointerdown', () => pad.stopSliding(), { capture: true });
-// Push feedback: the pressed class is held for a short beat so quick taps still visibly press the button.
+// Press feedback for everything tappable: buttons, option rows and segments (labels), links, disclosures. The
+// pressed class is reliable on touch (:active can stick or never show) and held for a short beat, so quick taps still
+// visibly press. A slider's own label only names it, so it has no press state.
+const pressable = 'button, label:not(.speed-setting label), a[href], summary';
 const pressed = new Map();
 document.addEventListener(
     'pointerdown',
     (event) => {
-        const button = event.target.closest?.('button');
-        if (!button || button.disabled) return;
-        button.classList.add('is-pressed');
-        pressed.set(event.pointerId, { button, at: performance.now() });
+        const element = event.target.closest?.(pressable);
+        if (!element || element.disabled) return;
+        element.classList.add('is-pressed');
+        tick();
+        pressed.set(event.pointerId, { element, at: performance.now() });
     },
     { capture: true }
 );
@@ -310,9 +323,10 @@ const unpress = (event) => {
     const entry = pressed.get(event.pointerId);
     if (!entry) return;
     pressed.delete(event.pointerId);
-    setTimeout(() => entry.button.classList.remove('is-pressed'), Math.max(0, 90 - (performance.now() - entry.at)));
-    // A tapped button gives focus back once its click ran, so it never lingers looking active.
-    if (event.pointerType !== 'mouse') setTimeout(() => document.activeElement === entry.button && entry.button.blur());
+    setTimeout(() => entry.element.classList.remove('is-pressed'), Math.max(0, 90 - (performance.now() - entry.at)));
+    // A tapped control gives focus back once its click ran, so it never lingers looking active.
+    if (event.pointerType !== 'mouse')
+        setTimeout(() => entry.element.contains(document.activeElement) && document.activeElement.blur());
 };
 // Input modality for CSS: focus rings only after keyboard use (see :root[data-modality] in style.css).
 document.addEventListener(
@@ -458,21 +472,47 @@ const times = (value) => `${Number(value.toFixed(2))}×`;
 function showSetting(input) {
     const value = settings[input.name];
     if (input.type === 'checkbox') return void (input.checked = value);
+    if (input.type === 'radio') return void (input.checked = input.value === value);
     input.value = value;
     const off = input.name.endsWith('Acceleration') && value === 0;
-    const output = menu.querySelector(`output[for="${input.id}"]`);
-    if (output) output.value = off ? 'Off' : times(value);
+    // Sliders name their output with for=; a stepper's output sits in its own pill.
+    const output =
+        menu.querySelector(`output[for="${input.id}"]`)
+        ?? menu.querySelector(`.stepper[data-setting="${input.name}"] output`);
+    // data-unit="" shows a plain number (a count); otherwise a multiplier.
+    if (output)
+        output.value =
+            off ? 'Off'
+            : input.dataset.unit === '' ? String(value)
+            : times(value);
     if (input.type !== 'range') return;
     const fill = (value - Number(input.min)) / (Number(input.max) - Number(input.min));
     input.style.setProperty('--fill', `${fill * 100}%`);
     input.setAttribute('aria-valuetext', off ? 'Off' : `${Number(value.toFixed(2))} times`);
 }
-const scaleInput = menu.querySelector('[name="uiScale"]');
-const scaleSteps = $('.stepper').dataset.steps.split(' ').map(Number);
+// Steppers step through the values listed in data-steps for the setting named in data-setting.
+const steppers = [...menu.querySelectorAll('.stepper')].map((stepper) => ({
+    stepper,
+    name: stepper.dataset.setting,
+    steps: stepper.dataset.steps.split(' ').map(Number),
+}));
+function updateSteppers() {
+    for (const { stepper, name, steps } of steppers) {
+        stepper.querySelector('[data-step="-1"]').disabled = settings[name] <= steps[0];
+        stepper.querySelector('[data-step="1"]').disabled = settings[name] >= steps.at(-1);
+    }
+}
+// Color scheme: Auto follows the device; Dark and Light force it (tokens.css reads data-theme).
+const themeColor = $('meta[name="theme-color"]');
+function applyTheme() {
+    if (settings.colorScheme === 'auto') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = settings.colorScheme;
+    themeColor.content = getComputedStyle(document.body).backgroundColor;
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 function applyScale() {
     document.documentElement.style.fontSize = `${settings.uiScale * 100}%`;
-    menu.querySelector('[data-step="-1"]').disabled = settings.uiScale <= Number(scaleInput.min);
-    menu.querySelector('[data-step="1"]').disabled = settings.uiScale >= Number(scaleInput.max);
+    updateSteppers();
     viewport();
 }
 for (const input of fields) {
@@ -482,6 +522,12 @@ for (const input of fields) {
             settings[input.name] = input.valueAsNumber;
             showSetting(input);
             saveSettings();
+        });
+    if (input.type === 'radio')
+        input.addEventListener('change', () => {
+            settings[input.name] = input.value;
+            saveSettings();
+            applyTheme();
         });
     if (input.type === 'checkbox')
         input.addEventListener('change', () => {
@@ -493,19 +539,22 @@ for (const input of fields) {
             refreshMedia();
         });
 }
-for (const button of menu.querySelectorAll('[data-step]'))
-    button.addEventListener('click', () => {
-        const current = settings.uiScale;
-        const next =
-            button.dataset.step === '1' ?
-                scaleSteps.find((step) => step > current + 1e-6)
-            :   scaleSteps.findLast((step) => step < current - 1e-6);
-        if (next === undefined) return;
-        settings.uiScale = next;
-        showSetting(scaleInput);
-        saveSettings();
-        applyScale();
-    });
+for (const { stepper, name, steps } of steppers)
+    for (const button of stepper.querySelectorAll('[data-step]'))
+        button.addEventListener('click', () => {
+            const current = settings[name];
+            const next =
+                button.dataset.step === '1' ?
+                    steps.find((step) => step > current + 1e-6)
+                :   steps.findLast((step) => step < current - 1e-6);
+            if (next === undefined) return;
+            settings[name] = next;
+            showSetting(menu.querySelector(`input[name="${name}"]`));
+            saveSettings();
+            updateSteppers();
+            if (name === 'uiScale') applyScale();
+            if (name === 'functionKeys') layout({ animate: true });
+        });
 // Reset confirmation: fades and scales in; Cancel, Reset and Escape play the reverse before the dialog really closes.
 const confirmDialog = $('#reset-confirm');
 let closingDialog = false;
@@ -570,6 +619,7 @@ $('#reset-confirm').addEventListener('close', () => {
         localStorage.removeItem(storageKey);
     } catch {}
     applyScale();
+    applyTheme();
     rows.reset({ force: true });
     layout({ animate: true });
     schedulePolling();
@@ -582,6 +632,11 @@ function viewport() {
     document.documentElement.style.setProperty('--viewport-height', `${(visible?.height ?? innerHeight) / unit}rem`);
     document.documentElement.style.setProperty('--viewport-top', `${(visible?.offsetTop ?? 0) / unit}rem`);
 }
+// The options menu opens under the top bar, which grows with a long status message.
+new ResizeObserver(([entry]) => {
+    const unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    document.documentElement.style.setProperty('--topbar-height', `${entry.target.offsetHeight / unit}rem`);
+}).observe($('.topbar'));
 window.visualViewport?.addEventListener('resize', viewport);
 window.visualViewport?.addEventListener('scroll', viewport);
 window.addEventListener('resize', viewport);
@@ -655,5 +710,6 @@ if (__DEV_RELOAD__) {
     document.addEventListener('dev-build', checkBuild);
 }
 applyScale();
+applyTheme();
 layout();
 connection.connect();

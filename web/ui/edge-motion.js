@@ -1,3 +1,5 @@
+import { tick } from './haptics.js';
+
 // Edge motion (as on laptop touchpads): while a finger drags the pointer, holding it near an edge of the screen keeps
 // the PC pointer moving. The phone only sends a velocity (`glide`); the PC moves the pointer smoothly on its own
 // timer, so the motion does not step with network latency. Bands along the edges fade in as the finger approaches
@@ -66,6 +68,8 @@ export function createEdgeMotion({ glide, animate }) {
         frame = requestAnimationFrame(frameStep);
     }
     function setVelocity(next) {
+        // A tick when the finger enters a zone and the glide starts.
+        if (next.speed > 0 && !velocity.speed) tick();
         velocity = next;
         const moving = velocity.speed > 0;
         // Send on a real change only; the renewal timer keeps an unchanged glide alive.

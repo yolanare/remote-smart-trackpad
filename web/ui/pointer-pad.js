@@ -1,6 +1,7 @@
 import './scroll-rail.js';
 import { icon } from './icons.js';
 import { createEdgeMotion } from './edge-motion.js';
+import { tick } from './haptics.js';
 
 class PointerPad extends HTMLElement {
     holding = false;
@@ -29,7 +30,7 @@ class PointerPad extends HTMLElement {
     }
     connectedCallback() {
         if (this.firstChild) return;
-        this.innerHTML = `<div class="mouse"><div class="trackpad" role="application" aria-label="Move PC pointer"><div class="dots"></div></div><button class="mouse-left" aria-label="Left click" data-button="left"></button><button class="mouse-middle" aria-label="Middle click" data-button="middle"><span class="middle-fill"><span class="middle-dot"></span></span></button><button class="mouse-right" aria-label="Right click" data-button="right"></button></div><scroll-rail axis="y"></scroll-rail><scroll-rail axis="x"></scroll-rail><button class="mouse-hold" aria-label="Hold mouse buttons" aria-pressed="false"><span class="hold-box"><span class="hold-label">HOLD<br />CLICKS</span><span class="hold-check"></span></span></button>`;
+        this.innerHTML = `<div class="mouse"><div class="trackpad" role="application" aria-label="Move PC pointer"><div class="dots"></div></div><button class="mouse-left" aria-label="Left click" data-button="left"></button><button class="mouse-middle fill-button" aria-label="Middle click" data-button="middle"><span class="fill"><span class="middle-dot"></span></span></button><button class="mouse-right" aria-label="Right click" data-button="right"></button></div><scroll-rail axis="y"></scroll-rail><scroll-rail axis="x"></scroll-rail><button class="mouse-hold" aria-label="Hold mouse buttons" aria-pressed="false"><span class="hold-box"><span class="hold-label">HOLD<br />CLICKS</span><span class="hold-check"></span></span></button>`;
         const pad = this.querySelector('.trackpad');
         // Gestures: one finger moves, a tap clicks (two quick taps double-click), and tap-then-touch-and-move drags
         // with the left button held until the finger lifts. A single tap's click waits one double-tap window so a
@@ -85,7 +86,7 @@ class PointerPad extends HTMLElement {
             dragging = value;
             pad.classList.toggle('is-dragging', value);
             command({ action: 'button', data: { button: 'left', down: value } });
-            if (value) navigator.vibrate?.(10);
+            if (value) tick(12);
         };
         this.cancelGesture = () => {
             this.stopSliding();

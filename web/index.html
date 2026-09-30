@@ -20,11 +20,13 @@
                 </div>
                 <button
                     id="options-toggle"
+                    class="fill-button"
                     aria-label="Options"
                     aria-expanded="false"
                     aria-controls="options"
-                    data-icon="more"
-                ></button>
+                >
+                    <span class="fill" data-icon="more"></span>
+                </button>
                 <button id="editor-close" hidden><span data-icon="close"></span>Close text editor</button>
             </header>
             <section id="pairing" class="pairing" hidden>
@@ -176,17 +178,63 @@
                     >Show modifier keys row</label
                 >
                 <hr />
+                <div class="stepper-setting">
+                    <span id="function-keys-label">Function keys displayed</span>
+                    <div
+                        class="stepper"
+                        role="group"
+                        aria-labelledby="function-keys-label"
+                        data-setting="functionKeys"
+                        data-steps="4 8 12 16 18 24"
+                    >
+                        <button
+                            type="button"
+                            aria-label="Fewer function keys"
+                            data-step="-1"
+                            data-icon="minus"
+                        ></button>
+                        <output id="function-keys-value" aria-live="polite"></output>
+                        <button type="button" aria-label="More function keys" data-step="1" data-icon="plus"></button>
+                    </div>
+                    <input
+                        id="function-keys"
+                        name="functionKeys"
+                        type="hidden"
+                        min="4"
+                        max="24"
+                        value="12"
+                        data-unit=""
+                    />
+                </div>
                 <label
                     ><input type="checkbox" name="sticky" /><span class="checkbox" data-icon="check"></span>Sticky
                     modifier keys</label
                 >
                 <hr />
-                <div class="scale-setting">
+                <div class="choice-setting">
+                    <span id="color-scheme-label">Color scheme</span>
+                    <div class="segmented" role="radiogroup" aria-labelledby="color-scheme-label">
+                        <label
+                            ><input type="radio" name="colorScheme" value="auto" checked /><span data-icon="auto"></span
+                            >Auto</label
+                        >
+                        <label
+                            ><input type="radio" name="colorScheme" value="dark" /><span data-icon="dark"></span
+                            >Dark</label
+                        >
+                        <label
+                            ><input type="radio" name="colorScheme" value="light" /><span data-icon="light"></span
+                            >Light</label
+                        >
+                    </div>
+                </div>
+                <div class="stepper-setting">
                     <span id="ui-scale-label">Interface scale</span>
                     <div
                         class="stepper"
                         role="group"
                         aria-labelledby="ui-scale-label"
+                        data-setting="uiScale"
                         data-steps="0.25 0.33 0.5 0.67 0.75 0.8 0.9 1 1.1 1.25 1.5 1.75 2 2.5 3 4 5 6 8"
                     >
                         <button
@@ -195,7 +243,7 @@
                             data-step="-1"
                             data-icon="minus"
                         ></button>
-                        <output id="ui-scale-value" for="ui-scale" aria-live="polite">1×</output>
+                        <output id="ui-scale-value" aria-live="polite"></output>
                         <button
                             type="button"
                             aria-label="Increase interface scale"
