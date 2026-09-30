@@ -98,8 +98,13 @@ class KeyRows extends HTMLElement {
         const button = document.createElement('button');
         button.dataset.key = key;
         button.setAttribute('aria-label', label);
-        if (glyph) button.append(icon(glyph));
-        else button.textContent = label;
+        // Fill button: the inner .fill takes the pressed / on color, inset from the group's border.
+        button.className = 'fill-button';
+        const fill = document.createElement('span');
+        fill.className = 'fill';
+        if (glyph) fill.append(icon(glyph));
+        else fill.textContent = label;
+        button.append(fill);
         if (key === 'Delete') button.classList.add('forward-delete');
         if (modifierKeys.has(key)) button.classList.add('modifier');
         if (modifierKeys.has(key) || key === 'VolumeMute') button.setAttribute('aria-pressed', 'false');
@@ -147,7 +152,7 @@ class KeyRows extends HTMLElement {
         const next = playing ? 'pause' : 'play';
         if (play.dataset.glyph !== next) {
             play.dataset.glyph = next;
-            play.replaceChildren(icon(next));
+            play.querySelector('.fill').replaceChildren(icon(next));
             play.setAttribute('aria-label', playing ? 'Pause' : 'Play');
         }
         this.querySelector('[data-key="VolumeMute"]').setAttribute('aria-pressed', String(muted === true));

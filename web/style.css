@@ -364,7 +364,7 @@ scroll-rail {
 .mouse-left.is-latched,
 .mouse-right.is-latched,
 .mouse-middle.is-latched > .fill,
-.modifier[aria-pressed='true'] {
+.fill-button.modifier[aria-pressed='true'] > .fill {
     background: var(--latched);
     box-shadow: inset 0 0 0 var(--stroke) var(--border);
     color: var(--text);
@@ -399,6 +399,7 @@ scroll-rail {
 }
 .fill-button.is-pressed > .fill,
 .fill-button.is-held > .fill,
+.fill-button[aria-pressed='true'] > .fill,
 .fill-button[aria-expanded='true'] > .fill {
     background: var(--surface);
 }
@@ -540,14 +541,24 @@ key-rows {
     border: var(--stroke) solid var(--border);
     border-radius: var(--radius);
 }
+/* Keys are fill buttons: a 4px tappable margin keeps their fill off the group's border. */
 .key-group button {
     flex: 1;
     min-width: 0;
     height: calc(var(--key-height) - 2 * var(--stroke));
-    border: none;
+    --fill-inset: 0.25rem;
     border-radius: calc(var(--radius) - var(--stroke));
     font-weight: 500;
     font-size: 0.75rem;
+}
+.key-group button > .fill {
+    border-radius: calc(var(--radius) - var(--stroke) - 0.25rem);
+}
+@supports (corner-shape: superellipse(1.5)) {
+    .key-group button,
+    .key-group button > .fill {
+        corner-shape: superellipse(1.5);
+    }
 }
 /* Vertical rule between buttons, inset top and bottom so it floats. */
 .key-separator {
