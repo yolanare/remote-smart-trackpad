@@ -1,7 +1,6 @@
 @import url('/tokens.css');
 
 :root {
-    color-scheme: dark;
     font-family:
         system-ui,
         -apple-system,
@@ -9,6 +8,8 @@
 }
 * {
     box-sizing: border-box;
+    /* Native feel: no grey browser flash on tap; controls draw their own press state (:active). */
+    -webkit-tap-highlight-color: transparent;
 }
 [hidden] {
     display: none !important;
@@ -128,8 +129,18 @@ details[open] summary {
     background: var(--primary);
     color: var(--on-primary);
 }
+.button {
+    transition:
+        opacity 120ms ease-out,
+        transform 220ms cubic-bezier(0.2, 0, 0, 1);
+}
 .button:active {
+    transform: scale(0.97);
     opacity: 0.7;
+    transition-duration: 0ms, 70ms;
+}
+summary:active {
+    opacity: 0.6;
 }
 .button:focus-visible,
 summary:focus-visible {

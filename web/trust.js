@@ -21,3 +21,6 @@ fetch(`${secureUrl}manifest.webmanifest`, { mode: 'no-cors', cache: 'no-store' }
         document.querySelector('#open').classList.add('primary');
     })
     .catch(() => {});
+
+// iOS Safari only applies :active (the press state) once the page listens to touches.
+document.addEventListener('touchstart', () => {}, { passive: true });
