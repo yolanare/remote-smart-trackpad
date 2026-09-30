@@ -35,6 +35,10 @@ export function createMotion(send, onError) {
                     flush('scroll');
                 });
         },
+        /** Drops movement not yet sent, e.g. a fling cut short when the finger lifts. */
+        clear(action) {
+            queues[action].dx = queues[action].dy = 0;
+        },
         reset() {
             generation++;
             cancelAnimationFrame(frame);

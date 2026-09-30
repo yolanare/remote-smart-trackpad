@@ -89,6 +89,7 @@ let editing = false,
     morphs = 0;
 function applyLayout() {
     pad.sliding = settings.mouseSliding === true;
+    pad.scrollSliding = settings.scrollSliding !== false;
     app.classList.toggle('editing', shownEditing);
     $('#editor-open').hidden = shownEditing;
     $('#editor-close').hidden = !shownEditing;
@@ -238,7 +239,7 @@ const connection = createConnection(({ state }) => {
         pad.cancelGesture();
         mirror.disconnected();
         motion.reset();
-        rows.reset();
+        rows.reset({ force: true });
     } else {
         mirror.poll();
         refreshMedia();
@@ -258,6 +259,7 @@ const mirror = createMirror(send, (state) => {
 });
 
 document.addEventListener('motion-stop', () => motion.reset());
+document.addEventListener('motion-release', (event) => motion.clear(event.detail.action));
 document.addEventListener('pointerdown', () => pad.stopSliding(), { capture: true });
 // Push feedback: the pressed class is held for a short beat so quick taps still visibly press the button.
 const pressed = new Map();
@@ -385,7 +387,9 @@ function setMenu(open) {
 toggle.addEventListener('click', () => setMenu(toggle.getAttribute('aria-expanded') !== 'true'));
 backdrop.addEventListener('click', () => setMenu(false));
 document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') setMenu(false);
+    // Escape inside the reset confirmation only closes the dialog.
+    if (event.key === 'Escape' && !$('#reset-confirm').open && toggle.getAttribute('aria-expanded') === 'true')
+        setMenu(false);
 });
 
 const times = (value) => `${Number(value.toFixed(2))}×`;
@@ -421,7 +425,7 @@ for (const input of fields) {
         input.addEventListener('change', () => {
             settings[input.name] = input.checked;
             saveSettings();
-            rows.reset();
+            rows.reset({ force: true });
             layout({ animate: true });
             schedulePolling();
             refreshMedia();
@@ -441,6 +445,12 @@ for (const button of menu.querySelectorAll('[data-step]'))
         applyScale();
     });
 $('#options-reset').addEventListener('click', () => {
+    // Escape leaves returnValue untouched, so clear the previous answer first.
+    $('#reset-confirm').returnValue = '';
+    $('#reset-confirm').showModal();
+});
+$('#reset-confirm').addEventListener('close', () => {
+    if ($('#reset-confirm').returnValue !== 'reset') return;
     for (const input of fields) {
         settings[input.name] = defaults[input.name];
         showSetting(input);
@@ -449,7 +459,7 @@ $('#options-reset').addEventListener('click', () => {
         localStorage.removeItem(storageKey);
     } catch {}
     applyScale();
-    rows.reset();
+    rows.reset({ force: true });
     layout({ animate: true });
     schedulePolling();
     refreshMedia();
@@ -467,7 +477,7 @@ window.addEventListener('resize', viewport);
 const release = () => {
     pad.cancelGesture();
     motion.reset();
-    rows.reset();
+    rows.reset({ force: true });
     send('release').catch(() => {});
 };
 window.addEventListener('blur', release);
@@ -515,6 +525,24 @@ if ('serviceWorker' in navigator && isSecureContext)
         })
         .catch(offerTrust);
 else if (!installed) offerTrust();
+// Development builds (npm run watch) reload when the bundle changed. Background pages freeze their timers, so the
+// check also runs on every wake-up and when the server announces a build over the live connection.
+if (__DEV_RELOAD__) {
+    let revision;
+    const checkBuild = async () => {
+        try {
+            const response = await fetch('/dev-build.json', { cache: 'no-store' });
+            const next = (await response.json()).revision;
+            if (revision && next && next !== revision) location.reload();
+            revision ??= next;
+        } catch {}
+    };
+    checkBuild();
+    setInterval(checkBuild, 5000);
+    document.addEventListener('visibilitychange', () => document.hidden || checkBuild());
+    for (const type of ['focus', 'pageshow', 'online']) addEventListener(type, checkBuild);
+    document.addEventListener('dev-build', checkBuild);
+}
 applyScale();
 layout();
 connection.connect();

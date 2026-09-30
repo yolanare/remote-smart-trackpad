@@ -58,7 +58,11 @@ class TextEditor extends HTMLElement {
             this.caret = read().start;
         });
         textarea.addEventListener('input', input);
-        textarea.addEventListener('select', input);
+        textarea.addEventListener('select', () => {
+            // A selection placed by render() is the PC's own caret, not an edit to send back.
+            if (textarea.selectionStart === this.writtenStart && textarea.selectionEnd === this.writtenEnd) return;
+            input();
+        });
         textarea.addEventListener('keydown', (event) => {
             if (event.isComposing || event.keyCode === 229) return;
             const { start, end } = read();
@@ -129,6 +133,8 @@ class TextEditor extends HTMLElement {
         if (field.value !== anchor + text) field.value = anchor + text;
         if (field.selectionStart !== start + 1 || field.selectionEnd !== end + 1)
             field.setSelectionRange(start + 1, end + 1);
+        this.writtenStart = start + 1;
+        this.writtenEnd = end + 1;
     }
     resize() {
         const field = this.firstElementChild;

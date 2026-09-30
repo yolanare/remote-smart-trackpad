@@ -59,15 +59,11 @@ class KeyRows extends HTMLElement {
                 button.addEventListener('pointerdown', (event) => event.preventDefault());
                 button.addEventListener('click', () => {
                     if (modifierKeys.has(key)) {
-                        if (this.held.has(key)) this.held.delete(key);
-                        else this.held.add(key);
-                        this.dispatchEvent(
-                            new CustomEvent('command', {
-                                bubbles: true,
-                                detail: { action: 'key', data: { key, down: this.held.has(key) } },
-                            })
-                        );
-                        this.updatePressed();
+                        if (key === 'Win' && !this.sticky) {
+                            // Windows acts on release (Start menu): outside sticky mode a tap presses it at once.
+                            this.press(key, true);
+                            this.press(key, false);
+                        } else this.press(key, !this.held.has(key));
                         return;
                     }
                     if (key === 'PlayPause' && this.playing != null) this.media({ playing: !this.playing });
@@ -87,6 +83,14 @@ class KeyRows extends HTMLElement {
             this.append(row);
         }
     }
+    press(key, down) {
+        if (down) this.held.add(key);
+        else this.held.delete(key);
+        this.dispatchEvent(
+            new CustomEvent('command', { bubbles: true, detail: { action: 'key', data: { key, down } } })
+        );
+        this.updatePressed();
+    }
     updatePressed() {
         for (const key of modifierKeys)
             this.querySelector(`[data-key="${key}"]`).setAttribute('aria-pressed', String(this.held.has(key)));
@@ -104,13 +108,13 @@ class KeyRows extends HTMLElement {
         }
         this.querySelector('[data-key="VolumeMute"]').setAttribute('aria-pressed', String(muted === true));
     }
-    reset() {
-        for (const key of this.held)
-            this.dispatchEvent(
-                new CustomEvent('command', { bubbles: true, detail: { action: 'key', data: { key, down: false } } })
-            );
-        this.held.clear();
-        this.updatePressed();
+    /**
+     * Releases active modifiers. Outside sticky mode the app calls it after the next key or click (scrolling and
+     * moving keep them); sticky modifiers only go on a manual tap, or when forced (blur, disconnect, settings).
+     */
+    reset({ force = false } = {}) {
+        if (this.sticky && !force) return;
+        for (const key of [...this.held]) this.press(key, false);
     }
     configure(settings, editing) {
         this.sticky = settings.sticky;

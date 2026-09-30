@@ -463,6 +463,61 @@ textarea {
     height: 1.125rem;
     opacity: 0;
 }
+.axis-setting {
+    display: flex;
+    align-items: center;
+    height: 1.875rem;
+    margin-bottom: var(--space-1);
+    padding: 0 var(--space-4);
+    gap: var(--space-4);
+}
+.axis-setting > span {
+    flex: 1;
+}
+.options .axis-setting label {
+    flex: none;
+    width: 3rem;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+.confirm {
+    width: min(20rem, calc(100% - 2 * var(--space-4)));
+    padding: 1.25rem;
+    border: 0;
+    border-radius: 1rem;
+    background: linear-gradient(110deg, #202020, #191919);
+    box-shadow: 0 0.5rem 2rem #0006;
+    color: var(--text);
+    font-size: 0.875rem;
+}
+.confirm::backdrop {
+    background: rgb(0 0 0 / 60%);
+}
+.confirm h2 {
+    margin: 0 0 var(--space-2);
+    font-weight: 500;
+    font-size: 1rem;
+}
+.confirm p {
+    margin: 0 0 1.25rem;
+    color: var(--muted);
+    line-height: 1.4;
+}
+.confirm-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+.confirm-actions button {
+    flex: 1;
+    height: 2.5rem;
+    font-weight: 500;
+}
+.confirm-actions .danger {
+    border-color: transparent;
+    background: #e6a1a1;
+    color: #000;
+}
 #options-dismiss {
     z-index: 4;
     position: absolute;

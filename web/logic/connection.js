@@ -38,6 +38,7 @@ export function createConnection(changed) {
             socket.onmessage = (event) => {
                 if (current !== generation) return;
                 const message = JSON.parse(event.data);
+                if (message.type === 'build') return void document.dispatchEvent(new CustomEvent('dev-build'));
                 if (message.type === 'status') {
                     active = message.state === 'ready';
                     if (active) delay = 500;

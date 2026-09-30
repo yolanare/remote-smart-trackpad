@@ -3,6 +3,7 @@ import https from 'node:https';
 import net from 'node:net';
 import { randomInt, timingSafeEqual } from 'node:crypto';
 import { readFile, mkdir } from 'node:fs/promises';
+import { watch } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { networkInterfaces } from 'node:os';
 import path from 'node:path';
@@ -365,6 +366,14 @@ function syncListeners() {
             listener.close();
         }
 }
+// `npm run watch` rewrites dev-build.json after each build; tell connected phones so they reload right away.
+let buildWatcher = null;
+try {
+    buildWatcher = watch(path.join(root, 'web', 'dist'), (event, name) => {
+        if (name === 'dev-build.json') transport.broadcast({ type: 'build' });
+    });
+    buildWatcher.on('error', () => buildWatcher.close());
+} catch {}
 syncListeners();
 const listenerTimer = setInterval(syncListeners, 10_000);
 console.log(`Pairing code: ${pairingCode} (10 minutes)`);
@@ -372,6 +381,7 @@ async function shutdown() {
     if (stopping) return;
     stopping = true;
     clearInterval(listenerTimer);
+    buildWatcher?.close();
     transport.close();
     for (const stop of discoveryStops.values()) stop();
     for (const listener of listeners.values()) listener.close();

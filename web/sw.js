@@ -1,6 +1,6 @@
 // Network first, cache as fallback: the remote needs its PC anyway, but an installed app should still open and show
 // "PC unavailable" (then reconnect) when the PC is briefly unreachable, instead of a browser error page.
-const cacheName = 'remote-smart-trackpad-v1';
+const cacheName = 'remote-smart-trackpad-v2';
 const shell = ['/', '/app.js', '/style.css', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -21,7 +21,13 @@ self.addEventListener('activate', (event) => {
 });
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
-    if (event.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
+    if (
+        event.request.method !== 'GET'
+        || url.origin !== location.origin
+        || url.pathname.startsWith('/api/')
+        || url.pathname === '/dev-build.json'
+    )
+        return;
     event.respondWith(
         fetch(event.request)
             .then((response) => {

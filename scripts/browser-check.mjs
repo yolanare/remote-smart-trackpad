@@ -111,6 +111,19 @@ try {
     };
     await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 711, deviceScaleFactor: 1, mobile: true });
     await page('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+    // The test page is paired with the real host: only reads reach the PC, so it never types, clicks or scrolls there.
+    await page('Page.addScriptToEvaluateOnNewDocument', {
+        source: `(() => {
+            const allowed = new Set(['mirror-read', 'mirror-close', 'media-state', 'release']);
+            const send = WebSocket.prototype.send;
+            WebSocket.prototype.send = function (raw) {
+                const message = JSON.parse(raw);
+                if (allowed.has(message.action)) return send.call(this, raw);
+                const reply = message.action === 'mirror-edit' ? { ok: false, error: 'Blocked by the browser check' } : { ok: true, result: {} };
+                queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ id: message.id, ...reply }) })));
+            };
+        })();`,
+    });
     await page('Page.navigate', { url });
     await waitFor("document.querySelector('key-rows button') && !document.querySelector('#pairing').hidden");
     await evaluate(
@@ -274,7 +287,9 @@ try {
     const capture = event => { event.stopPropagation(); commands.push(event.detail); };
     rows.addEventListener('command', capture);
     const control = rows.querySelector('[data-key=Control]');
-    control.click(); const pressed = control.getAttribute('aria-pressed');
+    // A tap activates Control; the next key uses it and releases it.
+    control.click();
+    const pressed = control.getAttribute('aria-pressed');
     rows.querySelector('[data-key=Tab]').click();
     rows.removeEventListener('command', capture);
     return { pressed, released: control.getAttribute('aria-pressed'), actions: commands.map(command => command.action), shortcut: commands[1].data };

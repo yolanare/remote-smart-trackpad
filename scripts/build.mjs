@@ -14,25 +14,8 @@ const options = {
     target: ['chrome110', 'safari16'],
     metafile: true,
     logLevel: 'info',
-    banner:
-        watching ?
-            {
-                js: `(() => {
-        let revision;
-        async function check() {
-            try {
-                const response = await fetch('/dev-build.json', { cache: 'no-store' });
-                if (!response.ok) return;
-                const next = (await response.json()).revision;
-                if (revision && next && next !== revision) location.reload();
-                revision = next;
-            } catch {}
-        }
-        check();
-        setInterval(check, 1000);
-    })();`,
-            }
-        :   undefined,
+    // Development builds reload open pages when a newer bundle exists (see devReload in web/app.js).
+    define: { __DEV_RELOAD__: String(watching) },
     plugins: [
         {
             name: 'build-metadata',

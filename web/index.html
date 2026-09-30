@@ -57,10 +57,6 @@
             <button id="options-dismiss" aria-label="Close options" tabindex="-1" hidden></button>
             <!-- Option defaults live in these attributes; values stored on the phone override them. -->
             <div id="options" class="options" role="region" aria-label="Options" hidden>
-                <label
-                    ><input type="checkbox" name="mouseSliding" /><span class="checkbox" data-icon="check"></span>Mouse
-                    sliding</label
-                >
                 <div class="speed-setting">
                     <label for="mouse-acceleration"
                         >Mouse acceleration
@@ -73,14 +69,14 @@
                         min="0"
                         max="2"
                         step="0.25"
-                        value="1"
+                        value="0.5"
                     />
                 </div>
                 <div class="speed-setting">
                     <label for="mouse-speed"
                         >Mouse speed <output id="mouse-speed-value" for="mouse-speed">1×</output></label
                     >
-                    <input id="mouse-speed" name="mouseSpeed" type="range" min="0.25" max="16" step="0.25" value="1" />
+                    <input id="mouse-speed" name="mouseSpeed" type="range" min="0.25" max="16" step="0.25" value="2" />
                 </div>
                 <div class="speed-setting">
                     <label for="scroll-speed"
@@ -93,30 +89,59 @@
                         min="0.25"
                         max="32"
                         step="0.25"
-                        value="1"
+                        value="4"
                     />
                 </div>
                 <hr />
+                <div class="axis-setting" role="group" aria-label="Invert mouse">
+                    <span>Invert mouse</span>
+                    <label
+                        ><input type="checkbox" name="invertMouseX" aria-label="Invert mouse X" /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >X</label
+                    >
+                    <label
+                        ><input type="checkbox" name="invertMouseY" aria-label="Invert mouse Y" /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >Y</label
+                    >
+                </div>
+                <div class="axis-setting" role="group" aria-label="Invert scroll">
+                    <span>Invert scroll</span>
+                    <label
+                        ><input type="checkbox" name="invertScrollX" aria-label="Invert scroll X" /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >X</label
+                    >
+                    <label
+                        ><input type="checkbox" name="invertScrollY" aria-label="Invert scroll Y" /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >Y</label
+                    >
+                </div>
                 <label
-                    ><input type="checkbox" name="invertMouseX" /><span class="checkbox" data-icon="check"></span>Invert
-                    mouse X</label
+                    ><input type="checkbox" name="mouseSliding" /><span class="checkbox" data-icon="check"></span>Mouse
+                    sliding</label
                 >
                 <label
-                    ><input type="checkbox" name="invertMouseY" /><span class="checkbox" data-icon="check"></span>Invert
-                    mouse Y</label
-                >
-                <label
-                    ><input type="checkbox" name="invertScrollX" /><span class="checkbox" data-icon="check"></span
-                    >Invert scroll X</label
-                >
-                <label
-                    ><input type="checkbox" name="invertScrollY" /><span class="checkbox" data-icon="check"></span
-                    >Invert scroll Y</label
+                    ><input type="checkbox" name="scrollSliding" checked /><span
+                        class="checkbox"
+                        data-icon="check"
+                    ></span
+                    >Scroll sliding</label
                 >
                 <hr />
                 <label
                     ><input type="checkbox" name="functions" /><span class="checkbox" data-icon="check"></span>Show
-                    Function keys rows</label
+                    function keys rows</label
                 >
                 <label
                     ><input type="checkbox" name="media" /><span class="checkbox" data-icon="check"></span>Show media
@@ -175,6 +200,16 @@
                 </button>
             </div>
         </main>
+        <dialog id="reset-confirm" class="confirm" aria-labelledby="reset-confirm-title">
+            <form method="dialog">
+                <h2 id="reset-confirm-title">Reset all options?</h2>
+                <p>Speeds, rows, scale and every other option return to their defaults.</p>
+                <div class="confirm-actions">
+                    <button value="cancel" autofocus>Cancel</button>
+                    <button value="reset" class="danger">Reset</button>
+                </div>
+            </form>
+        </dialog>
         <script src="/app.js" type="module"></script>
     </body>
 </html>

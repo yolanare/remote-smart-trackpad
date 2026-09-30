@@ -184,6 +184,9 @@ export function createTransport({ authorized, hasAccess, command, available }) {
     }
     return {
         handleUpgrade,
+        broadcast(message) {
+            for (const client of clients) client.send(message);
+        },
         notify(state) {
             for (const client of clients) client.send({ type: 'status', state });
         },

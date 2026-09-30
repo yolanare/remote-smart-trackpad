@@ -7,6 +7,9 @@ class PointerPad extends HTMLElement {
         if (this.slidingEnabled && !value) this.stopSliding();
         this.slidingEnabled = value;
     }
+    set scrollSliding(value) {
+        for (const rail of this.querySelectorAll('scroll-rail')) rail.sliding = value;
+    }
     stopSliding() {
         cancelAnimationFrame(this.slideFrame);
         this.slideFrame = 0;
