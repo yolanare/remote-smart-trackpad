@@ -10,23 +10,23 @@ function qr(target, url) {
 }
 function showCode(code, expiry) {
     expiresAt = expiry;
-    $('#pairing-code').textContent = code ? `${code.slice(0, 3)} ${code.slice(3)}` : 'Expiré';
+    $('#pairing-code').textContent = code ? `${code.slice(0, 3)} ${code.slice(3)}` : 'Expired';
     updateCountdown();
 }
 function updateCountdown() {
     const seconds = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
     $('#pairing-code').classList.toggle('expired', !seconds);
     if (!seconds) {
-        $('#pairing-code').textContent = 'Expiré';
-        $('#code-expiry').textContent = 'Générez un nouveau code.';
+        $('#pairing-code').textContent = 'Expired';
+        $('#code-expiry').textContent = 'Select New code to continue.';
         return;
     }
-    $('#code-expiry').textContent = `Expire dans ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    $('#code-expiry').textContent = `Expires in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 // One QR code at a time: the stable .local address first, other addresses one tap away.
 function renderAddresses(urls, discoveryUrl) {
     addresses = [
-        ...(discoveryUrl ? [{ url: discoveryUrl, label: 'Adresse .local' }] : []),
+        ...(discoveryUrl ? [{ url: discoveryUrl, label: '.local address' }] : []),
         ...urls.map((url) => ({ url, label: new URL(url).hostname })),
     ];
     $('#scan').hidden = !addresses.length;
@@ -65,7 +65,7 @@ async function loadSetup() {
         renderAddresses(setup.urls, setup.discoveryUrl);
         renderTrust(setup.trustUrls);
     } catch {
-        $('#code-expiry').textContent = 'Serveur injoignable. Relancez Remote Smart Trackpad.';
+        $('#code-expiry').textContent = 'Cannot connect to Remote Smart Trackpad. Restart it on this PC.';
     }
 }
 $('#refresh-code').addEventListener('click', async () => {
@@ -75,7 +75,7 @@ $('#refresh-code').addEventListener('click', async () => {
         const setup = await response.json();
         showCode(setup.pairingCode, setup.pairingExpires);
     } catch {
-        $('#code-expiry').textContent = 'Impossible de générer un code.';
+        $('#code-expiry').textContent = 'Could not create a code. Try again.';
     }
 });
 setInterval(updateCountdown, 1000);
