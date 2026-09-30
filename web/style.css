@@ -667,7 +667,7 @@ textarea {
 }
 /* The editor lines up with the compact key rows, right above the phone keyboard. */
 .compact text-editor {
-    --editor-top: 0;
+    --editor-top: 0px; /* with a unit: a bare 0 makes the hint's calc() invalid */
     --editor-side: var(--space-2);
     padding-bottom: var(--space-2);
 }

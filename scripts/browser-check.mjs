@@ -354,6 +354,15 @@ try {
     const shownRows =
         '[...document.querySelectorAll(".key-row")].filter(row => !row.hidden).map(row => row.dataset.row)';
     assert.equal(await evaluate("document.querySelector('.app').classList.contains('compact')"), true);
+    // The blind-typing hint sits on the textarea's first line, compact or not.
+    const hint = await evaluate(`(() => {
+        const editor = document.querySelector('text-editor');
+        editor.classList.add('show-hint');
+        const box = editor.querySelector('textarea').getBoundingClientRect(), text = editor.querySelector('.editor-hint').getBoundingClientRect();
+        editor.classList.remove('show-hint');
+        return { inside: text.top >= box.top && text.bottom <= box.bottom && text.left >= box.left && text.right <= box.right };
+    })()`);
+    assert.deepEqual(hint, { inside: true }, 'Editor hint must sit inside the textarea');
     await evaluate('document.activeElement.blur()');
     await waitFor("!document.querySelector('.app').classList.contains('compact')");
     assert.equal(await evaluate("document.querySelector('.app').classList.contains('editing')"), true);
