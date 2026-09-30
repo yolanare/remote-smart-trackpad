@@ -600,6 +600,7 @@ key-rows {
 .forward-delete svg {
     transform: scaleX(-1);
 }
+/* The launch button and the editor that replaces it share the bottom slot and its margins. */
 .editor-launch {
     padding: var(--space-2) var(--space-4) var(--space-4);
 }
@@ -610,14 +611,17 @@ key-rows {
 text-editor {
     display: block;
     position: relative;
-    padding: 0 var(--space-2);
+    --editor-top: var(--space-2);
+    --editor-side: var(--space-4);
+    padding: var(--editor-top) var(--editor-side) var(--space-4);
 }
+/* Over the textarea's first line: the editor's padding plus the textarea's own. */
 .editor-hint {
     display: none;
     position: absolute;
-    top: var(--space-2);
-    right: calc(var(--space-2) + var(--space-3));
-    left: calc(var(--space-2) + var(--space-3));
+    top: calc(var(--editor-top) + var(--space-2) + var(--stroke));
+    right: calc(var(--editor-side) + var(--space-3) + var(--stroke));
+    left: calc(var(--editor-side) + var(--space-3) + var(--stroke));
     overflow: hidden;
     color: var(--muted);
     font-size: 0.875rem;
@@ -660,6 +664,12 @@ textarea {
 }
 .compact key-rows {
     padding: var(--space-2);
+}
+/* The editor lines up with the compact key rows, right above the phone keyboard. */
+.compact text-editor {
+    --editor-top: 0;
+    --editor-side: var(--space-2);
+    padding-bottom: var(--space-2);
 }
 .compact .key-group {
     --key-height: 2rem;

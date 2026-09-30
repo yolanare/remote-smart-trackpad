@@ -49,11 +49,12 @@
             <div id="controls">
                 <pointer-pad></pointer-pad>
                 <div class="input-dock">
-                    <text-editor hidden></text-editor>
                     <key-rows></key-rows>
                     <div class="editor-launch">
                         <button id="editor-open" aria-label="Open text editor" data-icon="text"></button>
                     </div>
+                    <!-- Takes the launch button's place at the very bottom: opening the editor moves nothing else. -->
+                    <text-editor hidden></text-editor>
                 </div>
             </div>
             <button id="options-dismiss" aria-label="Close options" tabindex="-1" hidden></button>
