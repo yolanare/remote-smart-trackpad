@@ -30,8 +30,8 @@ const rows = {
 };
 const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'Win']);
 // Auto-repeat timing: the first repeat after the delay (about a long press), then this many ms apart.
-const repeatDelay = 500,
-    repeatInterval = 70;
+const repeatDelay = 700,
+    repeatInterval = 60;
 // Function keys fill lines of at most this many keys, split evenly: 4 and 8 on one line, 12 and 16 on two, 18 and
 // 24 on three. Computed, so a wider layout only needs a larger number.
 const functionKeysPerLine = 8;
@@ -209,11 +209,11 @@ class KeyRows extends HTMLElement {
         if (this.sticky && !force) return;
         for (const key of [...this.held]) this.press(key, false);
     }
-    configure(settings, editing) {
+    configure(settings, compact) {
         this.sticky = settings.sticky;
         this.renderFunctions(settings.functionKeys);
         for (const row of this.children)
-            row.hidden = !settings[row.dataset.row] || (editing && row.dataset.row !== 'modifiers');
+            row.hidden = !settings[row.dataset.row] || (compact && row.dataset.row !== 'modifiers');
     }
 }
 customElements.define('key-rows', KeyRows);

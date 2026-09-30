@@ -92,8 +92,12 @@ function showNotice(message) {
 }
 
 // Layout: `editing` is the requested state; `shownEditing` is what the layout currently displays.
+// Compact (smaller gaps and keys, modifier row only) only while typing: the editor is open and its field has focus,
+// so the phone keyboard takes the space. Leaving the field brings the normal layout back, editor still open.
 let editing = false,
     shownEditing = false,
+    typing = false,
+    shownCompact = false,
     switching = false,
     morphs = 0;
 const applyHaptics = () =>
@@ -104,11 +108,12 @@ function applyLayout() {
     pad.scrollSliding = settings.scrollSliding !== false;
     applyHaptics();
     app.classList.toggle('editing', shownEditing);
+    app.classList.toggle('compact', shownCompact);
     $('#editor-open').hidden = shownEditing;
     $('#editor-close').hidden = !shownEditing;
     toggle.hidden = shownEditing;
     editor.hidden = !shownEditing && !dock.classList.contains('editor-pending');
-    rows.configure(settings, shownEditing);
+    rows.configure(settings, shownCompact);
 }
 /** Freezes the app and dock at their current size so the layout can change underneath. */
 function pinGeometry() {
@@ -183,20 +188,24 @@ function viewportSettled() {
         window.visualViewport?.addEventListener('resize', changed);
     });
 }
+const wantCompact = () => editing && typing;
 async function switchEditing() {
     switching = true;
     const opening = editing,
         animated = !reducedMotion();
     const start = animated && pinGeometry();
     // Focus must happen now, inside the tap, for the keyboard to open; the field stays invisible until the layout moves.
-    if (opening) {
-        dock.classList.add('editor-pending');
-        editor.hidden = false;
-        editor.focus();
-    } else editor.blur();
+    if (opening !== shownEditing) {
+        if (opening) {
+            dock.classList.add('editor-pending');
+            editor.hidden = false;
+            editor.focus();
+        } else editor.blur();
+    }
     // Wait for the keyboard to appear or leave first; moving while it resizes the viewport looks incoherent.
     if (animated) await viewportSettled();
     shownEditing = opening;
+    shownCompact = wantCompact();
     reveal(() => {
         dock.classList.remove('editor-pending');
         applyLayout();
@@ -207,7 +216,7 @@ async function switchEditing() {
 }
 function layout({ animate = false } = {}) {
     if (switching) return;
-    if (shownEditing !== editing) return void switchEditing();
+    if (shownEditing !== editing || shownCompact !== wantCompact()) return void switchEditing();
     if (!animate || reducedMotion()) return applyLayout();
     const start = pinGeometry();
     reveal(applyLayout);
@@ -452,6 +461,19 @@ editor.firstElementChild.addEventListener('beforeinput', (event) => {
         .catch((error) => showNotice(error.message));
     if (!rows.sticky) rows.reset();
 });
+// Typing follows the editor's focus. Leaving is confirmed a moment later, so focus passing within the editor (or a
+// re-render) does not bounce the layout.
+editor.addEventListener('focusin', () => {
+    typing = true;
+    layout();
+});
+editor.addEventListener('focusout', () =>
+    setTimeout(() => {
+        if (editor.contains(document.activeElement)) return;
+        typing = false;
+        layout();
+    }, 100)
+);
 $('#editor-open').addEventListener('click', () => {
     mirror.open();
     editor.focus();

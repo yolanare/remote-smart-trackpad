@@ -181,10 +181,10 @@ try {
         assert.equal(await sent(), released, key + ' must stop repeating once released');
         return released;
     };
-    const repeated = await holdKey('VolumeUp', 900);
-    assert.ok(repeated >= 4, 'A held Volume up must repeat, sent ' + repeated);
-    assert.equal(await holdKey('Escape', 900), 1, 'A held Escape must be sent once');
-    report.push({ name: 'auto-repeat', volumeUpHeld900ms: repeated, escapeHeld900ms: 1 });
+    const repeated = await holdKey('VolumeUp', 1500);
+    assert.ok(repeated >= 3, 'A held Volume up must repeat, sent ' + repeated);
+    assert.equal(await holdKey('Escape', 1500), 1, 'A held Escape must be sent once');
+    report.push({ name: 'auto-repeat', volumeUpHeld1500ms: repeated, escapeHeld1500ms: 1 });
     await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 711, deviceScaleFactor: 1, mobile: true });
     await evaluate(
         "document.querySelectorAll('#options input').forEach(input => { if (['functions','media'].includes(input.name)) { input.checked = false; input.dispatchEvent(new Event('change')); } }); document.querySelector('#options-toggle').click();"
@@ -350,6 +350,17 @@ try {
         path.join(output, 'browser-editor.png'),
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
+    // Compact only while typing: leaving the field restores the normal layout with every row, editor still open.
+    const shownRows =
+        '[...document.querySelectorAll(".key-row")].filter(row => !row.hidden).map(row => row.dataset.row)';
+    assert.equal(await evaluate("document.querySelector('.app').classList.contains('compact')"), true);
+    await evaluate('document.activeElement.blur()');
+    await waitFor("!document.querySelector('.app').classList.contains('compact')");
+    assert.equal(await evaluate("document.querySelector('.app').classList.contains('editing')"), true);
+    assert.deepEqual(await evaluate(shownRows), ['edit', 'modifiers']);
+    await evaluate("document.querySelector('text-editor').focus()");
+    await waitFor("document.querySelector('.app').classList.contains('compact')");
+    assert.deepEqual(await evaluate(shownRows), ['modifiers']);
     await evaluate("document.querySelector('#editor-close').click()");
     await waitFor("document.querySelector('text-editor').hidden");
     await evaluate(

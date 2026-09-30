@@ -646,21 +646,22 @@ textarea {
     scrollbar-width: none;
     touch-action: pan-x pan-y;
 }
-.editing pointer-pad {
+/* Compact while typing in the editor (keyboard up): see `shownCompact` in app.js. */
+.compact pointer-pad {
     grid-template-rows: minmax(0, 1fr) 2rem;
     padding-bottom: var(--space-2);
 }
-.editing .mouse {
+.compact .mouse {
     grid-template-rows: minmax(0, 1fr) 2rem;
 }
-.editing .trackpad {
+.compact .trackpad {
     border-bottom-right-radius: var(--radius);
     border-bottom-left-radius: var(--radius);
 }
-.editing key-rows {
+.compact key-rows {
     padding: var(--space-2);
 }
-.editing .key-group {
+.compact .key-group {
     --key-height: 2rem;
 }
 .editing .editor-launch {
