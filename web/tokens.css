@@ -27,8 +27,8 @@
     --primary: light-dark(rgb(0 0 0 / 90%), rgb(255 255 255 / 80%));
     --on-primary: light-dark(#fff, #000);
 
-    --warning: light-dark(#8a5a0f, #d2aa68);
-    --danger: light-dark(#b3261e, #e06767);
+    --warning: light-dark(#e6ac4e, #cd9842);
+    --danger: light-dark(#d63646, #cd353f);
 
     --space-1: 0.25rem;
     --space-2: 0.5rem;
