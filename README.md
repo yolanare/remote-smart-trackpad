@@ -58,7 +58,6 @@ Remaining physical-device checks: Gboard/IME and viewport resizing on Android, n
 
 ## References
 
-- [Figma screens](https://www.figma.com/design/IwpOo2N0yhqFFIFqEHERPH/Untitled?node-id=0-1)
 - [Lucide](https://lucide.dev/guide/lucide), [esbuild tree shaking](https://esbuild.github.io/api/#tree-shaking)
 - [Microsoft TextPattern](https://learn.microsoft.com/en-us/dotnet/framework/ui-automation/ui-automation-textpattern-overview), [SendInput](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendinput)
 - Setup QR codes use the locally vendored [datalog/qrcode-svg](https://github.com/datalog/qrcode-svg), under its [MIT license](web/vendor/LICENSE).
