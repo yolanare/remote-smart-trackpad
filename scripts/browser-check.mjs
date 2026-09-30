@@ -195,7 +195,7 @@ try {
         ),
         [8, 24]
     );
-    await evaluate(`for (const [id, value] of [['mouse-acceleration', 0], ['mouse-speed', 2], ['scroll-speed', 0.5]]) {
+    await evaluate(`for (const [id, value] of [['mouse-acceleration', 0], ['scroll-acceleration', 0], ['mouse-speed', 2], ['scroll-speed', 0.5]]) {
         const input = document.getElementById(id); input.value = value; input.dispatchEvent(new Event('input', { bubbles: true }));
     }`);
     const scaledMotion = await evaluate(`(async () => {

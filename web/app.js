@@ -341,7 +341,10 @@ document.addEventListener('command', async (event) => {
 document.addEventListener('motion', (event) => {
     const { action, dx, dy, speed = 0 } = event.detail;
     const mouse = action === 'move';
-    const gain = mouse ? settings.mouseSpeed * pointerGain(speed, settings.mouseAcceleration) : settings.scrollSpeed;
+    const gain =
+        mouse ?
+            settings.mouseSpeed * pointerGain(speed, settings.mouseAcceleration)
+        :   settings.scrollSpeed * pointerGain(speed, settings.scrollAcceleration);
     const signX = settings[mouse ? 'invertMouseX' : 'invertScrollX'] ? -1 : 1;
     const signY = settings[mouse ? 'invertMouseY' : 'invertScrollY'] ? -1 : 1;
     motion.add(action, dx * gain * signX, dy * gain * signY);
@@ -446,7 +449,7 @@ function showSetting(input) {
     const value = settings[input.name];
     if (input.type === 'checkbox') return void (input.checked = value);
     input.value = value;
-    const off = input.name === 'mouseAcceleration' && value === 0;
+    const off = input.name.endsWith('Acceleration') && value === 0;
     const output = menu.querySelector(`output[for="${input.id}"]`);
     if (output) output.value = off ? 'Off' : times(value);
     if (input.type !== 'range') return;

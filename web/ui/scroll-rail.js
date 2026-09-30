@@ -33,13 +33,22 @@ export class ScrollRail extends HTMLElement {
             flinging = false,
             idle,
             drag = null;
-        const emit = (delta) =>
+        // speed: smoothed scroll velocity in CSS px/ms, like the trackpad's finger speed, for scroll acceleration.
+        let speed = 0,
+            lastEmit = 0;
+        const emit = (delta) => {
+            const now = performance.now(),
+                elapsed = now - lastEmit;
+            const blend = elapsed > 100 ? 1 : 0.5;
+            speed = speed * (1 - blend) + (Math.abs(delta) / Math.max(1, elapsed)) * blend;
+            lastEmit = now;
             this.dispatchEvent(
                 new CustomEvent('motion', {
                     bubbles: true,
-                    detail: { action: 'scroll', dx: horizontal ? delta : 0, dy: horizontal ? 0 : delta },
+                    detail: { action: 'scroll', dx: horizontal ? delta : 0, dy: horizontal ? 0 : delta, speed },
                 })
             );
+        };
         // Ticks repeat every 1.875rem with the tick itself at 1.8125–1.875rem (see .rail-content in style.css).
         const ticks = () => {
             const unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
