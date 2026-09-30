@@ -22,7 +22,7 @@ class PointerPad extends HTMLElement {
     }
     connectedCallback() {
         if (this.firstChild) return;
-        this.innerHTML = `<div class="mouse"><div class="trackpad" role="application" aria-label="Move PC pointer"><div class="dots"></div></div><button class="mouse-left" aria-label="Left click" data-button="left"></button><button class="mouse-hold" aria-label="Hold mouse buttons" aria-pressed="false"></button><button class="mouse-right" aria-label="Right click" data-button="right"></button></div><scroll-rail axis="y"></scroll-rail><scroll-rail axis="x"></scroll-rail><button class="mouse-middle" aria-label="Middle click" data-button="middle"><span></span></button>`;
+        this.innerHTML = `<div class="mouse"><div class="trackpad" role="application" aria-label="Move PC pointer"><div class="dots"></div></div><button class="mouse-left" aria-label="Left click" data-button="left"></button><button class="mouse-middle" aria-label="Middle click" data-button="middle"><span></span></button><button class="mouse-right" aria-label="Right click" data-button="right"></button></div><scroll-rail axis="y"></scroll-rail><scroll-rail axis="x"></scroll-rail><button class="mouse-hold" aria-label="Hold mouse buttons" aria-pressed="false"><span class="hold-box"><span class="hold-label">HOLD<br />CLICKS</span><span class="hold-check"></span></span></button>`;
         const pad = this.querySelector('.trackpad');
         // Gestures: one finger moves, a tap clicks (two quick taps double-click), and tap-then-touch-and-move drags
         // with the left button held until the finger lifts. A single tap's click waits one double-tap window so a
@@ -169,7 +169,7 @@ class PointerPad extends HTMLElement {
         });
         // Hold mode: a tap presses a mouse button and keeps it down until the next tap on it (one finger at a time).
         const hold = this.querySelector('.mouse-hold');
-        hold.append(icon('check'));
+        hold.querySelector('.hold-check').append(icon('check'));
         const latched = new Set();
         const setLatched = (button, down) => {
             if (down) latched.add(button);
@@ -187,13 +187,15 @@ class PointerPad extends HTMLElement {
             if (!this.holding) this.releaseButtons();
         });
         this.querySelectorAll('[data-button]').forEach((button) => {
-            let held = false;
+            let held = false,
+                last = null;
             button.addEventListener('pointerdown', (event) => {
                 event.preventDefault();
                 if (this.holding) return setLatched(button, !latched.has(button));
                 if (held) return;
                 button.setPointerCapture(event.pointerId);
                 held = true;
+                last = { x: event.clientX, y: event.clientY, time: performance.now() };
                 button.classList.add('is-held');
                 command({ action: 'button', data: { button: button.dataset.button, down: true } });
             });
@@ -204,6 +206,17 @@ class PointerPad extends HTMLElement {
                     command({ action: 'button', data: { button: button.dataset.button, down: false } });
                 }
             };
+            // Dragging from the held middle button moves the pointer too (middle-drag panning, autoscroll).
+            if (button.dataset.button === 'middle')
+                button.addEventListener('pointermove', (event) => {
+                    if (!held || !last) return;
+                    const dx = event.clientX - last.x,
+                        dy = event.clientY - last.y,
+                        now = performance.now();
+                    if (!dx && !dy) return;
+                    move(dx, dy, Math.hypot(dx, dy) / Math.max(1, now - last.time));
+                    last = { x: event.clientX, y: event.clientY, time: now };
+                });
             button.addEventListener('pointerup', release);
             button.addEventListener('pointercancel', release);
             button.addEventListener('lostpointercapture', release);

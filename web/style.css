@@ -38,6 +38,17 @@
 [hidden] {
     display: none !important;
 }
+/* The page never zooms. Scroll containers ignore their ancestors' touch-action, so each one sets its own. */
+html,
+body,
+dialog {
+    touch-action: pan-x pan-y;
+}
+/* The first seconds after loading allow zoom (see app.js); pointer surfaces keep their own gestures. */
+:root.zoom-grace,
+:root.zoom-grace :is(body, dialog, .app, .pairing, textarea, button:not(.mouse-left, .mouse-right, .mouse-middle)) {
+    touch-action: pan-x pan-y pinch-zoom;
+}
 html,
 body {
     width: 100%;
@@ -73,7 +84,8 @@ button {
         opacity 120ms ease-out,
         transform 220ms cubic-bezier(0.2, 0, 0, 1);
     -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
+    /* Pans only: no pinch or double-tap zoom (unlike manipulation, which still allows pinch). */
+    touch-action: pan-x pan-y;
 }
 /* Push: press in fast, spring back slower. */
 button:active,
@@ -232,10 +244,10 @@ scroll-rail {
 .mouse-right {
     border-radius: 0.5rem 0.5rem 1.5rem 0.5rem;
 }
-/* Hold toggle between the buttons: the tap area is as tall as the button row, the drawn box is smaller. */
+/* Hold toggle in the corner between the scroll rails: the whole cell is the tap area, the drawn box is small. */
 .mouse-hold {
     position: relative;
-    aspect-ratio: 1;
+    width: 100%;
     height: 100%;
     border: none;
     color: var(--text);
@@ -246,27 +258,70 @@ scroll-rail {
 .mouse-hold[aria-pressed='true'] {
     background: transparent;
 }
-.mouse-hold::before {
-    position: absolute;
-    width: 1.125rem;
-    height: 1.125rem;
-    margin: auto;
-    inset: 0;
+/* Unchecked: an empty square. Checked: the box hugs a tiny "HOLD" label. */
+.hold-box {
+    display: flex;
+    position: relative;
+    isolation: isolate;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.125rem;
+    max-width: 1.125rem;
+    min-height: 1.125rem;
+    max-height: 1.125rem;
+    padding: 0;
     border: var(--stroke) solid var(--border);
     border-radius: var(--radius-small);
-    content: '';
+    color: transparent;
+    font-weight: 600;
+    font-size: 0.5rem;
+    line-height: 1.15;
+    letter-spacing: 0.08em;
+    text-align: center;
+    white-space: nowrap;
+    transition:
+        max-width 160ms ease-out,
+        max-height 160ms ease-out,
+        padding 160ms ease-out,
+        color 160ms ease-out,
+        border-color 160ms ease-out;
 }
-.mouse-hold[aria-pressed='true']::before {
-    border-color: rgb(255 255 255 / 45%);
+.mouse-hold[aria-pressed='true'] .hold-box {
+    max-width: 3.5rem;
+    max-height: 2rem;
+    padding: 0.1875rem 0.3125rem;
+    border-color: var(--border);
+    color: var(--border);
 }
-.mouse-hold svg {
+/* The label clips itself so the box can collapse to a square; the check badge can then overflow the corner. */
+.hold-label {
     position: relative;
-    width: 0.75rem;
-    height: 0.75rem;
-    opacity: 0;
-    transition: opacity 120ms ease-out;
+    z-index: 1;
+    min-width: 0;
+    overflow: hidden;
 }
-.mouse-hold[aria-pressed='true'] svg {
+/* Active marker: a check on a black disc that cuts the border at the top-right corner, drawn under the label. */
+.hold-check {
+    display: grid;
+    position: absolute;
+    top: -0.3125rem;
+    right: -0.3125rem;
+    z-index: 0;
+    place-items: center;
+    width: 0.8rem;
+    height: 0.6rem;
+    border-radius: 999rem;
+    background: var(--background);
+    color: var(--border);
+    opacity: 0;
+    transition: opacity 160ms ease-out;
+}
+.hold-check svg {
+    width: 0.65rem;
+    height: 0.65rem;
+    stroke-width: 3;
+}
+.mouse-hold[aria-pressed='true'] .hold-check {
     opacity: 1;
 }
 /* A button kept down by hold mode. */
@@ -276,13 +331,17 @@ scroll-rail {
     background: rgb(255 255 255 / 22%);
     box-shadow: inset 0 0 0 var(--stroke) var(--border);
 }
+/* Middle click between left and right: a little wider than tall so it is easy to hit. */
 .mouse-middle {
+    width: 2.5rem;
+    height: 100%;
     border: none;
     border-radius: 999rem;
+    touch-action: none;
 }
 .mouse-middle span {
     position: relative;
-    width: 1.25rem;
+    width: 1.75rem;
     height: 1.25rem;
     border-radius: 999rem;
     background: var(--surface);
@@ -449,6 +508,7 @@ textarea {
     line-height: 1.3;
     resize: none;
     scrollbar-width: none;
+    touch-action: pan-x pan-y;
 }
 .editing pointer-pad {
     grid-template-rows: minmax(0, 1fr) 2rem;
@@ -749,6 +809,7 @@ a.options-action {
     margin: auto;
     padding: 2rem var(--space-4);
     overflow: auto;
+    touch-action: pan-x pan-y;
 }
 .pairing h1 {
     font-weight: 500;

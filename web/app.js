@@ -258,6 +258,38 @@ const mirror = createMirror(send, (state) => {
     schedulePolling();
 });
 
+// No zoom, whatever the browser allows (Firefox's "zoom on all websites" ignores user-scalable=no): the remote
+// never uses two-finger gestures, so a second finger never reaches the browser's pinch handling.
+// For 4 s after loading, zoom stays allowed so a page stuck zoomed can be pinched back out. Then a strict viewport
+// (scale fixed at 1) is applied, which also makes the browser zoom back out natively; a later zoom is reset the same way.
+const viewportMeta = $('meta[name="viewport"]');
+const viewportBase = 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content';
+const viewportLocked = `${viewportBase}, minimum-scale=1, maximum-scale=1, user-scalable=no`;
+let zoomGrace = true;
+viewportMeta.content = viewportBase;
+document.documentElement.classList.add('zoom-grace');
+function resetZoom() {
+    // Rewriting the tag with a different value, then the strict one, makes browsers re-apply it and clamp the scale.
+    viewportMeta.content = `${viewportBase}, maximum-scale=1.01`;
+    requestAnimationFrame(() => (viewportMeta.content = viewportLocked));
+}
+setTimeout(() => {
+    zoomGrace = false;
+    document.documentElement.classList.remove('zoom-grace');
+    resetZoom();
+}, 4000);
+window.visualViewport?.addEventListener('resize', () => {
+    if (!zoomGrace && Math.abs(visualViewport.scale - 1) > 0.01) resetZoom();
+});
+document.addEventListener(
+    'touchmove',
+    (event) => {
+        if (!zoomGrace && event.touches.length > 1) event.preventDefault();
+    },
+    { passive: false }
+);
+for (const type of ['gesturestart', 'gesturechange'])
+    document.addEventListener(type, (event) => zoomGrace || event.preventDefault());
 document.addEventListener('motion-stop', () => motion.reset());
 document.addEventListener('motion-release', (event) => motion.clear(event.detail.action));
 document.addEventListener('pointerdown', () => pad.stopSliding(), { capture: true });
