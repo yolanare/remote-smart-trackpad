@@ -8,9 +8,7 @@ while ($null -ne ($line = [Console]::ReadLine())) {
         $result = $null
         switch ($request.action) {
             'move' {
-                $point = New-Object NativeInput+Point
-                [void][NativeInput]::GetCursorPos([ref]$point)
-                if (-not [NativeInput]::SetCursorPos($point.X + [int]$data.dx, $point.Y + [int]$data.dy)) { throw 'Windows rejected pointer movement' }
+                if (-not [NativeInput]::MoveBy([int]$data.dx, [int]$data.dy)) { throw 'Windows rejected pointer movement' }
             }
             'click' {
                 $name = [string]$data.button

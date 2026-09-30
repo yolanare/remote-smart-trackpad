@@ -36,6 +36,24 @@ public static class NativeInput {
         }
         return true;
     }
+    [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
+    // Real mouse input, unlike SetCursorPos, so apps update the cursor shape (text, link, resize) and hover state.
+    // Absolute coordinates keep Windows' pointer acceleration out; SetCursorPos then corrects any rounding pixel.
+    public static bool MoveBy(int dx, int dy) {
+        Point point;
+        if (!GetCursorPos(out point)) return false;
+        int left = GetSystemMetrics(76), top = GetSystemMetrics(77), width = GetSystemMetrics(78), height = GetSystemMetrics(79);
+        int x = Math.Max(left, Math.Min(left + width - 1, point.X + dx));
+        int y = Math.Max(top, Math.Min(top + height - 1, point.Y + dy));
+        Input input = new Input { Type = 0, Data = new InputUnion { Mouse = new MouseInput {
+            Dx = (int)Math.Round((x - left) * 65535.0 / Math.Max(1, width - 1)),
+            Dy = (int)Math.Round((y - top) * 65535.0 / Math.Max(1, height - 1)),
+            Flags = 0x0001 | 0x4000 | 0x8000 } } };
+        if (SendInput(1, new [] { input }, Marshal.SizeOf(typeof(Input))) != 1) return SetCursorPos(x, y);
+        Point landed;
+        if (GetCursorPos(out landed) && (landed.X != x || landed.Y != y)) return SetCursorPos(x, y);
+        return true;
+    }
     public static bool Mouse(uint flags, int data = 0) {
         Input input = new Input { Type = 0, Data = new InputUnion { Mouse = new MouseInput { Flags = flags, MouseData = unchecked((uint)data) } } };
         return SendInput(1, new [] { input }, Marshal.SizeOf(typeof(Input))) == 1;

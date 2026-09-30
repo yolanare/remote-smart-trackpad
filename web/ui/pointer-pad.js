@@ -1,6 +1,8 @@
 import './scroll-rail.js';
+import { icon } from './icons.js';
 
 class PointerPad extends HTMLElement {
+    holding = false;
     slidingEnabled = false;
     slideFrame = 0;
     set sliding(value) {
@@ -20,7 +22,7 @@ class PointerPad extends HTMLElement {
     }
     connectedCallback() {
         if (this.firstChild) return;
-        this.innerHTML = `<div class="mouse"><div class="trackpad" role="application" aria-label="Move PC pointer"><div class="dots"></div></div><button class="mouse-left" aria-label="Left click" data-button="left"></button><button class="mouse-right" aria-label="Right click" data-button="right"></button></div><scroll-rail axis="y"></scroll-rail><scroll-rail axis="x"></scroll-rail><button class="mouse-middle" aria-label="Middle click" data-button="middle"><span></span></button>`;
+        this.innerHTML = `<div class="mouse"><div class="trackpad" role="application" aria-label="Move PC pointer"><div class="dots"></div></div><button class="mouse-left" aria-label="Left click" data-button="left"></button><button class="mouse-hold" aria-label="Hold mouse buttons" aria-pressed="false"></button><button class="mouse-right" aria-label="Right click" data-button="right"></button></div><scroll-rail axis="y"></scroll-rail><scroll-rail axis="x"></scroll-rail><button class="mouse-middle" aria-label="Middle click" data-button="middle"><span></span></button>`;
         const pad = this.querySelector('.trackpad');
         // Gestures: one finger moves, a tap clicks (two quick taps double-click), and tap-then-touch-and-move drags
         // with the left button held until the finger lifts. A single tap's click waits one double-tap window so a
@@ -70,6 +72,7 @@ class PointerPad extends HTMLElement {
         };
         this.cancelGesture = () => {
             this.stopSliding();
+            this.releaseButtons?.();
             flushTap();
             setDragging(false);
             secondTouch = false;
@@ -164,11 +167,31 @@ class PointerPad extends HTMLElement {
         pad.addEventListener('lostpointercapture', () => {
             if (pointer !== null) this.cancelGesture();
         });
+        // Hold mode: a tap presses a mouse button and keeps it down until the next tap on it (one finger at a time).
+        const hold = this.querySelector('.mouse-hold');
+        hold.append(icon('check'));
+        const latched = new Set();
+        const setLatched = (button, down) => {
+            if (down) latched.add(button);
+            else latched.delete(button);
+            button.classList.toggle('is-latched', down);
+            command({ action: 'button', data: { button: button.dataset.button, down } });
+        };
+        this.releaseButtons = () => {
+            for (const button of [...latched]) setLatched(button, false);
+        };
+        hold.addEventListener('pointerdown', (event) => event.preventDefault());
+        hold.addEventListener('click', () => {
+            this.holding = !this.holding;
+            hold.setAttribute('aria-pressed', String(this.holding));
+            if (!this.holding) this.releaseButtons();
+        });
         this.querySelectorAll('[data-button]').forEach((button) => {
             let held = false;
             button.addEventListener('pointerdown', (event) => {
-                if (held) return;
                 event.preventDefault();
+                if (this.holding) return setLatched(button, !latched.has(button));
+                if (held) return;
                 button.setPointerCapture(event.pointerId);
                 held = true;
                 button.classList.add('is-held');
@@ -185,7 +208,10 @@ class PointerPad extends HTMLElement {
             button.addEventListener('pointercancel', release);
             button.addEventListener('lostpointercapture', release);
             button.addEventListener('click', (event) => {
-                if (event.detail === 0) command({ action: 'click', data: { button: button.dataset.button } });
+                // Keyboard activation has no pointer: click, or toggle in hold mode.
+                if (event.detail !== 0) return;
+                if (this.holding) setLatched(button, !latched.has(button));
+                else command({ action: 'click', data: { button: button.dataset.button } });
             });
         });
         this.addEventListener('contextmenu', (event) => event.preventDefault());
