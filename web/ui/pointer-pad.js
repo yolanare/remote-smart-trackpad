@@ -37,8 +37,8 @@ class PointerPad extends HTMLElement {
             startX = 0,
             startY = 0,
             startTime = 0,
-            patternX = -4,
-            patternY = -6,
+            patternX = 0,
+            patternY = 0,
             velocityX = 0,
             velocityY = 0,
             lastMove = 0,
@@ -54,7 +54,8 @@ class PointerPad extends HTMLElement {
             const unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
             patternX = (patternX + dx) % (1.5 * unit);
             patternY = (patternY + dy) % (1.5 * unit);
-            this.querySelector('.dots').style.backgroundPosition = `${patternX / unit}rem ${patternY / unit}rem`;
+            this.querySelector('.dots').style.backgroundPosition =
+                `calc(50% + ${patternX / unit}rem) calc(50% + ${patternY / unit}rem)`;
             this.dispatchEvent(new CustomEvent('motion', { bubbles: true, detail: { action: 'move', dx, dy, speed } }));
         };
         const flushTap = () => {

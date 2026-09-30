@@ -20,8 +20,15 @@ export class ScrollRail extends HTMLElement {
         this.sliding = this.#sliding;
         viewport.setAttribute('aria-label', horizontal ? 'Horizontal scroll' : 'Vertical scroll');
         const property = horizontal ? 'scrollLeft' : 'scrollTop';
-        const center = 524280;
-        let previous = center,
+        // The rest position is the middle of the scroll range, which follows the interface scale (rem-sized content).
+        const center = () => {
+            const size =
+                horizontal ?
+                    viewport.scrollWidth - viewport.clientWidth
+                :   viewport.scrollHeight - viewport.clientHeight;
+            return Math.max(0, Math.round(size / 2));
+        };
+        let previous = 0,
             resetting = false,
             flinging = false,
             idle,
@@ -33,9 +40,25 @@ export class ScrollRail extends HTMLElement {
                     detail: { action: 'scroll', dx: horizontal ? delta : 0, dy: horizontal ? 0 : delta },
                 })
             );
+        // Ticks repeat every 1.875rem with the tick itself at 1.8125–1.875rem (see .rail-content in style.css).
+        const ticks = () => {
+            const unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
+            return { period: 1.875 * unit, tick: 1.84375 * unit };
+        };
+        const content = viewport.firstElementChild;
+        // At rest (scrolled to `center`) a tick sits in the middle of the rail, whatever its size.
+        const align = () => {
+            const { period, tick } = ticks();
+            const size = horizontal ? viewport.clientWidth : viewport.clientHeight;
+            // Whole pixels: a 1px tick on a half pixel blurs away.
+            const offset = Math.round((((center() + size / 2 - tick) % period) + period) % period);
+            content.style.backgroundPosition = horizontal ? `${offset}px 0` : `0 ${offset}px`;
+        };
         const recenter = () => {
+            // Jump back by whole tick periods only, so the visible ticks do not shift when the rail recenters.
+            const { period } = ticks();
             resetting = true;
-            viewport[property] = center;
+            viewport[property] = center() + ((((previous - center()) % period) + period) % period);
             previous = viewport[property];
             requestAnimationFrame(() => {
                 resetting = false;
@@ -45,12 +68,19 @@ export class ScrollRail extends HTMLElement {
             clearTimeout(idle);
             // Recenter only after native momentum stops; moving during a fling cancels it on iOS.
             idle = setTimeout(() => {
-                if (Math.abs(previous - center) > 65536) recenter();
+                if (Math.abs(previous - center()) > 16384) recenter();
             }, 250);
         };
-        requestAnimationFrame(recenter);
+        // Exactly to the rest position (first layout, or a resize such as an interface scale change moved it).
+        const reset = () => {
+            previous = center();
+            recenter();
+        };
+        requestAnimationFrame(reset);
+        // A resize (layout, keyboard, interface scale) happens at rest: re-center exactly so a tick stays in the middle.
         this.observer = new ResizeObserver(() => {
-            if (viewport.clientWidth && viewport.clientHeight && viewport[property] === 0) recenter();
+            align();
+            if (viewport.clientWidth && viewport.clientHeight && !drag) reset();
         });
         this.observer.observe(viewport);
 
@@ -98,7 +128,7 @@ export class ScrollRail extends HTMLElement {
         );
         viewport.addEventListener('scrollend', () => {
             flinging = false;
-            if (Math.abs(previous - center) > 65536) recenter();
+            if (Math.abs(previous - center()) > 16384) recenter();
         });
     }
     disconnectedCallback() {
