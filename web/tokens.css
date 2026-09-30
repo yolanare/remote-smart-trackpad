@@ -15,8 +15,8 @@
     --panel-shadow: 0 0.5rem 2rem #0006;
     --overlay: rgb(0 0 0 / 60%);
     --latched: rgb(255 255 255 / 35%);
-    --dot: rgb(255 255 255 / 20%);
-    --dot-active: rgb(255 255 255 / 18%);
+    --dot: rgb(255 255 255 / 15%);
+    --dot-active: rgb(255 255 255 / 20%);
     --drag-fill: rgb(255 255 255 / 2%);
     /* Edge motion bands: approaching a screen edge while dragging, then inside its zone. */
     --edge-motion: rgb(255 255 255 / 8%);

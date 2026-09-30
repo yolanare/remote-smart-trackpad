@@ -311,7 +311,7 @@ scroll-rail {
     max-height: 2rem;
     padding: 0.1875rem 0.3125rem;
     border-color: var(--border);
-    color: var(--border);
+    color: var(--muted);
 }
 /* The label clips itself so the box can collapse to a square; the check badge can then overflow the corner. */
 .hold-label {
@@ -565,7 +565,7 @@ textarea {
     padding-bottom: var(--space-2);
 }
 .editing .mouse {
-    grid-template-rows: minmax(0, 1fr) 1.5rem;
+    grid-template-rows: minmax(0, 1fr) 2rem;
 }
 .editing .trackpad {
     border-bottom-right-radius: var(--radius);
