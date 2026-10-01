@@ -147,10 +147,14 @@ export class ScrollRail extends HTMLElement {
         // Native mode (sliding on, mouse wheel, keyboard): scroll events carry the movement, fling included.
         // Touch feedback: the ticks brighten while a finger is on the rail (touch events last through native
         // panning, unlike the pointer, which the browser cancels once it scrolls).
+        // A glide (the fling after the finger lifts) ends with one last tick, like a wheel settling; a drag released
+        // without momentum has no glide, so no tick.
+        let glided = 0;
         viewport.addEventListener(
             'touchstart',
             () => {
                 flinging = false;
+                glided = 0;
                 this.classList.add('is-touched');
             },
             { passive: true }
@@ -173,11 +177,14 @@ export class ScrollRail extends HTMLElement {
                     delta = position - previous;
                 previous = position;
                 if (delta && !resetting && (this.#sliding || !flinging)) emit(delta);
+                if (flinging && this.#sliding && !resetting) glided += Math.abs(delta);
                 recenterLater();
             },
             { passive: true }
         );
         viewport.addEventListener('scrollend', () => {
+            if (glided > 8) tick(tickPulse, 'scroll');
+            glided = 0;
             flinging = false;
             if (Math.abs(previous - center()) > 16384) recenter();
         });

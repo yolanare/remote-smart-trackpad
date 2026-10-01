@@ -342,6 +342,20 @@ try {
         scaledMotion,
         reducedMotion: true,
     });
+    // The editor reads the PC's real focused field; its tests answer reads themselves, so whatever the PC shows
+    // (text, changes) does not matter: an empty readable field, or window.__readAnswer when a test sets it. The page
+    // reload after these tests restores the real reads.
+    await evaluate(`(() => {
+        const send = WebSocket.prototype.send;
+        const empty = { available: true, session: 'check', revision: 0, text: '', selectionStart: 0, selectionEnd: 0 };
+        WebSocket.prototype.send = function (raw) {
+            const message = JSON.parse(raw);
+            if (message.action !== 'mirror-read') return send.call(this, raw);
+            window.__sent.push({ action: message.action, at: performance.now() });
+            const result = window.__readAnswer ?? empty;
+            queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ id: message.id, ok: true, result }) })));
+        };
+    })()`);
     await evaluate(
         "document.querySelector('#options-toggle').click(); document.querySelector('#editor-open').click();"
     );
@@ -413,18 +427,9 @@ try {
         path.join(output, 'browser-editor.png'),
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
-    // Mirror polling: every 200 ms right after activity, slower once quiet, full speed again after a key. The PC's
-    // real field could change meanwhile (and rightly keep polling fast), so reads answer "unchanged" here.
-    await evaluate(`(() => {
-        const send = WebSocket.prototype.send;
-        window.__restoreSend = () => (WebSocket.prototype.send = send);
-        WebSocket.prototype.send = function (raw) {
-            const message = JSON.parse(raw);
-            if (message.action !== 'mirror-read') return send.call(this, raw);
-            window.__sent.push({ action: message.action, at: performance.now() });
-            queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ id: message.id, ok: true, result: { unchanged: true } }) })));
-        };
-    })()`);
+    // Mirror polling: every 200 ms right after activity, slower once quiet, full speed again after a key. Reads
+    // answer "unchanged", as a field nobody touches would.
+    await evaluate('window.__readAnswer = { unchanged: true }');
     const readGaps = (since) =>
         evaluate(`(() => {
             const reads = window.__sent.filter(entry => entry.action === 'mirror-read' && entry.at >= ${since}).map(entry => entry.at);
@@ -446,7 +451,7 @@ try {
     assert.ok(median(activeGaps) < 320, 'Active polling should run about every 200 ms: ' + activeGaps);
     assert.ok(median(quietGaps) >= 450, 'Quiet polling should slow down: ' + quietGaps);
     assert.ok(median(wokenGaps) < 320, 'Activity should restore fast polling: ' + wokenGaps);
-    await evaluate('window.__restoreSend()');
+    await evaluate('window.__readAnswer = null');
     report.push({ name: 'adaptive-polling', activeGaps, quietGaps, wokenGaps });
     // The blind-typing hint sits on the textarea's first line, while editing.
     const hint = await evaluate(`(() => {

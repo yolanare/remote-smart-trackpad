@@ -15,6 +15,9 @@ const edgeSpeed = 0.8;
 // Along each edge, the middle 40% of the screen moves straight (perpendicular to the edge); beyond it the direction
 // tilts progressively, up to 45° in the corners. The screen's shape therefore never turns a sideways push diagonal.
 const straight = 0.4;
+// Edge motion waits for the finger to really travel (CSS px from where the drag started): a tap near the edge of the
+// screen, even with a little jitter, never starts a glide.
+const travel = 16;
 // The PC stops a glide it has not heard about for 300 ms; renew it while it lasts.
 const renewal = 100;
 const sides = Object.keys(zone);
@@ -51,7 +54,9 @@ export function createEdgeMotion({ glide, animate }) {
         sent = null,
         renewTimer = 0,
         frame = 0,
-        last = 0;
+        last = 0,
+        origin = null,
+        armed = false;
 
     function send() {
         sent = { ...velocity };
@@ -92,6 +97,9 @@ export function createEdgeMotion({ glide, animate }) {
     return {
         /** The dragging finger moved to (x, y), in viewport coordinates. */
         update(x, y) {
+            origin ??= { x, y };
+            if (!armed && Math.hypot(x - origin.x, y - origin.y) < travel) return;
+            armed = true;
             const width = innerWidth,
                 height = innerHeight;
             const size = {
@@ -133,6 +141,8 @@ export function createEdgeMotion({ glide, animate }) {
         },
         /** The drag ended: stop the glide and hide the bands. */
         end() {
+            origin = null;
+            armed = false;
             for (const band of Object.values(bands)) {
                 band.style.setProperty('--proximity', 0);
                 band.classList.remove('is-active');

@@ -583,12 +583,14 @@ key-rows {
 .key-group button > .fill {
     corner-shape: var(--corner-shape);
 }
-/* Vertical rule between buttons, inset top and bottom so it floats. */
+/* Vertical rule between buttons, floating in the middle: half the key height, so it follows smaller keys (function
+   keys, editing). */
 .key-separator {
     flex: none;
-    align-self: stretch;
+    align-self: center;
     width: var(--stroke);
-    margin: 0.8rem 0;
+    height: calc(var(--key-height) / 2);
+    margin: 0;
     border: 0;
     background: var(--surface);
 }
@@ -602,9 +604,6 @@ key-rows {
 }
 .function-keys button {
     height: var(--key-height);
-}
-.function-keys .key-separator {
-    margin: 0.6rem 0;
 }
 .forward-delete svg {
     transform: scaleX(-1);
@@ -635,7 +634,7 @@ text-editor {
     right: calc(var(--editor-side) + var(--space-3) + var(--stroke));
     left: calc(var(--editor-side) + var(--space-3) + var(--stroke));
     overflow: hidden;
-    color: var(--muted);
+    color: var(--border);
     font-size: 0.875rem;
     line-height: 1.3;
     text-overflow: ellipsis;
