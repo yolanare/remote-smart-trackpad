@@ -96,7 +96,10 @@ while ($null -ne ($line = [Console]::ReadLine())) {
         $errorCode = if ($_.Exception.Message -like 'The editing session is no longer available*') { 'session_gone' }
                      elseif ($_.Exception.Message -like 'Invalid text operation*' -or $_.Exception.Message -like 'Mobile buffer limit exceeded*') { 'invalid_operation' }
                      else { 'windows_error' }
-        @{ id=$request.id; ok=$false; error=$_.Exception.Message; code=$errorCode } | ConvertTo-Json -Compress -Depth 5
+        # The failure itself, not PowerShell's wrapper ('Exception calling "GetText" with "1" argument(s): ...').
+        $failure = $_.Exception
+        while ($failure -is [System.Management.Automation.MethodInvocationException] -and $null -ne $failure.InnerException) { $failure = $failure.InnerException }
+        @{ id=$request.id; ok=$false; error=$failure.Message; code=$errorCode } | ConvertTo-Json -Compress -Depth 5
     }
 }
 Release-All

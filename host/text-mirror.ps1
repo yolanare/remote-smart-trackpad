@@ -63,7 +63,19 @@ function Find-FieldVerdict($element, [string]$text, [int]$caret) {
     return @{ unreadable=$false; empty=([FieldContent]::HasVisibleCharacter($text) -or [FieldContent]::HasOnlyAnchors($text)) }
 }
 
+# UI Automation calls fail for a moment while an app rebuilds the field it reads (Chromium after a Backspace: the
+# element or its text range is gone). Reading again a little later finds the new one; a lasting failure still throws.
 function Read-Mirror {
+    for ($attempt = 1; ; $attempt++) {
+        try { return Read-MirrorOnce }
+        catch {
+            if ($attempt -ge 3) { throw }
+            Start-Sleep -Milliseconds 25
+        }
+    }
+}
+
+function Read-MirrorOnce {
     $element = [System.Windows.Automation.AutomationElement]::FocusedElement
     $pattern = $null
     $valuePattern = $null

@@ -658,8 +658,10 @@ function keepInPlace(element, top) {
     adjust();
     requestAnimationFrame(() => requestAnimationFrame(adjust));
 }
+// The interface's base size: "1×" on the scale stepper is this much larger than the browser's default text size.
+const scaleBase = 1.1;
 function applyScale() {
-    document.documentElement.style.fontSize = `${settings.uiScale * 100}%`;
+    document.documentElement.style.fontSize = `${settings.uiScale * scaleBase * 100}%`;
     updateSteppers();
     viewport();
 }
