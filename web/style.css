@@ -239,8 +239,8 @@ svg.icon-large {
 }
 /*
  * Height sharing in #controls (a column): the pointer pad takes whatever is left, down to a usable trackpad
- * (--trackpad-min plus the button row, the rail row and the padding under them). Below that the input dock gives
- * way: first the text field, down to one line, then the key rows scroll.
+ * (--trackpad-min plus the button row, the rail row and the padding under them). Below that the key rows
+ * above it and the input dock give way: first the text field, down to one line, then the key rows scroll.
  */
 pointer-pad {
     --trackpad-min: 5rem;
@@ -549,6 +549,17 @@ scroll-rail[axis='x'] .rail-content {
     display: flex;
     flex: 0 1 auto;
     flex-direction: column;
+}
+/* Key rows above the trackpad (key-rows.js places the less used ones there); gone when none of them shows. */
+#key-rows-above {
+    flex: 0 1 auto;
+}
+#key-rows-above:not(:has(> .key-row:not([hidden]))) {
+    display: none;
+}
+/* Both scroll their rows rather than squeeze the trackpad below its minimum. */
+.input-dock,
+#key-rows-above {
     min-height: 0;
     /* Rows switched on above stay in view instead of the browser scrolling to keep the old ones still. */
     overflow-anchor: none;
@@ -556,14 +567,14 @@ scroll-rail[axis='x'] .rail-content {
     overscroll-behavior: contain;
     scrollbar-width: none;
 }
-.input-dock > key-rows,
+.input-dock > .key-rows,
 .input-dock > .editor-launch {
     flex: none;
 }
 .input-dock.is-morphing {
     overflow: hidden;
 }
-key-rows {
+.key-rows {
     display: flex;
     flex-direction: column;
     padding: 0 var(--space-4) var(--space-2);
@@ -712,7 +723,7 @@ textarea {
     border-bottom-right-radius: var(--radius);
     border-bottom-left-radius: var(--radius);
 }
-.editing key-rows {
+.editing .key-rows {
     padding: var(--space-2);
     padding-top: 0;
 }

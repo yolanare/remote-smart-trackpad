@@ -46,9 +46,11 @@
                 <p id="pair-error" role="alert"></p>
             </section>
             <div id="controls">
+                <!-- Key rows declared above the trackpad (key-rows.js renders them here). -->
+                <div id="key-rows-above" class="key-rows"></div>
                 <pointer-pad></pointer-pad>
                 <div class="input-dock">
-                    <key-rows></key-rows>
+                    <key-rows class="key-rows" above="key-rows-above"></key-rows>
                     <div class="editor-launch">
                         <button id="editor-open" aria-label="Open text editor" data-icon="text"></button>
                     </div>

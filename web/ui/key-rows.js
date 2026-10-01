@@ -1,14 +1,16 @@
 import { icon } from './icons.js';
 import { tick } from './haptics.js';
 // Rows, in display order. enabled: shown by default (the option menu's "Show … row" switches it per phone). compact:
-// lower keys, for dense rows of short labels. Each key: key (what is sent, or a name in controlShortcuts), label (the
+// lower keys, for dense rows of short labels. above: placed above the trackpad (the less used rows), so the trackpad
+// and the rows used most sit lower, under the thumb; the others go below it. Each key: key (what is sent, or a name in controlShortcuts), label (the
 // text, or the accessible name of an icon key), icon (a name from icons.js; none for a text key), group (adjacent keys
 // of the same group share one bordered container), repeat (sent again and again while held, like a physical keyboard).
 const functionKey = (index) => ({ key: `F${index + 1}`, label: `F${index + 1}`, group: 'functions' });
 const rows = {
-    functions: { enabled: false, compact: true, keys: [] },
+    functions: { enabled: false, compact: true, above: true, keys: [] },
     media: {
         enabled: true,
+        above: true,
         keys: [
             { key: 'PlayPause', label: 'Play / pause', icon: 'play' },
             { key: 'VolumeMute', label: 'Mute', icon: 'mute', group: 'media' },
@@ -84,16 +86,32 @@ class KeyRows extends HTMLElement {
     playing = null;
     muted = null;
     functionCount = 0;
+    /** Every row, in display order, wherever it sits. */
+    rowElements = [];
+    /**
+     * The rows marked above go into the element whose id the `above` attribute names (placed before the trackpad);
+     * the others into this element. One component keeps the keys' shared state (held modifiers, media state).
+     */
     connectedCallback() {
-        if (this.firstChild) return;
-        for (const [name, { compact, keys }] of Object.entries(rows)) {
+        if (this.rowElements.length) return;
+        const above = document.getElementById(this.getAttribute('above')) ?? this;
+        for (const [name, { compact, above: placedAbove, keys }] of Object.entries(rows)) {
             const row = document.createElement('div');
             row.className = `key-row ${name}`;
             row.classList.toggle('compact-keys', compact === true);
             row.dataset.row = name;
-            this.append(row);
+            (placedAbove ? above : this).append(row);
+            this.rowElements.push(row);
             if (name !== 'functions') this.fillRow(row, keys);
         }
+    }
+    /** The button of a key, in whichever row it sits. */
+    keyButton(key) {
+        for (const row of this.rowElements) {
+            const button = row.querySelector(`[data-key="${key}"]`);
+            if (button) return button;
+        }
+        return null;
     }
     /** Consecutive keys of the same group go in one bordered container; a key without a group gets its own. */
     fillRow(row, keys) {
@@ -112,7 +130,7 @@ class KeyRows extends HTMLElement {
     renderFunctions(count) {
         if (count === this.functionCount) return;
         this.functionCount = count;
-        const row = this.querySelector('[data-row="functions"]');
+        const row = this.rowElements.find((element) => element.dataset.row === 'functions');
         const group = document.createElement('div');
         group.className = 'key-group function-keys';
         for (const keys of functionLines(count)) {
@@ -125,7 +143,7 @@ class KeyRows extends HTMLElement {
             group.append(line);
         }
         row.replaceChildren(group);
-        this.dispatchEvent(new CustomEvent('keys-rendered', { bubbles: true }));
+        row.dispatchEvent(new CustomEvent('keys-rendered', { bubbles: true }));
     }
     button({ key, label, icon: glyph, repeat = false }) {
         const button = document.createElement('button');
@@ -213,21 +231,20 @@ class KeyRows extends HTMLElement {
         this.updatePressed();
     }
     updatePressed() {
-        for (const key of modifierKeys)
-            this.querySelector(`[data-key="${key}"]`).setAttribute('aria-pressed', String(this.held.has(key)));
+        for (const key of modifierKeys) this.keyButton(key).setAttribute('aria-pressed', String(this.held.has(key)));
     }
     /** Mirrors the PC's playback and mute state; null leaves a value unknown. */
     media({ playing = this.playing, muted = this.muted }) {
         this.playing = playing;
         this.muted = muted;
-        const play = this.querySelector('[data-key="PlayPause"]');
+        const play = this.keyButton('PlayPause');
         const next = playing ? 'pause' : 'play';
         if (play.dataset.glyph !== next) {
             play.dataset.glyph = next;
             play.querySelector('.fill').replaceChildren(icon(next));
             play.setAttribute('aria-label', playing ? 'Pause' : 'Play');
         }
-        this.querySelector('[data-key="VolumeMute"]').setAttribute('aria-pressed', String(muted === true));
+        this.keyButton('VolumeMute').setAttribute('aria-pressed', String(muted === true));
     }
     /**
      * Releases active modifiers. Outside sticky mode the app calls it after the next key or click (scrolling and
@@ -240,7 +257,7 @@ class KeyRows extends HTMLElement {
     configure(settings) {
         this.sticky = settings.sticky;
         this.renderFunctions(settings.functionKeys);
-        for (const row of this.children) row.hidden = !settings[row.dataset.row];
+        for (const row of this.rowElements) row.hidden = !settings[row.dataset.row];
     }
 }
 customElements.define('key-rows', KeyRows);

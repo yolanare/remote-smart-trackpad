@@ -144,7 +144,7 @@ try {
         })();`,
     });
     await page('Page.navigate', { url });
-    await waitFor("document.querySelector('key-rows button') && !document.querySelector('#pairing').hidden");
+    await waitFor("document.querySelector('.key-row button') && !document.querySelector('#pairing').hidden");
     await evaluate(
         "document.querySelector('#pair-name').value = 'Browser test'; document.querySelector('#pair-code').value = "
             + JSON.stringify(setup.pairingCode)
@@ -179,7 +179,7 @@ try {
     ]) {
         await resizeTo(width, height);
         const dimensions = await evaluate(
-            '({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth, keys: document.querySelectorAll("key-rows button").length, padHeight: document.querySelector(".trackpad").getBoundingClientRect().height })'
+            '({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth, keys: document.querySelectorAll(".key-row button").length, padHeight: document.querySelector(".trackpad").getBoundingClientRect().height })'
         );
         assert.ok(dimensions.scrollWidth <= dimensions.width, 'Page overflow in ' + name);
         // Every row shown still leaves a usable trackpad (5rem); the key rows scroll instead.
@@ -193,7 +193,7 @@ try {
         const box = await evaluate(`(() => {
             window.__blocked = [];
             // The key rows scroll when they do not fit (landscape): bring the key into view first.
-            const button = document.querySelector('key-rows [data-key="${key}"]');
+            const button = document.querySelector('.key-row [data-key="${key}"]');
             button.scrollIntoView({ block: 'nearest' });
             const rect = button.getBoundingClientRect();
             return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
@@ -384,7 +384,7 @@ try {
         features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
     });
     const keyHeights = await evaluate(`(async () => {
-        const group = document.querySelector('key-rows .key-row:not(.compact-keys):not([hidden]) .key-group');
+        const group = document.querySelector('.key-row:not(.compact-keys):not([hidden]) .key-group');
         const height = () => parseFloat(getComputedStyle(group).getPropertyValue('--key-height'));
         const before = height();
         document.querySelector('#options-toggle').click();
@@ -529,7 +529,7 @@ try {
             return event.defaultPrevented;
         };
         const tick = () => new Promise((resolve) => setTimeout(resolve, 50));
-        const keyKeeps = tap(document.querySelector('key-rows [data-key=Tab]'));
+        const keyKeeps = tap(document.querySelector('.key-row [data-key=Tab]'));
         const padKeeps = tap(document.querySelector('.trackpad'));
         const optionsKeep = tap(document.querySelector('#options-toggle'));
         // A label toggles its checkbox without taking the focus from the field.
@@ -538,7 +538,7 @@ try {
         const labelToggles = sticky.checked !== before && document.activeElement === field;
         sticky.closest('label').click();
         // The focus taken by something else (not a background tap) comes back to the field.
-        tap(document.querySelector('key-rows [data-key=Tab]'));
+        tap(document.querySelector('.key-row [data-key=Tab]'));
         field.blur();
         await tick();
         const refocused = document.activeElement === field && document.querySelector('.app').classList.contains('editing');

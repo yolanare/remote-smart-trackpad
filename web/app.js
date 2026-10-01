@@ -172,7 +172,7 @@ function morphFrom(start) {
 }
 /** Runs a layout change and fades in the controls it reveals. */
 function reveal(change) {
-    const targets = [$('#editor-open'), editor, ...rows.children];
+    const targets = [$('#editor-open'), editor, ...rows.rowElements];
     const wasHidden = targets.map((element) => element.hidden);
     change();
     if (reducedMotion()) return;
@@ -346,7 +346,7 @@ document.addEventListener('pointerdown', () => pad.stopSliding(), { capture: tru
 // buttons on touch down, the stepper only when the value changes, the options toggle only when it opens), and the
 // backdrop stays silent, like dismissing a native sheet.
 const ticksItself =
-    'key-rows button, .mouse-left, .mouse-right, .mouse-middle, .mouse-hold, .stepper button, #options-toggle, #options-dismiss';
+    '.key-row button, .mouse-left, .mouse-right, .mouse-middle, .mouse-hold, .stepper button, #options-toggle, #options-dismiss';
 document.addEventListener('click', (event) => {
     const target = event.target.closest?.('button, a[href], summary');
     if (target && !target.matches(ticksItself)) tick();
@@ -490,7 +490,7 @@ editor.firstElementChild.addEventListener('beforeinput', (event) => {
 // button, the back gesture). Every control keeps the focus in the field meanwhile, so the keyboard stays up and the
 // layout never jumps: pointerdown is cancelled on them, which stops the browser from moving the focus.
 const actionable =
-    'button, a[href], label, input, select, summary, dialog, .options, pointer-pad, key-rows, text-editor, #connection';
+    'button, a[href], label, input, select, summary, dialog, .options, pointer-pad, .key-rows, text-editor, #connection';
 let backgroundTap = false;
 function openEditor() {
     mirror.open();
