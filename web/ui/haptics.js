@@ -28,7 +28,9 @@ export function setHaptics({ button = enabled.button, scroll = enabled.scroll })
     document.documentElement.toggleAttribute('data-no-button-haptics', !button);
 }
 
-/** A short tick of the given kind (Android; iOS gets its button haptics from attachHaptics). */
-export function tick(duration = 8, kind = 'button') {
-    if (enabled[kind]) navigator.vibrate?.(duration);
+// The Vibration API has no intensity, only a duration: every tick is the shortest pulse, the lightest feedback.
+const pulse = 1;
+/** A tick of the given kind, button or scroll (Android; iOS gets its button haptics from attachHaptics). */
+export function tick(kind = 'button') {
+    if (enabled[kind]) navigator.vibrate?.(pulse);
 }

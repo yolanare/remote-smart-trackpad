@@ -40,11 +40,9 @@ export class ScrollRail extends HTMLElement {
             lastEmit = 0;
         // Scroll haptics: a very light tick each time a tick mark reaches the middle of the rail. At rest (center) a
         // mark sits there, so marks pass it at every whole period from the center; recentering jumps by whole periods
-        // and re-bases the count instead of ticking. The Vibration API has no intensity, only a duration, so the
-        // shortest pulse is the most discreet. Capped so fast scrolling never turns into a buzz: at most one tick per
-        // 70ms (about 14 per second), and none at all above fling speed.
-        const tickPulse = 1,
-            tickGap = 20,
+        // and re-bases the count instead of ticking. Capped so fast scrolling never turns into a buzz: at most one
+        // tick per tickGap ms, and none at all above tickMaxSpeed.
+        const tickGap = 20,
             tickMaxSpeed = 20; // CSS px/ms
         const mark = () => Math.floor((viewport[property] - center()) / ticks().period);
         let lastMark = null,
@@ -54,7 +52,7 @@ export class ScrollRail extends HTMLElement {
                 now = performance.now();
             if (lastMark !== null && current !== lastMark && speed <= tickMaxSpeed && now - lastTick > tickGap) {
                 lastTick = now;
-                tick(tickPulse, 'scroll');
+                tick('scroll');
             }
             lastMark = current;
         };
@@ -183,7 +181,7 @@ export class ScrollRail extends HTMLElement {
             { passive: true }
         );
         viewport.addEventListener('scrollend', () => {
-            if (glided > 8) tick(tickPulse, 'scroll');
+            if (glided > 8) tick('scroll');
             glided = 0;
             flinging = false;
             if (Math.abs(previous - center()) > 16384) recenter();

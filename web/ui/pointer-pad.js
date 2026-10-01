@@ -86,7 +86,7 @@ class PointerPad extends HTMLElement {
             dragging = value;
             pad.classList.toggle('is-dragging', value);
             command({ action: 'button', data: { button: 'left', down: value } });
-            if (value) tick(12);
+            if (value) tick();
         };
         this.cancelGesture = () => {
             this.stopSliding();
