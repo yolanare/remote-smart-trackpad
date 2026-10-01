@@ -17,7 +17,7 @@ const rows = {
         ],
     },
     characters: {
-        enabled: true,
+        enabled: false,
         compact: true,
         keys: ['Z', 'S', 'Q', 'D', 'F'].map((letter) => ({
             key: letter,

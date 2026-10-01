@@ -216,13 +216,13 @@ svg.icon-large {
 pointer-pad {
     --trackpad-min: 5rem;
     --buttons-height: 2.25rem;
-    --rail-height: 3rem;
+    --rail-height: 3.5rem;
     display: grid;
     grid-template-rows: minmax(0, 1fr) var(--rail-height);
     grid-template-columns: minmax(0, 1fr) 20vw;
     flex: 1 1 0;
     min-height: calc(var(--trackpad-min) + 0.375rem + var(--buttons-height) + var(--rail-height) + var(--space-2));
-    padding: 0 0 var(--space-2) var(--space-4);
+    padding: 0 0 0 var(--space-4);
     transition:
         padding var(--layout-transition),
         grid-template-rows var(--layout-transition);
@@ -509,7 +509,7 @@ scroll-rail[axis='y'] .rail-content {
 }
 scroll-rail[axis='x'] .rail-content {
     position: absolute;
-    top: calc(50% - 0.25rem);
+    top: calc(50% - 0.25rem - 1px); /* Center vertically + optical align */
     width: 16384rem;
     height: 0.5rem;
     background: linear-gradient(to right, transparent 1.8125rem, var(--tick) 1.8125rem) 0 0 / 1.875rem 100% repeat-x;
@@ -678,7 +678,7 @@ textarea {
 /* Compact while editing, the phone keyboard taking half the screen (see shownEditing in app.js). */
 .editing pointer-pad {
     --buttons-height: 2rem;
-    --rail-height: 2rem;
+    --rail-height: 2.5rem;
 }
 .editing .trackpad {
     border-bottom-right-radius: var(--radius);
@@ -686,6 +686,7 @@ textarea {
 }
 .editing key-rows {
     padding: var(--space-2);
+    padding-top: 0;
 }
 /* The editor lines up with the key rows, right above the phone keyboard. */
 .editing text-editor {
