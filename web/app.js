@@ -1,6 +1,6 @@
 import './style.css';
 import './ui/pointer-pad.js';
-import './ui/key-rows.js';
+import { rowDefaults } from './ui/key-rows.js';
 import './ui/text-editor.js';
 import { addIcons } from './ui/icons.js';
 import { attachHaptics, setHaptics, tick } from './ui/haptics.js';
@@ -25,7 +25,10 @@ const app = $('.app'),
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const rem = (pixels) => `${pixels / parseFloat(getComputedStyle(document.documentElement).fontSize)}rem`;
 
-// The option inputs' HTML attributes are the defaults; values stored on this phone override them.
+// The option inputs' HTML attributes are the defaults (the key rows' switches take theirs from key-rows.js); values
+// stored on this phone override them.
+for (const [name, enabled] of Object.entries(rowDefaults))
+    menu.querySelector(`input[name="${name}"]`).defaultChecked = enabled;
 const fields = [...menu.querySelectorAll('input[name]')];
 // A radio group (segmented control) is one text setting: its default is the radio checked in the markup.
 const radios = (name) => [...menu.querySelectorAll(`input[type="radio"][name="${name}"]`)];

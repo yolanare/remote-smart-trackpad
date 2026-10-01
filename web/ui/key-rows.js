@@ -1,52 +1,58 @@
 import { icon } from './icons.js';
 import { tick } from './haptics.js';
-// Each row lists its keys; compact rows have lower keys (dense rows of short labels: function keys, characters).
-// A key is [key, label, icon (null for text), group, repeat]. Adjacent keys of the same group share one bordered
-// container. repeat (auto-repeat, like a physical keyboard): held down, the key is sent again and again until released.
-const functionKey = (index) => [`F${index + 1}`, `F${index + 1}`, null, 'functions'];
+// Rows, in display order. enabled: shown by default (the option menu's "Show … row" switches it per phone). compact:
+// lower keys, for dense rows of short labels. Each key: key (what is sent, or a name in controlShortcuts), label (the
+// text, or the accessible name of an icon key), icon (a name from icons.js; none for a text key), group (adjacent keys
+// of the same group share one bordered container), repeat (sent again and again while held, like a physical keyboard).
+const functionKey = (index) => ({ key: `F${index + 1}`, label: `F${index + 1}`, group: 'functions' });
 const rows = {
-    functions: { compact: true, keys: [] },
+    functions: { enabled: false, compact: true, keys: [] },
     media: {
+        enabled: true,
         keys: [
-            ['PlayPause', 'Play / pause', 'play', null],
-            ['VolumeMute', 'Mute', 'mute', 'media'],
-            ['VolumeDown', 'Volume down', 'quieter', 'media', true],
-            ['VolumeUp', 'Volume up', 'louder', 'media', true],
+            { key: 'PlayPause', label: 'Play / pause', icon: 'play' },
+            { key: 'VolumeMute', label: 'Mute', icon: 'mute', group: 'media' },
+            { key: 'VolumeDown', label: 'Volume down', icon: 'quieter', group: 'media', repeat: true },
+            { key: 'VolumeUp', label: 'Volume up', icon: 'louder', group: 'media', repeat: true },
         ],
     },
     characters: {
+        enabled: true,
         compact: true,
-        keys: [
-            ['Z', 'Z', null, 'characters', true],
-            ['S', 'S', null, 'characters', true],
-            ['Q', 'Q', null, 'characters', true],
-            ['D', 'D', null, 'characters', true],
-            ['F', 'F', null, 'characters', true],
-        ],
+        keys: ['Z', 'S', 'Q', 'D', 'F'].map((letter) => ({
+            key: letter,
+            label: letter,
+            group: 'characters',
+            repeat: true,
+        })),
     },
     edit: {
+        enabled: true,
         keys: [
-            ['Escape', 'ESC', null, null],
-            ['Undo', 'Undo', 'undo', 'history', true],
-            ['Redo', 'Redo', 'redo', 'history', true],
-            ['Cut', 'Cut', 'cut', 'clipboard'],
-            ['Copy', 'Copy', 'copy', 'clipboard'],
-            ['Paste', 'Paste', 'paste', 'clipboard'],
-            ['Backspace', 'Backspace', 'delete', 'delete', true],
-            ['Delete', 'Delete', 'delete', 'delete', true],
+            { key: 'Escape', label: 'ESC' },
+            { key: 'Undo', label: 'Undo', icon: 'undo', group: 'history', repeat: true },
+            { key: 'Redo', label: 'Redo', icon: 'redo', group: 'history', repeat: true },
+            { key: 'Cut', label: 'Cut', icon: 'cut', group: 'clipboard' },
+            { key: 'Copy', label: 'Copy', icon: 'copy', group: 'clipboard' },
+            { key: 'Paste', label: 'Paste', icon: 'paste', group: 'clipboard' },
+            { key: 'Backspace', label: 'Backspace', icon: 'delete', group: 'delete', repeat: true },
+            { key: 'Delete', label: 'Delete', icon: 'delete', group: 'delete', repeat: true },
         ],
     },
     modifiers: {
+        enabled: true,
         keys: [
-            ['Shift', 'Shift', 'shift', 'modifiers'],
-            ['Control', 'CTRL', null, 'modifiers'],
-            ['Alt', 'ALT', null, 'modifiers'],
-            ['Win', 'Windows', 'windows', null],
-            ['Tab', 'TAB', null, null, true],
-            ['Enter', 'Enter', 'enter', null],
+            { key: 'Shift', label: 'Shift', icon: 'shift', group: 'modifiers' },
+            { key: 'Control', label: 'CTRL', group: 'modifiers' },
+            { key: 'Alt', label: 'ALT', group: 'modifiers' },
+            { key: 'Win', label: 'Windows', icon: 'windows' },
+            { key: 'Tab', label: 'TAB', repeat: true },
+            { key: 'Enter', label: 'Enter', icon: 'enter' },
         ],
     },
 };
+/** Whether each row shows by default, for the option menu's "Show … row" switches (see app.js). */
+export const rowDefaults = Object.fromEntries(Object.entries(rows).map(([name, row]) => [name, row.enabled]));
 const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'Win']);
 // Editing commands: the key sent with Control, whatever modifiers are active.
 const controlShortcuts = { Undo: 'Z', Redo: 'Y', Cut: 'X', Copy: 'C', Paste: 'V' };
@@ -92,13 +98,13 @@ class KeyRows extends HTMLElement {
     /** Consecutive keys of the same group go in one bordered container; a key without a group gets its own. */
     fillRow(row, keys) {
         let group = null;
-        keys.forEach(([key, label, glyph, name, repeat], index) => {
-            if (!group || name == null || keys[index - 1][3] !== name) {
+        keys.forEach((entry, index) => {
+            if (!group || !entry.group || keys[index - 1].group !== entry.group) {
                 group = document.createElement('div');
                 group.className = 'key-group';
                 row.append(group);
             } else group.append(separator());
-            group.append(this.button(key, label, glyph, repeat));
+            group.append(this.button(entry));
             group.style.setProperty('--keys', group.querySelectorAll('button').length);
         });
     }
@@ -112,16 +118,16 @@ class KeyRows extends HTMLElement {
         for (const keys of functionLines(count)) {
             const line = document.createElement('div');
             line.className = 'key-line';
-            keys.forEach(([key, label], index) => {
+            keys.forEach((entry, index) => {
                 if (index) line.append(separator());
-                line.append(this.button(key, label, null));
+                line.append(this.button(entry));
             });
             group.append(line);
         }
         row.replaceChildren(group);
         this.dispatchEvent(new CustomEvent('keys-rendered', { bubbles: true }));
     }
-    button(key, label, glyph, repeat = false) {
+    button({ key, label, icon: glyph, repeat = false }) {
         const button = document.createElement('button');
         button.dataset.key = key;
         button.setAttribute('aria-label', label);

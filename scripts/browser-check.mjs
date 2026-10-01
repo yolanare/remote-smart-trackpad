@@ -148,6 +148,13 @@ try {
     assert.equal(typography.loaded, true);
     assert.equal(typography.weight, '400');
     const report = [];
+    // The key rows' switches start from the defaults declared in key-rows.js.
+    assert.deepEqual(
+        await evaluate(
+            "Object.fromEntries(['functions', 'media', 'characters', 'edit', 'modifiers'].map((name) => [name, document.querySelector('[name=' + name + ']').checked]))"
+        ),
+        { functions: false, media: true, characters: true, edit: true, modifiers: true }
+    );
     await evaluate(
         "document.querySelectorAll('#options input').forEach(input => { if (['functions','media','characters'].includes(input.name)) { input.checked = true; input.dispatchEvent(new Event('change')); } });"
     );
