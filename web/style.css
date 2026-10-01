@@ -187,7 +187,9 @@ svg.icon-large {
 }
 #connection-label {
     max-height: 30vh;
-    padding: 0.25rem 0;
+    /* The space under the status is its own: the trackpad starts right under the top bar, and a status wrapped over
+       several lines grows the bar without touching it. */
+    padding: 0.25rem 0 var(--space-2);
     overflow-y: auto;
     overscroll-behavior: contain;
     line-height: 1.35;
@@ -208,23 +210,26 @@ svg.icon-large {
 }
 /*
  * Height sharing in #controls (a column): the pointer pad takes whatever is left, down to a usable trackpad
- * (--trackpad-min, through the grid rows below, so the pad's own minimum follows its buttons and rails). Below that
- * the input dock gives way: first the text field, down to one line, then the key rows scroll.
+ * (--trackpad-min plus the button row, the rail row and the padding under them). Below that the input dock gives
+ * way: first the text field, down to one line, then the key rows scroll.
  */
 pointer-pad {
     --trackpad-min: 5rem;
+    --buttons-height: 2.25rem;
+    --rail-height: 3rem;
     display: grid;
-    grid-template-rows: minmax(auto, 1fr) 3rem;
+    grid-template-rows: minmax(0, 1fr) var(--rail-height);
     grid-template-columns: minmax(0, 1fr) 20vw;
     flex: 1 1 0;
-    padding: var(--space-2) 0 var(--space-2) var(--space-4);
+    min-height: calc(var(--trackpad-min) + 0.375rem + var(--buttons-height) + var(--rail-height) + var(--space-2));
+    padding: 0 0 var(--space-2) var(--space-4);
     transition:
         padding var(--layout-transition),
         grid-template-rows var(--layout-transition);
 }
 .mouse {
     display: grid;
-    grid-template-rows: minmax(var(--trackpad-min), 1fr) 2.25rem;
+    grid-template-rows: minmax(0, 1fr) var(--buttons-height);
     grid-template-columns: 1fr auto 1fr;
     min-height: 0;
     /* No horizontal gap: every tap on the button row lands on a button, never in dead space between them. */
@@ -514,6 +519,8 @@ scroll-rail[axis='x'] .rail-content {
     flex: 0 1 auto;
     flex-direction: column;
     min-height: 0;
+    /* Rows switched on above stay in view instead of the browser scrolling to keep the old ones still. */
+    overflow-anchor: none;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: none;
@@ -667,11 +674,8 @@ textarea {
 }
 /* Compact while editing, the phone keyboard taking half the screen (see shownEditing in app.js). */
 .editing pointer-pad {
-    grid-template-rows: minmax(auto, 1fr) 2rem;
-    padding-bottom: var(--space-2);
-}
-.editing .mouse {
-    grid-template-rows: minmax(var(--trackpad-min), 1fr) 2rem;
+    --buttons-height: 2rem;
+    --rail-height: 2rem;
 }
 .editing .trackpad {
     border-bottom-right-radius: var(--radius);

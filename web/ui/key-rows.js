@@ -11,11 +11,20 @@ const rows = {
         ['VolumeDown', 'Volume down', 'quieter', 'media', true],
         ['VolumeUp', 'Volume up', 'louder', 'media', true],
     ],
+    characters: [
+        ['Z', 'Z', null, 'characters', true],
+        ['S', 'S', null, 'characters', true],
+        ['Q', 'Q', null, 'characters', true],
+        ['D', 'D', null, 'characters', true],
+        ['F', 'F', null, 'characters', true],
+    ],
     edit: [
         ['Escape', 'ESC', null, null],
-        ['X', 'Cut', 'cut', 'clipboard'],
-        ['C', 'Copy', 'copy', 'clipboard'],
-        ['V', 'Paste', 'paste', 'clipboard'],
+        ['Undo', 'Undo', 'undo', 'history', true],
+        ['Redo', 'Redo', 'redo', 'history', true],
+        ['Cut', 'Cut', 'cut', 'clipboard'],
+        ['Copy', 'Copy', 'copy', 'clipboard'],
+        ['Paste', 'Paste', 'paste', 'clipboard'],
         ['Backspace', 'Backspace', 'delete', 'delete', true],
         ['Delete', 'Delete', 'delete', 'delete', true],
     ],
@@ -29,6 +38,8 @@ const rows = {
     ],
 };
 const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'Win']);
+// Editing commands: the key sent with Control, whatever modifiers are active.
+const controlShortcuts = { Undo: 'Z', Redo: 'Y', Cut: 'X', Copy: 'C', Paste: 'V' };
 // Auto-repeat timing: the first repeat after the delay (about a long press), then this many ms apart.
 const repeatDelay = 700,
     repeatInterval = 30;
@@ -137,14 +148,14 @@ class KeyRows extends HTMLElement {
         });
         return button;
     }
-    /** Sends the key with the active modifiers (Cut, Copy and Paste always with Control). */
+    /** Sends the key with the active modifiers; editing commands (Undo, Cut…) send their key with Control. */
     send(key) {
         const modifiers = [...this.held];
-        if (['C', 'V', 'X'].includes(key) && !modifiers.includes('Control')) modifiers.push('Control');
+        if (controlShortcuts[key] && !modifiers.includes('Control')) modifiers.push('Control');
         this.dispatchEvent(
             new CustomEvent('command', {
                 bubbles: true,
-                detail: { action: 'shortcut', data: { key, modifiers } },
+                detail: { action: 'shortcut', data: { key: controlShortcuts[key] ?? key, modifiers } },
             })
         );
     }

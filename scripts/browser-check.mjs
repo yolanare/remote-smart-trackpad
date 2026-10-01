@@ -149,7 +149,7 @@ try {
     assert.equal(typography.weight, '400');
     const report = [];
     await evaluate(
-        "document.querySelectorAll('#options input').forEach(input => { if (['functions','media'].includes(input.name)) { input.checked = true; input.dispatchEvent(new Event('change')); } });"
+        "document.querySelectorAll('#options input').forEach(input => { if (['functions','media','characters'].includes(input.name)) { input.checked = true; input.dispatchEvent(new Event('change')); } });"
     );
     for (const [name, width, height] of [
         ['figma-main', 375, 711],
@@ -171,7 +171,10 @@ try {
     const holdKey = async (key, duration) => {
         const box = await evaluate(`(() => {
             window.__blocked = [];
-            const rect = document.querySelector('key-rows [data-key="${key}"]').getBoundingClientRect();
+            // The key rows scroll when they do not fit (landscape): bring the key into view first.
+            const button = document.querySelector('key-rows [data-key="${key}"]');
+            button.scrollIntoView({ block: 'nearest' });
+            const rect = button.getBoundingClientRect();
             return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
         })()`);
         await page('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [box] });
@@ -192,7 +195,7 @@ try {
     report.push({ name: 'auto-repeat', volumeUpHeld1500ms: repeated, escapeHeld1500ms: 1 });
     await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 711, deviceScaleFactor: 1, mobile: true });
     await evaluate(
-        "document.querySelectorAll('#options input').forEach(input => { if (['functions','media'].includes(input.name)) { input.checked = false; input.dispatchEvent(new Event('change')); } }); document.querySelector('#options-toggle').click();"
+        "document.querySelectorAll('#options input').forEach(input => { if (['functions','media','characters'].includes(input.name)) { input.checked = false; input.dispatchEvent(new Event('change')); } }); document.querySelector('#options-toggle').click();"
     );
     await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
     await writeFile(
@@ -420,6 +423,21 @@ try {
         actions: ['key', 'shortcut', 'key'],
         shortcut: { key: 'Tab', modifiers: ['Control'] },
     });
+    // Editing commands send their key with Control; the characters row sends plain letters.
+    const shortcuts = await evaluate(`(() => {
+        const rows = document.querySelector('key-rows'), sent = [];
+        const capture = (event) => { event.stopPropagation(); sent.push(event.detail.data); };
+        rows.addEventListener('command', capture);
+        for (const key of ['Undo', 'Redo', 'Paste', 'Z']) rows.querySelector('[data-key=' + key + ']').click();
+        rows.removeEventListener('command', capture);
+        return sent;
+    })()`);
+    assert.deepEqual(shortcuts, [
+        { key: 'Z', modifiers: ['Control'] },
+        { key: 'Y', modifiers: ['Control'] },
+        { key: 'V', modifiers: ['Control'] },
+        { key: 'Z', modifiers: [] },
+    ]);
     await evaluate(
         "document.querySelector('text-editor').render({ available: true, text: 'Ceci est un texte écrit ou récupéré depuis l’ordinateur. '.repeat(16), selectionStart: 0, selectionEnd: 0 }); document.querySelector('#connection-label').textContent = ''; document.querySelector('#connection').dataset.state = 'ready';"
     );

@@ -196,8 +196,9 @@ async function switchEditing() {
             editor.focus();
         } else editor.blur();
     }
-    // Wait for the keyboard to appear or leave first; moving while it resizes the viewport looks incoherent.
-    if (animated) await viewportSettled();
+    // Opening waits for the keyboard to appear first: moving while it resizes the viewport looks incoherent. Closing
+    // follows the keyboard (or a tap) that already left, so the layout moves at once.
+    if (animated && opening) await viewportSettled();
     shownEditing = opening;
     reveal(() => {
         dock.classList.remove('editor-pending');

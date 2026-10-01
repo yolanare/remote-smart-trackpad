@@ -24,6 +24,8 @@ import {
     Grid2X2,
     CornerDownLeft,
     TextCursor,
+    Undo2,
+    Redo2,
 } from 'lucide';
 const icons = {
     more: EllipsisVertical,
@@ -42,6 +44,8 @@ const icons = {
     auto: SunMoon,
     dark: Moon,
     light: Sun,
+    undo: Undo2,
+    redo: Redo2,
     cut: Scissors,
     copy: Copy,
     paste: ClipboardPaste,
