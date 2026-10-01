@@ -379,8 +379,24 @@ try {
             queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ id: message.id, ok: true, result }) })));
         };
     })()`);
-    await evaluate(
-        "document.querySelector('#options-toggle').click(); document.querySelector('#editor-open').click();"
+    // Editing moves its sizes (key heights, rows, paddings) with the layout instead of switching them at once.
+    await page('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
+    });
+    const keyHeights = await evaluate(`(async () => {
+        const group = document.querySelector('key-rows .key-row:not(.compact-keys):not([hidden]) .key-group');
+        const height = () => parseFloat(getComputedStyle(group).getPropertyValue('--key-height'));
+        const before = height();
+        document.querySelector('#options-toggle').click();
+        document.querySelector('#editor-open').click();
+        await new Promise((resolve) => setTimeout(resolve, 120));
+        const during = height();
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        return { before, during, after: height() };
+    })()`);
+    assert.ok(
+        keyHeights.during < keyHeights.before && keyHeights.during > keyHeights.after,
+        'Key heights must transition when editing opens: ' + JSON.stringify(keyHeights)
     );
     await waitFor("document.querySelector('.app').classList.contains('editing')");
     await resizeTo(375, 405);

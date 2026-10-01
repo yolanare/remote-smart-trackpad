@@ -124,12 +124,24 @@ function pinGeometry() {
     dock.classList.add('is-morphing');
     return start;
 }
+/**
+ * Measures the layout as it will be once the CSS transitions that just started (key heights, paddings, rows: see
+ * the sizes registered in style.css) have run: they jump to their end for the measure, then resume where they were.
+ */
+function settledSize(measure) {
+    const running = document.getAnimations().filter((animation) => animation instanceof CSSTransition);
+    const times = running.map((transition) => transition.currentTime);
+    for (const transition of running) transition.currentTime = transition.effect.getComputedTiming().endTime;
+    const size = measure();
+    running.forEach((transition, index) => (transition.currentTime = times[index]));
+    return size;
+}
 /** Animates the real layout from the pinned geometry to its new natural size; the trackpad follows as flex space. */
 function morphFrom(start) {
     const token = morphs;
     app.style.top = app.style.height = dock.style.height = '';
-    const end = { top: app.offsetTop, height: app.offsetHeight, dock: dock.offsetHeight };
-    // Matches --layout-transition, which drives the pointer pad's own row changes.
+    const end = settledSize(() => ({ top: app.offsetTop, height: app.offsetHeight, dock: dock.offsetHeight }));
+    // Matches --layout-transition, which drives the sizes inside (keys, rows, paddings) meanwhile.
     const timing = { duration: 320, easing: 'cubic-bezier(0.2, 0, 0, 1)' };
     const animations = [];
     if (start.top !== end.top || start.height !== end.height)

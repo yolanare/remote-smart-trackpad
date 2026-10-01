@@ -209,6 +209,35 @@ svg.icon-large {
     min-height: 0;
 }
 /*
+ * Sizes that change with text editing (.editing), registered so they transition with the layout (one length each;
+ * plain custom properties would switch at once). Their values are set by the rules that use them.
+ */
+@property --key-height {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 0px;
+}
+@property --buttons-height {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 0px;
+}
+@property --rail-height {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 0px;
+}
+@property --editor-top {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 0px;
+}
+@property --editor-side {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 0px;
+}
+/*
  * Height sharing in #controls (a column): the pointer pad takes whatever is left, down to a usable trackpad
  * (--trackpad-min plus the button row, the rail row and the padding under them). Below that the input dock gives
  * way: first the text field, down to one line, then the key rows scroll.
@@ -223,9 +252,11 @@ pointer-pad {
     flex: 1 1 0;
     min-height: calc(var(--trackpad-min) + 0.375rem + var(--buttons-height) + var(--rail-height) + var(--space-2));
     padding: 0 0 0 var(--space-4);
+    /* The grid rows and the minimum height follow these as they move. */
     transition:
         padding var(--layout-transition),
-        grid-template-rows var(--layout-transition);
+        --buttons-height var(--layout-transition),
+        --rail-height var(--layout-transition);
 }
 .mouse {
     display: grid;
@@ -234,7 +265,6 @@ pointer-pad {
     min-height: 0;
     /* No horizontal gap: every tap on the button row lands on a button, never in dead space between them. */
     gap: 0.375rem 0;
-    transition: grid-template-rows var(--layout-transition);
 }
 .trackpad {
     --dot-color: var(--dot);
@@ -244,6 +274,7 @@ pointer-pad {
     border-radius: calc(1.5rem * var(--corner)) calc(1.5rem * var(--corner)) calc(0.5rem * var(--corner))
         calc(0.5rem * var(--corner));
     touch-action: none;
+    transition: border-radius var(--layout-transition);
     user-select: none;
 }
 /* Eased edge fades (smoothstep stops) for patterns that scroll out of view; set --fade per element. */
@@ -537,6 +568,7 @@ key-rows {
     flex-direction: column;
     padding: 0 var(--space-4) var(--space-2);
     gap: var(--space-1);
+    transition: padding var(--layout-transition);
 }
 .key-row {
     display: flex;
@@ -559,6 +591,7 @@ key-rows {
     --group-radius: var(--radius);
     border: var(--stroke) solid var(--border);
     border-radius: var(--group-radius);
+    transition: --key-height var(--layout-transition);
 }
 /*
  * Keys are fill buttons: a tappable margin (--fill-inset) keeps their fill off the group's border. Radii are
@@ -626,6 +659,10 @@ text-editor {
     --editor-top: var(--space-2);
     --editor-side: var(--space-4);
     padding: var(--editor-top) var(--editor-side) var(--space-4);
+    transition:
+        --editor-top var(--layout-transition),
+        --editor-side var(--layout-transition),
+        padding-bottom var(--layout-transition);
 }
 /* Over the textarea's first line: the editor's padding plus the textarea's own. */
 .editor-hint {
