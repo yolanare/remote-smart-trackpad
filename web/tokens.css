@@ -42,7 +42,7 @@
     --stroke: 1px;
 
     --transition: 180ms ease;
-    --layout-transition: 320ms cubic-bezier(0.2, 0, 0, 1);
+    --layout-transition: 250ms ease-in-out;
     --press-scale: 0.95;
 }
 :root[data-theme='dark'] {
