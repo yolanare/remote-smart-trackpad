@@ -1,22 +1,5 @@
 $script:mirror = $null
-
-# CSS placeholders in Chromium rich-text fields read exactly like typed text, so they are learned from edits that
-# reveal them (see Edit-Mirror) and remembered per field kind across restarts.
-$dataDirectory = if ($env:REMOTE_SMART_TRACKPAD_DATA_DIRECTORY) { $env:REMOTE_SMART_TRACKPAD_DATA_DIRECTORY } else { Join-Path $PSScriptRoot '..\.data' }
-$script:placeholderFile = Join-Path $dataDirectory 'placeholders.json'
-$script:placeholders = New-Object 'System.Collections.Generic.HashSet[string]'
-try { foreach ($entry in (Get-Content -Raw -Encoding UTF8 $script:placeholderFile | ConvertFrom-Json)) { [void]$script:placeholders.Add([string]$entry) } } catch {}
-function Get-PlaceholderKey($element, [string]$text) {
-    $current = $element.Current
-    return "$($current.FrameworkId)|$($current.ControlType.ProgrammaticName)|$($current.ClassName)|$($current.AutomationId)|$($current.Name)|$text"
-}
-function Add-Placeholder($element, [string]$text) {
-    if (-not $script:placeholders.Add((Get-PlaceholderKey $element $text))) { return }
-    try {
-        [void](New-Item -ItemType Directory -Force (Split-Path $script:placeholderFile))
-        ConvertTo-Json -InputObject @($script:placeholders) | Set-Content -Encoding UTF8 $script:placeholderFile
-    } catch {}
-}
+. (Join-Path $PSScriptRoot 'field-content.ps1')
 
 # Chromium exposes a <br> that ends a line with other content as a final line break the caret can never reach.
 # An empty line (<div><br></div>, <p><br></p>) is real: its break is the only content of its block.
@@ -29,6 +12,42 @@ function Test-PhantomBreak($element) {
         $node = $last
     }
     return $null -ne $node -and $node.Current.Name -eq "`n" -and $null -ne $walker.GetPreviousSibling($node)
+}
+
+# Decides what UI Automation's text of the focused field really is. Returns empty when the field only shows a
+# placeholder (or nothing), unreadable when its content lives elsewhere, and neither when the text is the content.
+# $caret is the selection start in that text.
+function Resolve-FieldText($element, [string]$text, [int]$caret) {
+    $current = $element.Current
+    $content = $null
+    if ($current.FrameworkId -in @('Chrome', 'Gecko')) {
+        # Right after a focus change IAccessible2 can lag behind UI Automation for a moment.
+        for ($attempt = 0; $null -eq $content -and $attempt -lt 3; $attempt++) {
+            if ($attempt) { Start-Sleep -Milliseconds 30 }
+            $content = [FieldContent]::Focused($current.Name)
+        }
+    }
+    if ($null -eq $content) {
+        # Without IAccessible2, an input that hides its content exposes its accessible name as text instead.
+        return @{ unreadable=($text.Length -and $text -ceq $current.Name); empty=$false }
+    }
+    if ($content.Native) {
+        # <input>/<textarea>: the value is the content. Empty, UI Automation reads the placeholder as an embedded
+        # object (U+FFFC) or the accessible name instead. A field too small to show any text is the hidden input
+        # of an editor drawn elsewhere (VS Code's editor and terminal): it is unreadable, the phone types blind.
+        if ($content.Value.Length) { return @{ unreadable=$false; empty=$false } }
+        $box = $current.BoundingRectangle
+        return @{ unreadable=($box.Width -lt 20 -or $box.Height -lt 8); empty=$true }
+    }
+    # Rich text (contenteditable): without editable content, any visible text is drawn by the page (a placeholder:
+    # CSS generated content, contenteditable=false), and zero-width anchors alone show nothing. Line breaks typed
+    # into an empty field are content and stay.
+    if ($content.EditableText -or $content.EditableObject) { return @{ unreadable=$false; empty=$false } }
+    # Firefox hides the text nodes of role=textbox fields, so nothing tells their text from a generated placeholder;
+    # its caret follows the document though, and generated text is out of its reach: a caret past the start can
+    # only stand after real text.
+    if ($current.FrameworkId -eq 'Gecko' -and $content.Leafless -and $caret -gt 0) { return @{ unreadable=$false; empty=$false } }
+    return @{ unreadable=$false; empty=([FieldContent]::HasVisibleCharacter($text) -or [FieldContent]::HasOnlyAnchors($text)) }
 }
 
 function Read-Mirror {
@@ -59,17 +78,17 @@ function Read-Mirror {
     $start = (Normalize-LineEndings ($prefix.GetText(262145))).Length
     $prefix.MoveEndpointByRange([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, $ranges[0], [System.Windows.Automation.Text.TextPatternRangeEndpoint]::End)
     $end = (Normalize-LineEndings ($prefix.GetText(262145))).Length
-    # Inputs that hide their content expose their accessible name as text instead (VS Code's editor and terminal:
-    # "The editor is not accessible at this time…"). They are unreadable, so the phone types into them blind.
-    if ($text.Length -and $text -ceq $element.Current.Name) {
+    $resolved = Resolve-FieldText $element $text $start
+    if ($resolved.unreadable) {
         $script:mirror = $null
         return @{ available=$false; text=''; selectionStart=0; selectionEnd=0; reason='Text not readable here' }
     }
-    if ($element.Current.FrameworkId -eq 'Chrome') {
-        if ($text.Length -and $script:placeholders.Contains((Get-PlaceholderKey $element $text))) { $text = ''; $start = 0; $end = 0 }
-        # An emptied field keeps one <br>, displayed as a single empty line.
-        if ($text -ceq "`n") { $text = ''; $start = 0; $end = 0 }
-        elseif ($text.EndsWith("`n") -and (Test-PhantomBreak $element)) {
+    if ($resolved.empty) { $text = ''; $start = 0; $end = 0 }
+    $framework = $element.Current.FrameworkId
+    # An emptied rich-text field keeps one <br>, displayed as a single empty line.
+    if ($framework -in @('Chrome', 'Gecko') -and $text -ceq "`n") { $text = ''; $start = 0; $end = 0 }
+    if ($framework -eq 'Chrome') {
+        if ($text.EndsWith("`n") -and (Test-PhantomBreak $element)) {
             $text = $text.Substring(0, $text.Length - 1)
             $start = [Math]::Min($start, $text.Length); $end = [Math]::Min($end, $text.Length)
         }
@@ -153,17 +172,6 @@ function Edit-Mirror($data) {
                 Start-Sleep -Milliseconds 10
             }
         } finally { [ClipboardText]::Restore() }
-        if ($updated.session -ceq $snapshot.session -and $updated.text -cne $next -and $atCaret -and $end -eq $old.Length -and
-                $old.Length -and -not $old.Contains("`n")) {
-            # Typing at the end turned the whole text into just the typed text, or Backspace at the end removed nothing:
-            # the old text was a placeholder, not content.
-            $revealed = ($start -eq $end -and $updated.text -ceq $insert) -or (-not $insert.Length -and $updated.text -ceq $old)
-            if ($revealed -and -not $insert.Length) { Start-Sleep -Milliseconds 300; $revealed = (Read-Mirror).text -ceq $old }
-            if ($revealed) {
-                Add-Placeholder $script:mirror.element $old
-                $updated = Read-Mirror
-            }
-        }
         if ($updated.session -cne $snapshot.session -or $updated.text -cne $next) { return @{ accepted=$false; snapshot=$updated } }
     }
     $script:mirror.lastOperation=[string]$data.operationId

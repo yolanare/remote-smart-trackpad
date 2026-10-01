@@ -1,0 +1,421 @@
+<!doctype html>
+<!--
+    Placeholder fixtures for scripts/placeholder-check.mjs. Each [data-case] holds one focusable field ([data-field])
+    and the text the PC mirror must read from it (data-expected; empty when only a placeholder shows).
+    "placeholder" cases reproduce how editors and sites draw placeholders; "content" cases are real text that must
+    never be mistaken for one; "decoration" cases are generated text around real content, mirrored as displayed.
+    data-known="browser: reason" documents a browser limitation unrelated to placeholders; it is reported, not failed.
+-->
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Placeholder fixtures</title>
+        <style>
+            body {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                margin: 12px;
+                gap: 8px;
+                font: 14px system-ui;
+            }
+            section {
+                position: relative;
+                padding: 6px;
+                border: 1px solid #ccc;
+            }
+            [data-field] {
+                box-sizing: border-box;
+                display: block;
+                width: 100%;
+                min-height: 1.5em;
+                padding: 2px 4px;
+                border: 1px solid #888;
+            }
+            h2 {
+                margin: 0 0 4px;
+                color: #555;
+                font-size: 11px;
+            }
+            /* Generic: empty element shows its data-placeholder. */
+            .css-empty:empty::before,
+            .css-plaintext:empty::before {
+                content: attr(data-placeholder);
+                color: #999;
+                pointer-events: none;
+            }
+            /* Claude Code's chat input in VS Code: the generated box is absolutely positioned. */
+            .css-absolute:empty::before {
+                position: absolute;
+                content: attr(data-placeholder);
+                color: #999;
+                pointer-events: none;
+            }
+            .css-block:empty::before {
+                display: block;
+                content: attr(data-placeholder);
+                color: #999;
+                pointer-events: none;
+            }
+            .css-after:empty::after {
+                content: attr(data-placeholder);
+                color: #999;
+            }
+            /* TipTap / ProseMirror (Claude.ai, ChatGPT and many chat inputs). */
+            .ProseMirror p.is-editor-empty:first-child::before {
+                height: 0;
+                float: left;
+                content: attr(data-placeholder);
+                color: #999;
+                pointer-events: none;
+            }
+            /* Quill. */
+            .ql-editor.ql-blank::before {
+                position: absolute;
+                right: 10px;
+                left: 10px;
+                content: attr(data-placeholder);
+                color: #999;
+                font-style: italic;
+                pointer-events: none;
+            }
+            /* CKEditor 5. */
+            .ck-placeholder::before {
+                position: absolute;
+                content: attr(data-placeholder);
+                color: #999;
+                pointer-events: none;
+            }
+            /* Lexical (WhatsApp, Facebook), Draft.js, Discord: a separate element drawn over the field. */
+            .overlay {
+                position: absolute;
+                top: 28px;
+                left: 12px;
+                color: #999;
+                pointer-events: none;
+                user-select: none;
+            }
+            /* medium-editor: the placeholder class sits on the editor while it is empty. */
+            .medium-editor-placeholder::after {
+                position: absolute;
+                left: 10px;
+                content: attr(data-placeholder);
+                color: #999;
+                font-style: italic;
+            }
+            .mention {
+                border-radius: 3px;
+                background: #ddf;
+            }
+            .quote::before {
+                content: '“';
+            }
+            .quote::after {
+                content: '”';
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Native fields: the placeholder is not part of the value. -->
+        <section data-case="input-placeholder" data-kind="placeholder" data-expected="">
+            <h2>input placeholder</h2>
+            <input data-field placeholder="Search everything" />
+        </section>
+        <section data-case="textarea-placeholder" data-kind="placeholder" data-expected="">
+            <h2>textarea placeholder</h2>
+            <textarea data-field placeholder="Write a comment&#10;on two lines"></textarea>
+        </section>
+        <section data-case="input-aria-placeholder" data-kind="placeholder" data-expected="">
+            <h2>input aria-placeholder</h2>
+            <input data-field aria-placeholder="Your name" placeholder="Your name" />
+        </section>
+
+        <!-- Contenteditable with CSS generated placeholders. -->
+        <section data-case="css-empty-before" data-kind="placeholder" data-expected="">
+            <h2>:empty::before</h2>
+            <div data-field contenteditable class="css-empty" data-placeholder="Write a message…"></div>
+        </section>
+        <section data-case="css-absolute-before" data-kind="placeholder" data-expected="">
+            <h2>:empty::before absolute</h2>
+            <div
+                data-field
+                contenteditable="plaintext-only"
+                role="textbox"
+                aria-label="Message input"
+                class="css-absolute"
+                data-placeholder="Queue another message…"
+            ></div>
+        </section>
+        <section data-case="css-block-before" data-kind="placeholder" data-expected="">
+            <h2>:empty::before block</h2>
+            <div data-field contenteditable class="css-block" data-placeholder="Add a comment"></div>
+        </section>
+        <section data-case="css-after" data-kind="placeholder" data-expected="">
+            <h2>:empty::after</h2>
+            <div data-field contenteditable class="css-after" data-placeholder="Type here"></div>
+        </section>
+        <section data-case="css-plaintext-only" data-kind="placeholder" data-expected="">
+            <h2>plaintext-only ::before</h2>
+            <div
+                data-field
+                contenteditable="plaintext-only"
+                class="css-plaintext"
+                data-placeholder="Ask a question, @ to mention"
+                aria-placeholder="Ask a question, @ to mention"
+            ></div>
+        </section>
+        <section data-case="prosemirror" data-kind="placeholder" data-expected="">
+            <h2>ProseMirror / TipTap</h2>
+            <div data-field contenteditable class="ProseMirror" role="textbox" aria-multiline="true">
+                <p class="is-empty is-editor-empty" data-placeholder="How can I help you today?">
+                    <br class="ProseMirror-trailingBreak" />
+                </p>
+            </div>
+        </section>
+        <section data-case="quill" data-kind="placeholder" data-expected="">
+            <h2>Quill</h2>
+            <div data-field contenteditable class="ql-editor ql-blank" data-placeholder="Compose an epic...">
+                <p><br /></p>
+            </div>
+        </section>
+        <section data-case="ckeditor" data-kind="placeholder" data-expected="">
+            <h2>CKEditor 5</h2>
+            <div data-field contenteditable class="ck-editor__editable" role="textbox">
+                <p class="ck-placeholder" data-placeholder="Type or paste your content here!">
+                    <br data-cke-filler="true" />
+                </p>
+            </div>
+        </section>
+
+        <section data-case="medium-editor" data-kind="placeholder" data-expected="">
+            <h2>medium-editor ::after</h2>
+            <div
+                data-field
+                contenteditable
+                role="textbox"
+                class="medium-editor-element medium-editor-placeholder"
+                data-placeholder="Type your text"
+            >
+                <p><br /></p>
+            </div>
+        </section>
+        <section data-case="iframe-body" data-kind="placeholder" data-expected="">
+            <h2>TinyMCE-like iframe body</h2>
+            <iframe
+                data-frame
+                title="Rich text area"
+                style="width: 100%; height: 40px; border: 1px solid #888"
+                srcdoc="<style>body{margin:4px;font:14px system-ui}body[data-mce-placeholder]:not(.mce-visualblocks)::before{content:attr(data-mce-placeholder);color:#999;position:absolute}</style><body contenteditable data-mce-placeholder='Type your story'><p><br data-mce-bogus='1'></p></body>"
+            ></iframe>
+        </section>
+        <section data-case="shadow-input" data-kind="placeholder" data-expected="">
+            <h2>input inside shadow DOM</h2>
+            <shadow-field data-placeholder="Search docs"></shadow-field>
+        </section>
+        <section data-case="input-search" data-kind="placeholder" data-expected="">
+            <h2>input type=search</h2>
+            <input data-field type="search" placeholder="Search mail" />
+        </section>
+
+        <!-- Placeholders drawn by a real element. -->
+        <section data-case="slate" data-kind="placeholder" data-expected="">
+            <h2>Slate (inside the editable)</h2>
+            <div data-field contenteditable data-slate-editor="true" role="textbox">
+                <div data-slate-node="element">
+                    <span data-slate-node="text"
+                        ><span data-slate-leaf="true"
+                            ><span
+                                data-slate-placeholder="true"
+                                contenteditable="false"
+                                style="
+                                    position: absolute;
+                                    pointer-events: none;
+                                    width: 100%;
+                                    max-width: 100%;
+                                    display: block;
+                                    opacity: 0.333;
+                                    user-select: none;
+                                    text-decoration: none;
+                                "
+                                >Enter some plain text...</span
+                            ><span data-slate-zero-width="n" data-slate-length="0">&#xFEFF;<br /></span></span
+                    ></span>
+                </div>
+            </div>
+        </section>
+        <section data-case="hidden-child" data-kind="placeholder" data-expected="">
+            <h2>aria-hidden child inside</h2>
+            <div data-field contenteditable role="textbox">
+                <span contenteditable="false" aria-hidden="true" class="overlay-inline" style="color: #999"
+                    >Send a message</span
+                >
+            </div>
+        </section>
+        <section data-case="lexical" data-kind="placeholder" data-expected="">
+            <h2>Lexical (sibling overlay)</h2>
+            <div data-field contenteditable role="textbox" aria-placeholder="Type a message">
+                <p><br /></p>
+            </div>
+            <div class="overlay" aria-hidden="true">Type a message</div>
+        </section>
+        <section data-case="draftjs" data-kind="placeholder" data-expected="">
+            <h2>Draft.js (described by)</h2>
+            <div class="overlay" id="draft-placeholder">What's happening?</div>
+            <div data-field contenteditable role="textbox" aria-describedby="draft-placeholder">
+                <div data-contents="true">
+                    <div data-block="true">
+                        <span><br data-text="true" /></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Real content: must read as is, even when it looks like a placeholder or a label. -->
+        <section data-case="input-value-equals-placeholder" data-kind="content" data-expected="Search everything">
+            <h2>value = placeholder</h2>
+            <input data-field placeholder="Search everything" value="Search everything" />
+        </section>
+        <section data-case="text-equals-label" data-kind="content" data-expected="Message">
+            <h2>text = aria-label</h2>
+            <div data-field contenteditable role="textbox" aria-label="Message">Message</div>
+        </section>
+        <section data-case="text-equals-data-placeholder" data-kind="content" data-expected="Write a message…">
+            <h2>text = data-placeholder</h2>
+            <div data-field contenteditable class="css-empty" data-placeholder="Write a message…">Write a message…</div>
+        </section>
+        <section data-case="css-absolute-content" data-kind="content" data-expected="Queue another message…">
+            <h2>absolute ::before class, real text</h2>
+            <!-- prettier-ignore -->
+            <div data-field contenteditable="plaintext-only" role="textbox" aria-label="Message input" class="css-absolute" data-placeholder="Queue another message…">Queue another message…</div>
+        </section>
+        <section data-case="prosemirror-content" data-kind="content" data-expected="Hello there">
+            <h2>ProseMirror with text</h2>
+            <div data-field contenteditable class="ProseMirror" role="textbox">
+                <p data-placeholder="How can I help you today?">Hello there</p>
+            </div>
+        </section>
+        <section
+            data-case="quill-content"
+            data-kind="content"
+            data-expected="Line one&#10;Line two"
+            data-known="firefox: Firefox's UI Automation reads paragraphs without the line break between them"
+        >
+            <h2>Quill with text</h2>
+            <div data-field contenteditable class="ql-editor" data-placeholder="Compose an epic...">
+                <p>Line one</p>
+                <p>Line two</p>
+            </div>
+        </section>
+        <section data-case="input-content" data-kind="content" data-expected="hello">
+            <h2>input with value</h2>
+            <input data-field placeholder="Search everything" value="hello" />
+        </section>
+        <section data-case="textarea-content" data-kind="content" data-expected="first&#10;second">
+            <h2>textarea with value</h2>
+            <textarea data-field placeholder="Write a comment">
+first
+second</textarea>
+        </section>
+        <!-- Generated text around real content is not a placeholder: it is mirrored as displayed, since UI Automation
+             counts it in every caret position the phone and the PC exchange. -->
+        <section data-case="decorated-content" data-kind="decoration" data-expected="“quoted words”">
+            <h2>generated quotes around text</h2>
+            <div data-field contenteditable><span class="quote">quoted words</span></div>
+        </section>
+        <section data-case="mention-content" data-kind="content" data-expected="Hi @Bob, ready?">
+            <h2>non-editable mention in text</h2>
+            <div data-field contenteditable role="textbox" data-placeholder="Reply…">
+                <p>Hi <span class="mention" contenteditable="false">@Bob</span>, ready?</p>
+            </div>
+        </section>
+        <section data-case="rtl-content" data-kind="content" data-expected="שלום עולם">
+            <h2>right-to-left text</h2>
+            <div data-field contenteditable dir="rtl" class="css-empty" data-placeholder="כתוב הודעה">שלום עולם</div>
+        </section>
+        <section data-case="textarea-labelled-empty" data-kind="content" data-expected="">
+            <h2>empty textarea, aria-label only</h2>
+            <textarea data-field aria-label="Comment"></textarea>
+        </section>
+        <section data-case="empty-plain" data-kind="content" data-expected="">
+            <h2>empty, no placeholder</h2>
+            <div data-field contenteditable></div>
+        </section>
+        <script>
+            // An <input> with a placeholder inside a web component's shadow root.
+            customElements.define(
+                'shadow-field',
+                class extends HTMLElement {
+                    connectedCallback() {
+                        const input = document.createElement('input');
+                        input.placeholder = this.dataset.placeholder;
+                        input.style.cssText = 'display:block;width:100%;box-sizing:border-box';
+                        this.attachShadow({ mode: 'open' }).append(input);
+                    }
+                }
+            );
+            const fieldOf = (section) =>
+                section.querySelector('[data-field]')
+                ?? section.querySelector('[data-frame]')?.contentDocument.body
+                ?? section.querySelector('shadow-field')?.shadowRoot.querySelector('input');
+            // Like a click at the end of the field: after the last real text, or where editors keep the caret in an
+            // empty field (the start of the first block).
+            function focusField(field) {
+                field.focus();
+                if (!field.isContentEditable) {
+                    field.selectionStart = field.selectionEnd = field.value.length;
+                    return;
+                }
+                const document = field.ownerDocument;
+                const editable = (node) => !node.parentElement.closest('[contenteditable=false]') && node.data.trim();
+                const walker = document.createTreeWalker(field, NodeFilter.SHOW_TEXT, {
+                    acceptNode: (node) => (editable(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP),
+                });
+                let last = null;
+                while (walker.nextNode()) last = walker.currentNode;
+                let block = field;
+                while (
+                    !last
+                    && block.firstElementChild
+                    && block.firstElementChild.tagName !== 'BR'
+                    && block.firstElementChild.isContentEditable
+                )
+                    block = block.firstElementChild;
+                const range = document.createRange();
+                range.setStart(last ?? block, last ? last.data.length : 0);
+                const selection = document.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+            // Driven by scripts/placeholder-check.mjs: the page reports its cases, then focuses each one the check
+            // asks for and names it in the window title, which the PC side checks before reading.
+            const harness = new URLSearchParams(location.search).get('harness');
+            if (harness)
+                (async () => {
+                    document.title = `Placeholder fixtures ${harness}`;
+                    const cases = [...document.querySelectorAll('[data-case]')].map((section) => ({
+                        id: section.dataset.case,
+                        kind: section.dataset.kind,
+                        expected: section.dataset.expected,
+                        known: section.dataset.known,
+                    }));
+                    await fetch('/cases', { method: 'POST', body: JSON.stringify(cases) });
+                    let current = null;
+                    // A browser can focus the document instead when its window becomes active.
+                    addEventListener('focus', () => current && focusField(current));
+                    const windowFocus = () =>
+                        new Promise((resolve) => {
+                            const wait = () => (document.hasFocus() ? resolve() : setTimeout(wait, 30));
+                            wait();
+                        });
+                    for (let done = ''; ;) {
+                        const { id } = await (await fetch('/step?done=' + encodeURIComponent(done))).json();
+                        if (!id) break;
+                        current = fieldOf(document.querySelector(`[data-case="${id}"]`));
+                        focusField(current);
+                        windowFocus().then(() => document.activeElement !== current && focusField(current));
+                        document.title = `Placeholder fixtures ${harness} ${id}`;
+                        done = id;
+                    }
+                })();
+        </script>
+    </body>
+</html>
