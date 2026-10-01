@@ -91,13 +91,11 @@ function showNotice(message) {
     refreshStatus();
 }
 
-// Layout: `editing` is the requested state; `shownEditing` is what the layout currently displays.
-// Compact (smaller gaps and keys, modifier row only) only while typing: the editor is open and its field has focus,
-// so the phone keyboard takes the space. Leaving the field brings the normal layout back, editor still open.
+// Layout: `editing` is the requested state (the PC text mirror is open); `shownEditing` is what the layout currently
+// displays. Editing is compact (smaller gaps and keys) since the phone keyboard takes half the screen; every enabled
+// key row stays. It lasts while the text field keeps the focus: see "Editing follows the text field's focus" below.
 let editing = false,
     shownEditing = false,
-    typing = false,
-    shownCompact = false,
     switching = false,
     morphs = 0;
 const applyHaptics = () =>
@@ -108,12 +106,9 @@ function applyLayout() {
     pad.scrollSliding = settings.scrollSliding !== false;
     applyHaptics();
     app.classList.toggle('editing', shownEditing);
-    app.classList.toggle('compact', shownCompact);
     $('#editor-open').hidden = shownEditing;
-    $('#editor-close').hidden = !shownEditing;
-    toggle.hidden = shownEditing;
     editor.hidden = !shownEditing && !dock.classList.contains('editor-pending');
-    rows.configure(settings, shownCompact);
+    rows.configure(settings);
 }
 /** Freezes the app and dock at their current size so the layout can change underneath. */
 function pinGeometry() {
@@ -152,7 +147,7 @@ function morphFrom(start) {
 }
 /** Runs a layout change and fades in the controls it reveals. */
 function reveal(change) {
-    const targets = [$('#editor-open'), $('#editor-close'), toggle, editor, ...rows.children];
+    const targets = [$('#editor-open'), editor, ...rows.children];
     const wasHidden = targets.map(
         (element) => element.hidden || (element === editor && dock.classList.contains('editor-pending'))
     );
@@ -188,7 +183,6 @@ function viewportSettled() {
         window.visualViewport?.addEventListener('resize', changed);
     });
 }
-const wantCompact = () => editing && typing;
 async function switchEditing() {
     switching = true;
     const opening = editing,
@@ -205,7 +199,6 @@ async function switchEditing() {
     // Wait for the keyboard to appear or leave first; moving while it resizes the viewport looks incoherent.
     if (animated) await viewportSettled();
     shownEditing = opening;
-    shownCompact = wantCompact();
     reveal(() => {
         dock.classList.remove('editor-pending');
         applyLayout();
@@ -216,7 +209,7 @@ async function switchEditing() {
 }
 function layout({ animate = false } = {}) {
     if (switching) return;
-    if (shownEditing !== editing || shownCompact !== wantCompact()) return void switchEditing();
+    if (shownEditing !== editing) return void switchEditing();
     if (!animate || reducedMotion()) return applyLayout();
     const start = pinGeometry();
     reveal(applyLayout);
@@ -496,28 +489,71 @@ editor.firstElementChild.addEventListener('beforeinput', (event) => {
         .catch((error) => showNotice(error.message));
     if (!rows.sticky) rows.reset();
 });
-// Typing follows the editor's focus. Leaving is confirmed a moment later, so focus passing within the editor (or a
-// re-render) does not bounce the layout.
-editor.addEventListener('focusin', () => {
-    typing = true;
-    layout();
-});
-editor.addEventListener('focusout', () =>
-    setTimeout(() => {
-        if (editor.contains(document.activeElement)) return;
-        typing = false;
-        layout();
-    }, 100)
-);
-$('#editor-open').addEventListener('click', () => {
+// Editing follows the text field's focus. The text button opens it; it ends when a tap lands on the background
+// (nothing there to act on) or when the phone keyboard closes while the field still has the focus (its own close
+// button, the back gesture). Every control keeps the focus in the field meanwhile, so the keyboard stays up and the
+// layout never jumps: pointerdown is cancelled on them, which stops the browser from moving the focus.
+const actionable =
+    'button, a[href], label, input, select, summary, dialog, .options, pointer-pad, key-rows, text-editor, #connection';
+let backgroundTap = false;
+function openEditor() {
     mirror.open();
     editor.focus();
-});
-$('#editor-close').addEventListener('click', () => {
+}
+function closeEditor() {
+    if (!mirrorState.open) return;
     editor.blur();
     mirror.close();
     rows.reset();
+}
+document.addEventListener(
+    'pointerdown',
+    (event) => {
+        if (!mirrorState.open) return;
+        backgroundTap = !event.target.closest?.(actionable);
+        // Sliders need their own pointer handling; the field gets the focus back once one is set (see below).
+        if (!backgroundTap && !editor.contains(event.target) && event.target.type !== 'range') event.preventDefault();
+    },
+    { capture: true }
+);
+// A label still focuses its checkbox or radio on click: toggle it without letting the focus go.
+document.addEventListener(
+    'click',
+    (event) => {
+        if (!mirrorState.open) return;
+        const control = event.target.closest?.('label')?.control;
+        if (!control || control === event.target || !['checkbox', 'radio'].includes(control.type)) return;
+        event.preventDefault();
+        control.click();
+    },
+    { capture: true }
+);
+editor.addEventListener('focusout', () =>
+    setTimeout(() => {
+        if (!mirrorState.open || editor.contains(document.activeElement)) return;
+        if (backgroundTap) return closeEditor();
+        // Anything else that took the focus hands it back, except a slider being moved (or another app: the page
+        // itself lost the focus).
+        if (document.hasFocus() && document.activeElement?.type !== 'range') editor.focus();
+    })
+);
+menu.addEventListener('change', (event) => {
+    if (mirrorState.open && event.target.type === 'range') editor.focus();
 });
+// The phone keyboard is up while the visual viewport is notably shorter than the screen (a quarter of it: browser
+// bars take less, a keyboard much more). Desktop browsers never see it, so only the background closes editing there.
+let keyboardSeen = false;
+function watchKeyboard() {
+    const visible = window.visualViewport;
+    if (!mirrorState.open || !visible) return void (keyboardSeen = false);
+    const portrait = screen.orientation?.type.startsWith('portrait') ?? innerHeight > innerWidth;
+    const screenHeight = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+    const keyboardUp = (screenHeight - visible.height * visible.scale) / screenHeight > 0.25;
+    if (keyboardUp) keyboardSeen = true;
+    else if (keyboardSeen && editor.contains(document.activeElement)) closeEditor();
+}
+window.visualViewport?.addEventListener('resize', watchKeyboard);
+$('#editor-open').addEventListener('click', openEditor);
 $('#pair-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     $('#pair-error').textContent = '';

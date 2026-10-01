@@ -209,11 +209,10 @@ class KeyRows extends HTMLElement {
         if (this.sticky && !force) return;
         for (const key of [...this.held]) this.press(key, false);
     }
-    configure(settings, compact) {
+    configure(settings) {
         this.sticky = settings.sticky;
         this.renderFunctions(settings.functionKeys);
-        for (const row of this.children)
-            row.hidden = !settings[row.dataset.row] || (compact && row.dataset.row !== 'modifiers');
+        for (const row of this.children) row.hidden = !settings[row.dataset.row];
     }
 }
 customElements.define('key-rows', KeyRows);

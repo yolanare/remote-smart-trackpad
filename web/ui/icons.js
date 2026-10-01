@@ -1,7 +1,6 @@
 import {
     createElement,
     EllipsisVertical,
-    X,
     Check,
     VolumeOff,
     Volume1,
@@ -28,7 +27,6 @@ import {
 } from 'lucide';
 const icons = {
     more: EllipsisVertical,
-    close: X,
     check: Check,
     mute: VolumeOff,
     quieter: Volume1,

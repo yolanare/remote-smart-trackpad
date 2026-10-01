@@ -77,7 +77,10 @@ try {
     const pending = new Map();
     socket.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        if (message.method === 'Runtime.exceptionThrown') exceptions.push(message.params.exceptionDetails.text);
+        if (message.method === 'Runtime.exceptionThrown') {
+            const details = message.params.exceptionDetails;
+            exceptions.push(details.exception?.description ?? details.text);
+        }
         const request = pending.get(message.id);
         if (request) {
             pending.delete(message.id);
@@ -158,7 +161,8 @@ try {
             '({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth, keys: document.querySelectorAll("key-rows button").length, padHeight: document.querySelector(".trackpad").getBoundingClientRect().height })'
         );
         assert.ok(dimensions.scrollWidth <= dimensions.width, 'Page overflow in ' + name);
-        assert.ok(dimensions.padHeight > 0);
+        // Every row shown still leaves a usable trackpad (5rem); the key rows scroll instead.
+        assert.ok(dimensions.padHeight >= 79, 'Trackpad too small in ' + name + ': ' + dimensions.padHeight);
         const screenshot = await page('Page.captureScreenshot', { format: 'png' });
         await writeFile(path.join(output, 'browser-' + name + '.png'), Buffer.from(screenshot.data, 'base64'));
         report.push({ name, ...dimensions });
@@ -201,6 +205,24 @@ try {
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
     await evaluate("document.querySelector('.options').scrollTop = 0");
+    // Longer text (larger type, or translations later) wraps inside the menu instead of overflowing it.
+    const overflowing = await evaluate(`(() => {
+        const menu = document.querySelector('.options');
+        menu.style.fontSize = '1.2rem';
+        const rows = [...menu.querySelectorAll('label, .axis-setting, .stepper-setting, .choice-setting, .speed-setting, .options-action')];
+        const wide = rows.filter((row) => row.getClientRects().length && row.getBoundingClientRect().right > menu.getBoundingClientRect().right + 1).map((row) => row.textContent.trim().slice(0, 30));
+        const scrolls = menu.scrollWidth > menu.clientWidth;
+        menu.scrollTop = 330;
+        return { wide, scrolls };
+    })()`);
+    await writeFile(
+        path.join(output, 'browser-menu-large-text.png'),
+        Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
+    );
+    await evaluate(
+        "document.querySelector('.options').style.fontSize = ''; document.querySelector('.options').scrollTop = 0"
+    );
+    assert.deepEqual(overflowing, { wide: [], scrolls: false }, 'Options must wrap long text');
     // Interface scale: the stepper stays at the same height in the menu, ready for the next tap.
     const scaleStepper = 'document.querySelector(\'.stepper[data-setting="uiScale"]\')';
     const scaleTop = () => evaluate(scaleStepper + '.getBoundingClientRect().top');
@@ -326,12 +348,46 @@ try {
     await waitFor("document.querySelector('.app').classList.contains('editing')");
     await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 405, deviceScaleFactor: 1, mobile: true });
     await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
-    const bounds = await evaluate(
-        '(() => { const close = document.querySelector("#editor-close").getBoundingClientRect(); const keys = document.querySelector("key-rows").getBoundingClientRect(); return { closeTop: close.top, closeBottom: close.bottom, keysBottom: keys.bottom, height: innerHeight, rows: [...document.querySelectorAll(".key-row")].filter(row => !row.hidden).map(row => row.dataset.row) }; })()'
+    // Editing keeps every enabled row (compact), the options button, and a usable trackpad above the field.
+    const editingLayout = `(() => {
+        const box = (selector) => document.querySelector(selector).getBoundingClientRect();
+        return {
+            rows: [...document.querySelectorAll('.key-row')].filter((row) => !row.hidden).map((row) => row.dataset.row),
+            optionsVisible: !document.querySelector('#options-toggle').hidden && box('#options-toggle').top >= 0,
+            trackpad: Math.round(box('.trackpad').height),
+            field: Math.round(box('textarea').height),
+            fieldBottom: Math.round(box('textarea').bottom),
+            height: innerHeight,
+        };
+    })()`;
+    const settled = () =>
+        waitFor("!document.querySelector('.input-dock').classList.contains('is-morphing')").then(() =>
+            evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+        );
+    await settled();
+    const bounds = await evaluate(editingLayout);
+    assert.deepEqual(bounds.rows, ['edit', 'modifiers']);
+    assert.equal(bounds.optionsVisible, true);
+    assert.ok(bounds.fieldBottom <= bounds.height, 'The text field must stay on screen: ' + JSON.stringify(bounds));
+    assert.ok(bounds.field < 45, 'An empty field shows one line: ' + bounds.field);
+    // A long text grows the field while room is left, and shrinks it back to one line before the pad gets smaller.
+    await evaluate(
+        "document.querySelector('text-editor').render({ available: true, text: 'line\\n'.repeat(12), selectionStart: 0, selectionEnd: 0 })"
     );
-    assert.deepEqual(bounds.rows, ['modifiers']);
-    assert.ok(bounds.closeTop >= 0 && bounds.closeBottom <= bounds.height);
-    assert.ok(bounds.keysBottom <= bounds.height);
+    await settled();
+    const tall = await evaluate(editingLayout);
+    assert.ok(tall.field > bounds.field, 'A long text must grow the field: ' + JSON.stringify(tall));
+    assert.ok(tall.trackpad >= 79, 'The trackpad keeps its minimum: ' + JSON.stringify(tall));
+    await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 300, deviceScaleFactor: 1, mobile: true });
+    await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
+    await settled();
+    const squeezed = await evaluate(editingLayout);
+    assert.ok(squeezed.trackpad >= 79, 'The trackpad keeps its minimum: ' + JSON.stringify(squeezed));
+    assert.ok(squeezed.field < 45, 'The field gives way first, down to one line: ' + JSON.stringify(squeezed));
+    await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 405, deviceScaleFactor: 1, mobile: true });
+    await evaluate(
+        "document.querySelector('text-editor').render({ available: true, text: '', selectionStart: 0, selectionEnd: 0 })"
+    );
     const modifier = await evaluate(`(() => {
     const rows = document.querySelector('key-rows'), commands = [];
     const capture = event => { event.stopPropagation(); commands.push(event.detail); };
@@ -357,7 +413,18 @@ try {
         path.join(output, 'browser-editor.png'),
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
-    // Mirror polling: every 200 ms right after activity, slower once quiet, full speed again after a key.
+    // Mirror polling: every 200 ms right after activity, slower once quiet, full speed again after a key. The PC's
+    // real field could change meanwhile (and rightly keep polling fast), so reads answer "unchanged" here.
+    await evaluate(`(() => {
+        const send = WebSocket.prototype.send;
+        window.__restoreSend = () => (WebSocket.prototype.send = send);
+        WebSocket.prototype.send = function (raw) {
+            const message = JSON.parse(raw);
+            if (message.action !== 'mirror-read') return send.call(this, raw);
+            window.__sent.push({ action: message.action, at: performance.now() });
+            queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ id: message.id, ok: true, result: { unchanged: true } }) })));
+        };
+    })()`);
     const readGaps = (since) =>
         evaluate(`(() => {
             const reads = window.__sent.filter(entry => entry.action === 'mirror-read' && entry.at >= ${since}).map(entry => entry.at);
@@ -379,12 +446,9 @@ try {
     assert.ok(median(activeGaps) < 320, 'Active polling should run about every 200 ms: ' + activeGaps);
     assert.ok(median(quietGaps) >= 450, 'Quiet polling should slow down: ' + quietGaps);
     assert.ok(median(wokenGaps) < 320, 'Activity should restore fast polling: ' + wokenGaps);
+    await evaluate('window.__restoreSend()');
     report.push({ name: 'adaptive-polling', activeGaps, quietGaps, wokenGaps });
-    // Compact only while typing: leaving the field restores the normal layout with every row, editor still open.
-    const shownRows =
-        '[...document.querySelectorAll(".key-row")].filter(row => !row.hidden).map(row => row.dataset.row)';
-    assert.equal(await evaluate("document.querySelector('.app').classList.contains('compact')"), true);
-    // The blind-typing hint sits on the textarea's first line, compact or not.
+    // The blind-typing hint sits on the textarea's first line, while editing.
     const hint = await evaluate(`(() => {
         const editor = document.querySelector('text-editor');
         editor.classList.add('show-hint');
@@ -393,20 +457,55 @@ try {
         return { inside: text.top >= box.top && text.bottom <= box.bottom && text.left >= box.left && text.right <= box.right };
     })()`);
     assert.deepEqual(hint, { inside: true }, 'Editor hint must sit inside the textarea');
-    await evaluate('document.activeElement.blur()');
-    await waitFor("!document.querySelector('.app').classList.contains('compact')");
-    assert.equal(await evaluate("document.querySelector('.app').classList.contains('editing')"), true);
-    assert.deepEqual(await evaluate(shownRows), ['edit', 'modifiers']);
-    await evaluate("document.querySelector('text-editor').focus()");
-    await waitFor("document.querySelector('.app').classList.contains('compact')");
-    assert.deepEqual(await evaluate(shownRows), ['modifiers']);
-    await evaluate("document.querySelector('#editor-close').click()");
+    // Editing follows the field's focus: controls keep it, a tap on the background lets it go and ends editing.
+    const focusRules = await evaluate(`(async () => {
+        const field = document.querySelector('textarea');
+        // Only the page-wide listener's verdict matters: the control's own handler (pointer capture, gestures) would
+        // fail on a synthetic pointer, so the event stops at the target.
+        const tap = (element) => {
+            const event = new PointerEvent('pointerdown', { bubbles: true, cancelable: true });
+            element.addEventListener('pointerdown', (stop) => stop.stopImmediatePropagation(), { capture: true, once: true });
+            element.dispatchEvent(event);
+            return event.defaultPrevented;
+        };
+        const tick = () => new Promise((resolve) => setTimeout(resolve, 50));
+        const keyKeeps = tap(document.querySelector('key-rows [data-key=Tab]'));
+        const padKeeps = tap(document.querySelector('.trackpad'));
+        const optionsKeep = tap(document.querySelector('#options-toggle'));
+        // A label toggles its checkbox without taking the focus from the field.
+        const sticky = document.querySelector('[name=sticky]'), before = sticky.checked;
+        sticky.closest('label').click();
+        const labelToggles = sticky.checked !== before && document.activeElement === field;
+        sticky.closest('label').click();
+        // The focus taken by something else (not a background tap) comes back to the field.
+        tap(document.querySelector('key-rows [data-key=Tab]'));
+        field.blur();
+        await tick();
+        const refocused = document.activeElement === field && document.querySelector('.app').classList.contains('editing');
+        const backgroundKeeps = tap(document.querySelector('.topbar'));
+        field.blur();
+        await tick();
+        return { keyKeeps, padKeeps, optionsKeep, labelToggles, refocused, backgroundKeeps };
+    })()`);
+    assert.deepEqual(focusRules, {
+        keyKeeps: true,
+        padKeeps: true,
+        optionsKeep: true,
+        labelToggles: true,
+        refocused: true,
+        backgroundKeeps: false,
+    });
     await waitFor("document.querySelector('text-editor').hidden");
     await evaluate(
         "const input = document.querySelector('[name=modifiers]'); input.checked = false; input.dispatchEvent(new Event('change')); document.querySelector('#editor-open').click()"
     );
     await waitFor("document.querySelector('.app').classList.contains('editing')");
-    assert.equal(await evaluate("[...document.querySelectorAll('.key-row')].filter(row => !row.hidden).length"), 0);
+    assert.deepEqual(
+        await evaluate(
+            "[...document.querySelectorAll('.key-row')].filter(row => !row.hidden).map(row => row.dataset.row)"
+        ),
+        ['edit']
+    );
     const scroll = await evaluate(
         "(() => { const rail = document.querySelector('scroll-rail[axis=y] .rail-viewport'); const before = rail.scrollTop; rail.scrollTop += 300; return { before, after: rail.scrollTop, native: getComputedStyle(rail).overflowY }; })()"
     );
@@ -414,7 +513,7 @@ try {
     assert.equal(scroll.native, 'scroll');
     assert.ok(scroll.before > 65536, 'Native rails must start away from either edge');
     await evaluate(
-        "document.querySelector('#editor-close').click(); const sliding = document.querySelector('[name=mouseSliding]'); sliding.checked = true; sliding.dispatchEvent(new Event('change'));"
+        "document.querySelector('.topbar').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); document.activeElement.blur(); const sliding = document.querySelector('[name=mouseSliding]'); sliding.checked = true; sliding.dispatchEvent(new Event('change'));"
     );
     await page('Page.reload');
     await waitFor("document.querySelector('#connection').dataset.state === 'ready'");

@@ -17,6 +17,8 @@ const passthroughKeys = {
     Delete: 'Delete',
 };
 
+const sizesItself = CSS.supports('field-sizing', 'content');
+
 class TextEditor extends HTMLElement {
     text = '';
     caret = 0;
@@ -24,7 +26,7 @@ class TextEditor extends HTMLElement {
     connectedCallback() {
         if (this.firstChild) return;
         this.innerHTML =
-            '<textarea id="editor-text" aria-label="PC text field" spellcheck="true" autocapitalize="sentences"></textarea><span class="editor-hint" aria-hidden="true">Cannot retrieve text here. Start typing to edit</span>';
+            '<textarea id="editor-text" rows="1" aria-label="PC text field" spellcheck="true" autocapitalize="sentences"></textarea><span class="editor-hint" aria-hidden="true">Cannot retrieve text here. Start typing to edit</span>';
         const textarea = this.firstElementChild;
         textarea.value = anchor;
         this.composing = false;
@@ -136,10 +138,13 @@ class TextEditor extends HTMLElement {
         this.writtenStart = start + 1;
         this.writtenEnd = end + 1;
     }
+    /** The field grows with its text through CSS field-sizing; this measures it where that is unsupported (Firefox). */
     resize() {
+        if (sizesItself) return;
         const field = this.firstElementChild;
         field.style.height = 'auto';
-        field.style.height = `${Math.min(field.scrollHeight / parseFloat(getComputedStyle(document.documentElement).fontSize), 10.1875)}rem`;
+        const borders = field.offsetHeight - field.clientHeight;
+        field.style.height = `${(field.scrollHeight + borders) / parseFloat(getComputedStyle(document.documentElement).fontSize)}rem`;
     }
     render(state) {
         if (this.composing && (this.state?.session !== state.session || this.state?.revision !== state.revision))

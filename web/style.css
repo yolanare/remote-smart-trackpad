@@ -200,23 +200,23 @@ svg.icon-large {
     height: 2.25rem;
     color: var(--border);
 }
-#editor-close {
-    height: 2.25rem;
-    padding: var(--space-2) var(--space-3);
-    font-size: 0.75rem;
-}
 #controls {
     display: flex;
     flex: 1;
     flex-direction: column;
     min-height: 0;
 }
+/*
+ * Height sharing in #controls (a column): the pointer pad takes whatever is left, down to a usable trackpad
+ * (--trackpad-min, through the grid rows below, so the pad's own minimum follows its buttons and rails). Below that
+ * the input dock gives way: first the text field, down to one line, then the key rows scroll.
+ */
 pointer-pad {
+    --trackpad-min: 5rem;
     display: grid;
-    grid-template-rows: minmax(0, 1fr) 3rem;
+    grid-template-rows: minmax(auto, 1fr) 3rem;
     grid-template-columns: minmax(0, 1fr) 20vw;
-    flex: 1;
-    min-height: 3rem;
+    flex: 1 1 0;
     padding: var(--space-2) 0 var(--space-2) var(--space-4);
     transition:
         padding var(--layout-transition),
@@ -224,7 +224,7 @@ pointer-pad {
 }
 .mouse {
     display: grid;
-    grid-template-rows: minmax(0, 1fr) 2.25rem;
+    grid-template-rows: minmax(var(--trackpad-min), 1fr) 2.25rem;
     grid-template-columns: 1fr auto 1fr;
     min-height: 0;
     /* No horizontal gap: every tap on the button row lands on a button, never in dead space between them. */
@@ -510,8 +510,17 @@ scroll-rail[axis='x'] .rail-content {
     background: linear-gradient(to right, transparent 1.8125rem, var(--tick) 1.8125rem) 0 0 / 1.875rem 100% repeat-x;
 }
 .input-dock {
-    flex: none;
+    display: flex;
+    flex: 0 1 auto;
+    flex-direction: column;
     min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+}
+.input-dock > key-rows,
+.input-dock > .editor-launch {
+    flex: none;
 }
 .input-dock.is-morphing {
     overflow: hidden;
@@ -609,8 +618,11 @@ key-rows {
     height: 2.5625rem;
 }
 text-editor {
-    display: block;
+    display: flex;
     position: relative;
+    flex: 0 1 auto;
+    flex-direction: column;
+    min-height: 0;
     --editor-top: var(--space-2);
     --editor-side: var(--space-4);
     padding: var(--editor-top) var(--editor-side) var(--space-4);
@@ -633,11 +645,14 @@ text-editor {
 text-editor.show-hint .editor-hint {
     display: block;
 }
+/* Sized by its content (field-sizing; text-editor.js measures where it is unsupported), from one line to eight. */
 textarea {
     display: block;
+    flex: 0 1 auto;
     width: 100%;
-    min-height: 2.25rem;
-    max-height: 10.1875rem;
+    min-height: calc(1lh + 2 * var(--space-2) + 2 * var(--stroke));
+    max-height: calc(8lh + 2 * var(--space-2) + 2 * var(--stroke));
+    field-sizing: content;
     padding: var(--space-2) var(--space-3);
     border: var(--stroke) solid var(--border);
     border-radius: var(--radius);
@@ -650,28 +665,28 @@ textarea {
     scrollbar-width: none;
     touch-action: pan-x pan-y;
 }
-/* Compact while typing in the editor (keyboard up): see `shownCompact` in app.js. */
-.compact pointer-pad {
-    grid-template-rows: minmax(0, 1fr) 2rem;
+/* Compact while editing, the phone keyboard taking half the screen (see shownEditing in app.js). */
+.editing pointer-pad {
+    grid-template-rows: minmax(auto, 1fr) 2rem;
     padding-bottom: var(--space-2);
 }
-.compact .mouse {
-    grid-template-rows: minmax(0, 1fr) 2rem;
+.editing .mouse {
+    grid-template-rows: minmax(var(--trackpad-min), 1fr) 2rem;
 }
-.compact .trackpad {
+.editing .trackpad {
     border-bottom-right-radius: var(--radius);
     border-bottom-left-radius: var(--radius);
 }
-.compact key-rows {
+.editing key-rows {
     padding: var(--space-2);
 }
-/* The editor lines up with the compact key rows, right above the phone keyboard. */
-.compact text-editor {
+/* The editor lines up with the key rows, right above the phone keyboard. */
+.editing text-editor {
     --editor-top: 0px; /* with a unit: a bare 0 makes the hint's calc() invalid */
     --editor-side: var(--space-2);
     padding-bottom: var(--space-2);
 }
-.compact .key-group {
+.editing .key-group {
     --key-height: 2rem;
 }
 .editing .editor-launch {
@@ -683,8 +698,8 @@ textarea {
     /* Just under the top bar, whose height follows the status (app.js keeps --topbar-height current). */
     top: calc(var(--topbar-height, 2.75rem) + 0.25rem + env(safe-area-inset-top));
     right: var(--space-4);
-    /* Wide enough for every option label on one line at 1× scale (16.5rem measured, with margin for fonts). */
-    width: 17rem;
+    /* Every option on one line at 1× scale with room to spare; longer text wraps (see the option rows below). */
+    width: 19rem;
     max-width: calc(100% - 2 * var(--space-4));
     max-height: calc(
         var(--viewport-height, 100dvh) - var(--topbar-height, 2.75rem) - 0.25rem - env(safe-area-inset-top) -
@@ -705,7 +720,7 @@ textarea {
     display: flex;
     position: relative;
     align-items: center;
-    height: 1.875rem;
+    min-height: 1.875rem;
     margin-bottom: var(--space-1);
     padding: 0.375rem var(--space-4);
     gap: 0.625rem;
@@ -766,22 +781,25 @@ a.options-action.is-pressed {
     height: 1.125rem;
     opacity: 0;
 }
+/* Title then choices; the choices move to a line of their own, right-aligned, when they do not fit beside it. */
 .axis-setting {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    height: 1.875rem;
+    justify-content: flex-end;
+    min-height: 1.875rem;
     margin-bottom: var(--space-1);
     padding: 0 var(--space-4);
     gap: var(--space-3);
 }
 .axis-setting > span {
-    flex: 1;
+    flex: 1 0 auto;
 }
 /* A shared minimum width lines the checkboxes up in columns from row to row (X, Y, Mouse, Scroll). */
 .options .axis-setting label {
     flex: none;
     min-width: 4rem;
-    height: 100%;
+    height: 1.875rem;
     margin: 0;
     padding: 0;
 }
@@ -910,6 +928,7 @@ a.options-action.is-pressed {
 /* Stepper setting: label on the left, a compact [−] value [+] pill on the right. */
 .stepper-setting {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     min-height: 2.25rem;
@@ -920,6 +939,8 @@ a.options-action.is-pressed {
     display: flex;
     align-items: center;
     height: 1.75rem;
+    /* Stays on the right when it wraps under a long label. */
+    margin-left: auto;
     border: var(--stroke) solid var(--border);
     border-radius: 999rem;
     corner-shape: round;
@@ -1010,7 +1031,7 @@ a.options-action.is-pressed {
 .options-action {
     justify-content: flex-start;
     width: calc(100% - 2 * var(--space-2));
-    height: 2.25rem;
+    min-height: 2.25rem;
     margin: 0 var(--space-2);
     padding: 0 var(--space-2);
     gap: 0.625rem;
@@ -1045,8 +1066,9 @@ a.options-action {
     padding: 0 var(--space-4);
 }
 .options .speed-setting label {
+    flex-wrap: wrap;
     justify-content: space-between;
-    height: 1.25rem;
+    min-height: 1.25rem;
     margin: 0;
     padding: 0;
     cursor: default;
