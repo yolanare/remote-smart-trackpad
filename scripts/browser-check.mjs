@@ -389,11 +389,18 @@ try {
         const before = height();
         document.querySelector('#options-toggle').click();
         document.querySelector('#editor-open').click();
+        // Before the PC's field is read, nothing is reported missing and the field takes typing (the keyboard).
+        const opening = { status: document.querySelector('#connection-label').textContent, readOnly: document.querySelector('textarea').readOnly };
         await new Promise((resolve) => setTimeout(resolve, 120));
         const during = height();
         await new Promise((resolve) => setTimeout(resolve, 400));
-        return { before, during, after: height() };
+        return { before, during, after: height(), opening };
     })()`);
+    assert.deepEqual(
+        keyHeights.opening,
+        { status: '', readOnly: false },
+        'Opening the editor must not flash a warning'
+    );
     assert.ok(
         keyHeights.during < keyHeights.before && keyHeights.during > keyHeights.after,
         'Key heights must transition when editing opens: ' + JSON.stringify(keyHeights)

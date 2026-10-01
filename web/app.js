@@ -74,7 +74,7 @@ function refreshStatus() {
         state = 'warning';
         if (notice) message = notice;
         else if (mirrorState.open && mirrorState.error) message = mirrorState.error;
-        else if (mirrorState.open && !mirrorState.available)
+        else if (mirrorState.open && !mirrorState.reading && !mirrorState.available)
             message = mirrorState.reason || 'No text field · typing to PC';
         else state = 'ready';
     }
@@ -136,13 +136,23 @@ function settledSize(measure) {
     running.forEach((transition, index) => (transition.currentTime = times[index]));
     return size;
 }
+/** The layout's pace, --layout-transition in tokens.css: the morph and the sizes inside it move together. */
+function layoutTiming() {
+    const [duration, ...easing] = getComputedStyle(document.documentElement)
+        .getPropertyValue('--layout-transition')
+        .trim()
+        .split(/\s+/);
+    return {
+        duration: parseFloat(duration) * (duration.endsWith('ms') ? 1 : 1000),
+        easing: easing.join(' ') || 'ease',
+    };
+}
 /** Animates the real layout from the pinned geometry to its new natural size; the trackpad follows as flex space. */
 function morphFrom(start) {
     const token = morphs;
     app.style.top = app.style.height = dock.style.height = '';
     const end = settledSize(() => ({ top: app.offsetTop, height: app.offsetHeight, dock: dock.offsetHeight }));
-    // Matches --layout-transition, which drives the sizes inside (keys, rows, paddings) meanwhile.
-    const timing = { duration: 320, easing: 'cubic-bezier(0.2, 0, 0, 1)' };
+    const timing = layoutTiming();
     const animations = [];
     if (start.top !== end.top || start.height !== end.height)
         animations.push(
@@ -289,7 +299,7 @@ const mirror = createMirror(send, (state) => {
     mirrorActivity();
     editing = state.open;
     layout();
-    editor.render({ ...state, passthrough: connected && state.open && !state.available });
+    editor.render({ ...state, passthrough: connected && state.open && !state.reading && !state.available });
     refreshStatus();
     schedulePolling();
 });

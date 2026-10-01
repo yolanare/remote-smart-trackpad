@@ -153,7 +153,8 @@ class TextEditor extends HTMLElement {
         const keepEcho = this.passthrough && state.passthrough;
         this.state = state;
         this.passthrough = state.passthrough === true;
-        this.firstElementChild.readOnly = !state.available && !this.passthrough;
+        // Never read-only while the first read is on its way: the phone would not show its keyboard on the focus.
+        this.firstElementChild.readOnly = !state.available && !this.passthrough && !state.reading;
         if (!keepEcho) {
             this.text = state.text;
             this.write(state.text, state.selectionStart, state.selectionEnd);

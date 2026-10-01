@@ -1,7 +1,8 @@
 import { nextReplacementStep } from '../text-operations.js';
 
 export function createMirror(send, render) {
-    let state = { open: false, available: false, text: '', selectionStart: 0, selectionEnd: 0 };
+    // reading: open, the PC's field not read yet (nothing is known about it, so nothing is reported missing either).
+    let state = { open: false, reading: false, available: false, text: '', selectionStart: 0, selectionEnd: 0 };
     let confirmed = null,
         busy = false,
         composing = false,
@@ -15,6 +16,7 @@ export function createMirror(send, render) {
         state = {
             ...state,
             ...snapshot,
+            reading: false,
             error: '',
             text: snapshot.text || '',
             selectionStart: snapshot.selectionStart || 0,
@@ -81,6 +83,7 @@ export function createMirror(send, render) {
         } catch (error) {
             if (current === generation) {
                 state.available = false;
+                state.reading = false;
                 state.error = error.message;
                 confirmed = null;
                 publish();
@@ -99,6 +102,9 @@ export function createMirror(send, render) {
             dirty = false;
             confirmed = null;
             state.open = true;
+            state.reading = true;
+            // A fresh start: an error from before (a disconnection) no longer applies.
+            state.error = '';
             publish();
             return poll();
         },
@@ -108,6 +114,7 @@ export function createMirror(send, render) {
             dirty = false;
             composing = false;
             state.open = false;
+            state.reading = false;
             state.available = false;
             publish();
             send('mirror-close').catch(() => {});
@@ -129,6 +136,7 @@ export function createMirror(send, render) {
             dirty = false;
             confirmed = null;
             state.available = false;
+            state.reading = false;
             state.error = 'PC disconnected';
             publish();
         },
