@@ -6,7 +6,7 @@ import { tick } from './haptics.js';
 // (from twice their size), brighten once it is inside, and only exist during a drag.
 
 // Zone sizes as a share of the viewport. The bottom is larger than the top: the buttons sit down there.
-const zone = { left: 0.12, right: 0.12, top: 0.05, bottom: 0.08 };
+const zone = { left: 0.08, right: 0.08, top: 0.05, bottom: 0.08 };
 const approach = 2;
 // Bands are drawn 5% larger than their zone, so the gradient's tail runs a little past the real trigger.
 const bandScale = 1.75;
