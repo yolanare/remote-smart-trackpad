@@ -103,9 +103,11 @@ function startProbe() {
 function verdict(browser, entry, result) {
     if (!result.ok) return 'error';
     const { available, text } = result.read;
+    const singleLineRight =
+        entry.singleLine === undefined || String(result.read.singleLine === true) === entry.singleLine;
     const status =
         !available ? 'blind'
-        : text === entry.expected ? 'pass'
+        : text === entry.expected && singleLineRight ? 'pass'
         : 'fail';
     return status !== 'pass' && entry.known?.startsWith(`${browser}:`) ? 'known' : status;
 }
@@ -161,7 +163,9 @@ function print(entry, elapsed) {
     console.log(
         `       field ${field.framework} ${field.type} name=${show(field.name)} class=${show(field.className)}`
     );
-    console.log(`       ui automation text ${show(field.text)} reason=${show(read.reason)}`);
+    console.log(
+        `       ui automation text ${show(field.text)} reason=${show(read.reason)} single-line=${read.singleLine === true}`
+    );
     console.log(`       iaccessible2 ${content ? JSON.stringify(content) : 'unavailable'}`);
 }
 const probe = startProbe();

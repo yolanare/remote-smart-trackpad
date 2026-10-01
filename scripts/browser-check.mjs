@@ -460,6 +460,24 @@ try {
         actions: ['key', 'shortcut', 'key'],
         shortcut: { key: 'Tab', modifiers: ['Control'] },
     });
+    // A key press vibrates once, with the pulse haptics.js sets; nothing when button haptics are off.
+    const haptics = await evaluate(`(() => {
+        const pulses = [], vibrate = navigator.vibrate;
+        navigator.vibrate = (pattern) => (pulses.push(pattern), true);
+        const press = () => document.querySelector('.key-row [data-key=Escape]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+        press();
+        const option = document.querySelector('[name=buttonHaptics]');
+        option.checked = false;
+        option.dispatchEvent(new Event('change'));
+        press();
+        option.checked = true;
+        option.dispatchEvent(new Event('change'));
+        navigator.vibrate = vibrate;
+        return pulses;
+    })()`);
+    const pulse = Number((await readFile('web/ui/haptics.js', 'utf8')).match(/const pulse = ([0-9]+)/)[1]);
+    // The option's own change ticks too (turning it on), after the key's single tick.
+    assert.deepEqual(haptics, [pulse, pulse], 'Key presses must vibrate, and stop when turned off');
     // Editing commands send their key with Control; the characters row sends plain letters.
     const shortcuts = await evaluate(`(() => {
         const rows = document.querySelector('key-rows'), sent = [];
@@ -517,6 +535,32 @@ try {
         return { inside: text.top >= box.top && text.bottom <= box.bottom && text.left >= box.left && text.right <= box.right };
     })()`);
     assert.deepEqual(hint, { inside: true }, 'Editor hint must sit inside the textarea');
+    // In a one-line PC field the keyboard's Enter presses Enter (keydown, or the line break phone keyboards insert);
+    // in a multi-line one it stays a new line.
+    const enterKey = await evaluate(`(() => {
+        const editor = document.querySelector('text-editor'), field = editor.querySelector('textarea'), keys = [];
+        const capture = (event) => { event.stopImmediatePropagation(); keys.push(event.detail.key); };
+        document.addEventListener('text-key', capture, { capture: true });
+        const press = () => {
+            const keydown = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+            field.dispatchEvent(keydown);
+            const lineBreak = new InputEvent('beforeinput', { inputType: 'insertLineBreak', bubbles: true, cancelable: true });
+            field.dispatchEvent(lineBreak);
+            return { keydown: keydown.defaultPrevented, lineBreak: lineBreak.defaultPrevented, hint: field.enterKeyHint };
+        };
+        editor.render({ available: true, singleLine: true, text: 'search', selectionStart: 6, selectionEnd: 6 });
+        const single = press();
+        editor.render({ available: true, singleLine: false, text: 'notes', selectionStart: 5, selectionEnd: 5 });
+        const multi = press();
+        document.removeEventListener('text-key', capture, { capture: true });
+        editor.render({ available: true, text: '', selectionStart: 0, selectionEnd: 0 });
+        return { single, multi, keys };
+    })()`);
+    assert.deepEqual(enterKey, {
+        single: { keydown: true, lineBreak: true, hint: 'go' },
+        multi: { keydown: false, lineBreak: false, hint: 'enter' },
+        keys: ['Enter', 'Enter'],
+    });
     // Editing follows the field's focus: controls keep it, a tap on the background lets it go and ends editing.
     const focusRules = await evaluate(`(async () => {
         const field = document.querySelector('textarea');

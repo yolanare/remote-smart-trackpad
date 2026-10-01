@@ -4,6 +4,7 @@
     and the text the PC mirror must read from it (data-expected; empty when only a placeholder shows).
     "placeholder" cases reproduce how editors and sites draw placeholders; "content" cases are real text that must
     never be mistaken for one; "decoration" cases are generated text around real content, mirrored as displayed.
+    data-single-line="true|false" also checks whether the field is reported as one-line (its Enter key submits).
     data-known="browser: reason" documents a browser limitation unrelated to placeholders; it is reported, not failed.
 -->
 <html lang="en">
@@ -287,7 +288,12 @@
             <!-- prettier-ignore -->
             <div data-field contenteditable="plaintext-only" role="textbox" aria-label="Message input" class="css-absolute" data-placeholder="Queue another message…">Queue another message…</div>
         </section>
-        <section data-case="prosemirror-content" data-kind="content" data-expected="Hello there">
+        <section
+            data-case="prosemirror-content"
+            data-kind="content"
+            data-expected="Hello there"
+            data-single-line="false"
+        >
             <h2>ProseMirror with text</h2>
             <div data-field contenteditable class="ProseMirror" role="textbox">
                 <p data-placeholder="How can I help you today?">Hello there</p>
@@ -305,11 +311,16 @@
                 <p>Line two</p>
             </div>
         </section>
-        <section data-case="input-content" data-kind="content" data-expected="hello">
+        <section data-case="input-content" data-kind="content" data-expected="hello" data-single-line="true">
             <h2>input with value</h2>
             <input data-field placeholder="Search everything" value="hello" />
         </section>
-        <section data-case="textarea-content" data-kind="content" data-expected="first&#10;second">
+        <section
+            data-case="textarea-content"
+            data-kind="content"
+            data-expected="first&#10;second"
+            data-single-line="false"
+        >
             <h2>textarea with value</h2>
             <textarea data-field placeholder="Write a comment">
 first
@@ -396,6 +407,7 @@ second</textarea>
                         kind: section.dataset.kind,
                         expected: section.dataset.expected,
                         known: section.dataset.known,
+                        singleLine: section.dataset.singleLine,
                     }));
                     await fetch('/cases', { method: 'POST', body: JSON.stringify(cases) });
                     let current = null;

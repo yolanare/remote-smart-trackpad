@@ -56,8 +56,13 @@ class TextEditor extends HTMLElement {
             this.resize();
             this.updateHint();
         };
-        textarea.addEventListener('beforeinput', () => {
+        textarea.addEventListener('beforeinput', (event) => {
             this.caret = read().start;
+            // Phone keyboards often skip the Enter keydown: the line break they insert is the Enter key, too.
+            if (!['insertLineBreak', 'insertParagraph'].includes(event.inputType) || !this.submits()) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            emit('text-key', { key: 'Enter' });
         });
         textarea.addEventListener('input', input);
         textarea.addEventListener('select', () => {
@@ -74,7 +79,8 @@ class TextEditor extends HTMLElement {
                 || (event.key === 'Backspace' && textarea.selectionStart === 0 && textarea.selectionEnd === 0 ?
                     'Backspace'
                 :   null)
-                || (event.key === 'Delete' && start === end && end === this.text.length ? 'Delete' : null);
+                || (event.key === 'Delete' && start === end && end === this.text.length ? 'Delete' : null)
+                || (event.key === 'Enter' && this.submits() ? 'Enter' : null);
             if (!key) return;
             event.preventDefault();
             emit('text-key', { key });
@@ -103,6 +109,13 @@ class TextEditor extends HTMLElement {
             } else input();
             emit('text-composition', false);
         });
+    }
+    /**
+     * In a PC field that holds one line (a search box, an <input>), Enter cannot add a line: the keyboard's Enter key
+     * presses Enter there (search, submit). Anywhere else it adds a line, never sending a message by mistake.
+     */
+    submits() {
+        return this.singleLine && !this.passthrough;
     }
     /** Sends the difference from the last forwarded text as key presses and typed text. */
     forward(text, caret, emit) {
@@ -153,6 +166,9 @@ class TextEditor extends HTMLElement {
         const keepEcho = this.passthrough && state.passthrough;
         this.state = state;
         this.passthrough = state.passthrough === true;
+        this.singleLine = state.available === true && state.singleLine === true;
+        // The keyboard's Enter key shows what it does: an action in a one-line field, a new line elsewhere.
+        this.firstElementChild.enterKeyHint = this.submits() ? 'go' : 'enter';
         // Never read-only while the first read is on its way: the phone would not show its keyboard on the focus.
         this.firstElementChild.readOnly = !state.available && !this.passthrough && !state.reading;
         if (!keepEcho) {

@@ -19,6 +19,8 @@ public sealed class FieldContent {
     public bool OtherText;
     // No accessible children at all: empty, or Firefox's role=textbox fields, which hide their text nodes.
     public bool Leafless = true;
+    // The field holds one line only (IAccessible2's single-line state; text-mirror.ps1 trusts it for <input> only).
+    public bool SingleLine;
 
     [ComImport, Guid("6d5140c1-7436-11ce-8034-00aa006009fa"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface IServiceProvider { [PreserveSig] int QueryService(ref Guid service, ref Guid riid, out IntPtr result); }
@@ -34,7 +36,7 @@ public sealed class FieldContent {
     static Guid AccessibleId = new Guid("618736E0-3C3D-11CF-810C-00AA00389B71");
     static Guid Accessible2Id = new Guid("E89F726E-C4F4-4c19-BB19-B647D7FA8478");
     // IAccessible2 vtable slots: IUnknown (3) + IDispatch (4) + IAccessible (21), then get_states and get_attributes.
-    const int StatesSlot = 35, AttributesSlot = 45, EditableState = 0x8, FocusedState = 0x4, NodeLimit = 4000;
+    const int StatesSlot = 35, AttributesSlot = 45, EditableState = 0x8, SingleLineState = 0x2000, FocusedState = 0x4, NodeLimit = 4000;
 
     /// <summary>The focused field's content, or null when the focused object or IAccessible2 is unavailable.</summary>
     public static FieldContent Focused(string expectedName) {
@@ -59,6 +61,7 @@ public sealed class FieldContent {
         string attributes = Attributes(focused);
         if (attributes == null) return null;
         var content = new FieldContent();
+        content.SingleLine = (Accessible2State(focused) & SingleLineState) != 0;
         content.Native = attributes.Contains("tag:input;") || attributes.Contains("tag:textarea;");
         if (content.Native) {
             try { content.Value = focused.get_accValue(0) ?? ""; } catch {}
@@ -98,6 +101,16 @@ public sealed class FieldContent {
         }
     }
 
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongW")] static extern int GetWindowLong(IntPtr window, int index);
+    /// <summary>A classic Windows edit box (Edit, RichEdit) without the multi-line style.</summary>
+    public static bool Win32SingleLine(IntPtr window, string className) {
+        if (window == IntPtr.Zero || className == null) return false;
+        bool edit = string.Equals(className, "Edit", StringComparison.OrdinalIgnoreCase) ||
+            className.StartsWith("RichEdit", StringComparison.OrdinalIgnoreCase);
+        if (!edit) return false;
+        const int Style = -16, MultiLine = 0x4;
+        return (GetWindowLong(window, Style) & MultiLine) == 0;
+    }
     /// <summary>True when the text holds nothing but zero-width anchors and embedded-object markers.</summary>
     public static bool HasOnlyAnchors(string text) {
         foreach (char character in text ?? "") {

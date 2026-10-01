@@ -28,7 +28,8 @@ export function setHaptics({ button = enabled.button, scroll = enabled.scroll })
     document.documentElement.toggleAttribute('data-no-button-haptics', !button);
 }
 
-// The Vibration API has no intensity, only a duration: every tick is the shortest pulse, the lightest feedback.
+// The Vibration API has no intensity, only a duration: every tick is the shortest pulse, the lightest feedback (a
+// phone's bedtime or do-not-disturb mode can silence it entirely).
 const pulse = 1;
 /** A tick of the given kind, button or scroll (Android; iOS gets its button haptics from attachHaptics). */
 export function tick(kind = 'button') {

@@ -41,20 +41,26 @@ function Find-FieldVerdict($element, [string]$text, [int]$caret) {
         }
     }
     if ($null -eq $content) {
-        # Without IAccessible2, an input that hides its content exposes its accessible name as text instead.
-        return @{ unreadable=($text.Length -and $text -ceq $current.Name); empty=$false }
+        # Without IAccessible2, an input that hides its content exposes its accessible name as text instead. A
+        # classic Windows edit box tells single-line from multi-line by its window style.
+        $singleLine = [FieldContent]::Win32SingleLine([IntPtr]$current.NativeWindowHandle, $current.ClassName)
+        return @{ unreadable=($text.Length -and $text -ceq $current.Name); empty=$false; singleLine=$singleLine }
     }
     if ($content.Native) {
-        # <input>/<textarea>: the value is the content. Empty, UI Automation reads the placeholder as an embedded
-        # object (U+FFFC) or the accessible name instead. A field too small to show any text is the hidden input
-        # of an editor drawn elsewhere (VS Code's editor and terminal): it is unreadable, the phone types blind.
-        if ($content.Value.Length) { return @{ unreadable=$false; empty=$false; native=$true } }
+        # A field too small to show any text is the hidden input of an editor drawn elsewhere (VS Code's editor and
+        # terminal): unreadable, the phone types blind. Whatever it holds: such an editor leaves each typed character
+        # in it for a moment, and mirroring that would echo the character back on the phone, typed a second time.
         $box = $current.BoundingRectangle
-        return @{ unreadable=($box.Width -lt 20 -or $box.Height -lt 8); empty=$true; native=$true }
+        if ($box.Width -lt 20 -or $box.Height -lt 8) { return @{ unreadable=$true; empty=$true; native=$true } }
+        # <input>/<textarea>: the value is the content. Empty, UI Automation reads the placeholder as an embedded
+        # object (U+FFFC) or the accessible name instead.
+        return @{ unreadable=$false; empty=(-not $content.Value.Length); native=$true; singleLine=$content.SingleLine }
     }
     # Rich text (contenteditable): without editable content, any visible text is drawn by the page (a placeholder:
     # CSS generated content, contenteditable=false), and zero-width anchors alone show nothing. Line breaks typed
     # into an empty field are content and stay.
+    # Rich text always takes new lines (Enter would send a chat message), even where it calls itself single-line:
+    # Firefox does so for a role=textbox without aria-multiline.
     if ($content.EditableText -or $content.EditableObject) { return @{ unreadable=$false; empty=$false } }
     # Firefox hides the text nodes of role=textbox fields, so nothing tells their text from a generated placeholder;
     # its caret follows the document though, and generated text is out of its reach: a caret past the start can
@@ -143,7 +149,9 @@ function Read-MirrorOnce {
         $script:mirror.revision++
         $script:mirror.text=$text; $script:mirror.start=$start; $script:mirror.end=$end
     }
-    return @{ available=$true; session=$script:mirror.id; revision=$script:mirror.revision; text=$text; selectionStart=$start; selectionEnd=$end }
+    # singleLine: the field cannot hold a line break (an <input>, a one-line edit box): the phone's Enter key sends
+    # Enter there instead of a new line.
+    return @{ available=$true; session=$script:mirror.id; revision=$script:mirror.revision; text=$text; selectionStart=$start; selectionEnd=$end; singleLine=($resolved.singleLine -eq $true) }
 }
 
 function Select-MirrorRange([int]$start, [int]$end, [string]$text) {

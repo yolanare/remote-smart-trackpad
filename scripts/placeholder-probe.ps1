@@ -78,7 +78,7 @@ while ($null -ne ($line = [Console]::ReadLine())) {
         }
         @{
             ok = $true
-            read = @{ available=$read.available; text=$read.text; selectionStart=$read.selectionStart; selectionEnd=$read.selectionEnd; reason=$read.reason }
+            read = @{ available=$read.available; text=$read.text; selectionStart=$read.selectionStart; selectionEnd=$read.selectionEnd; reason=$read.reason; singleLine=$read.singleLine }
             field = @{ framework=$current.FrameworkId; type=$current.LocalizedControlType; name=$current.Name; className=$current.ClassName; text=$raw }
             content = if ($content) { @{ native=$content.Native; value=$content.Value; editableText=$content.EditableText; editableObject=$content.EditableObject; otherText=$content.OtherText; leafless=$content.Leafless } } else { $null }
         } | ConvertTo-Json -Compress -Depth 4
