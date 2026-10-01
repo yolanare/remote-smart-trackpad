@@ -224,18 +224,49 @@ function layout({ animate = false } = {}) {
 }
 
 // Polling runs only while it can show something: a connected, visible page with the editor open or media keys shown.
+// The mirror is read every 200 ms while something happens (typing, keys, clicks, a change on the PC) and slows down
+// to once a second after a few quiet seconds, since the phone may stay awake on the remote for hours; any activity
+// brings it straight back to full speed.
 let mirrorTimer = 0,
+    mirrorPolling = false,
+    mirrorActiveAt = 0,
     mediaTimer = 0;
+function mirrorDelay() {
+    const quiet = performance.now() - mirrorActiveAt;
+    return (
+        quiet < 3000 ? 200
+        : quiet < 10_000 ? 500
+        : 1000
+    );
+}
+function pollMirrorLater(delay = mirrorDelay()) {
+    clearTimeout(mirrorTimer);
+    mirrorTimer = setTimeout(async () => {
+        await mirror.poll();
+        if (mirrorPolling) pollMirrorLater();
+    }, delay);
+}
+function mirrorActivity() {
+    const wasQuiet = mirrorDelay() > 200;
+    mirrorActiveAt = performance.now();
+    if (mirrorPolling && wasQuiet) pollMirrorLater(200);
+}
+for (const type of ['command', 'text-input', 'text-key', 'text-passthrough', 'text-composition'])
+    document.addEventListener(type, mirrorActivity, { capture: true });
 function schedulePolling() {
     const active = connected && !document.hidden;
     const wantMirror = active && mirrorState.open;
-    if (wantMirror && !mirrorTimer) mirrorTimer = setInterval(() => mirror.poll(), 200);
-    if (!wantMirror && mirrorTimer) {
-        clearInterval(mirrorTimer);
-        mirrorTimer = 0;
+    if (wantMirror && !mirrorPolling) {
+        mirrorPolling = true;
+        mirrorActivity();
+        pollMirrorLater(200);
+    }
+    if (!wantMirror && mirrorPolling) {
+        mirrorPolling = false;
+        clearTimeout(mirrorTimer);
     }
     const wantMedia = active && settings.media && !mirrorState.open;
-    if (wantMedia && !mediaTimer) mediaTimer = setInterval(refreshMedia, 3000);
+    if (wantMedia && !mediaTimer) mediaTimer = setInterval(refreshMedia, 5000);
     if (!wantMedia && mediaTimer) {
         clearInterval(mediaTimer);
         mediaTimer = 0;
@@ -265,6 +296,8 @@ const connection = createConnection(({ state }) => {
     } else {
         mirror.poll();
         refreshMedia();
+        // A build may have landed while disconnected (the server restarts with the watcher's changes).
+        if (__DEV_RELOAD__) document.dispatchEvent(new CustomEvent('dev-build'));
     }
     refreshStatus();
     schedulePolling();
@@ -273,6 +306,8 @@ const send = (action, data) => connection.send(action, data);
 const motion = createMotion(send, showNotice);
 const mirror = createMirror(send, (state) => {
     mirrorState = state;
+    // Called when the PC's text, caret or field changed: keep reading closely while it does.
+    mirrorActivity();
     editing = state.open;
     layout();
     editor.render({ ...state, passthrough: connected && state.open && !state.available });
@@ -794,7 +829,8 @@ if (__DEV_RELOAD__) {
         } catch {}
     };
     checkBuild();
-    setInterval(checkBuild, 5000);
+    // The server announces builds over the connection; polling only covers a missed announcement.
+    setInterval(checkBuild, 30_000);
     document.addEventListener('visibilitychange', () => document.hidden || checkBuild());
     for (const type of ['focus', 'pageshow', 'online']) addEventListener(type, checkBuild);
     document.addEventListener('dev-build', checkBuild);

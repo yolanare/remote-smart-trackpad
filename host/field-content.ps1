@@ -76,11 +76,12 @@ public sealed class FieldContent {
     void Inspect(IAccessible parent, bool parentEditable, ref int budget) {
         int count = 0;
         try { count = parent.accChildCount; } catch {}
-        if (count <= 0) return;
-        var children = new object[count]; int obtained;
-        if (AccessibleChildren(parent, 0, count, children, out obtained) != 0) return;
-        for (int index = 0; index < obtained && !EditableText && --budget > 0; index++) {
-            var child = children[index] as IAccessible;
+        // One child at a time: a long document has thousands, and the first editable text usually ends the walk.
+        var slot = new object[1];
+        for (int index = 0; index < count && !EditableText && --budget > 0; index++) {
+            int obtained;
+            if (AccessibleChildren(parent, index, 1, slot, out obtained) != 0 || obtained != 1) return;
+            var child = slot[0] as IAccessible;
             if (child == null) continue;
             Leafless = false;
             bool editable = (Accessible2State(child) & EditableState) != 0;

@@ -16,8 +16,21 @@ function Test-PhantomBreak($element) {
 
 # Decides what UI Automation's text of the focused field really is. Returns empty when the field only shows a
 # placeholder (or nothing), unreadable when its content lives elsewhere, and neither when the text is the content.
-# $caret is the selection start in that text.
+# $caret is the selection start in that text. The verdict only changes with the field, its text or the caret, and
+# asking IAccessible2 costs tens of milliseconds, so it is kept until one of them changes (polls keep reading the
+# same field while nothing happens).
+$script:resolvedField = $null
+$script:readOnlyField = $null
 function Resolve-FieldText($element, [string]$text, [int]$caret) {
+    $cached = $script:resolvedField
+    if ($null -ne $cached -and $cached.caret -eq $caret -and $cached.text -ceq $text -and $element.Equals($cached.element)) {
+        return $cached.verdict
+    }
+    $verdict = Find-FieldVerdict $element $text $caret
+    $script:resolvedField = @{ element=$element; text=$text; caret=$caret; verdict=$verdict }
+    return $verdict
+}
+function Find-FieldVerdict($element, [string]$text, [int]$caret) {
     $current = $element.Current
     $content = $null
     if ($current.FrameworkId -in @('Chrome', 'Gecko')) {
@@ -35,9 +48,9 @@ function Resolve-FieldText($element, [string]$text, [int]$caret) {
         # <input>/<textarea>: the value is the content. Empty, UI Automation reads the placeholder as an embedded
         # object (U+FFFC) or the accessible name instead. A field too small to show any text is the hidden input
         # of an editor drawn elsewhere (VS Code's editor and terminal): it is unreadable, the phone types blind.
-        if ($content.Value.Length) { return @{ unreadable=$false; empty=$false } }
+        if ($content.Value.Length) { return @{ unreadable=$false; empty=$false; native=$true } }
         $box = $current.BoundingRectangle
-        return @{ unreadable=($box.Width -lt 20 -or $box.Height -lt 8); empty=$true }
+        return @{ unreadable=($box.Width -lt 20 -or $box.Height -lt 8); empty=$true; native=$true }
     }
     # Rich text (contenteditable): without editable content, any visible text is drawn by the page (a placeholder:
     # CSS generated content, contenteditable=false), and zero-width anchors alone show nothing. Line breaks typed
@@ -63,21 +76,31 @@ function Read-Mirror {
         $script:mirror = $null
         return @{ available=$false; text=''; selectionStart=0; selectionEnd=0 }
     }
+    $ranges = $pattern.GetSelection()
+    if ($ranges.Count -ne 1) { $script:mirror = $null; return @{ available=$false; text='' } }
     $document = $pattern.DocumentRange
-    if ($document.GetAttributeValue([System.Windows.Automation.TextPattern]::IsReadOnlyAttribute) -eq $true) {
-        $script:mirror = $null
-        return @{ available=$false; text='' }
+    # Read-only text (a web page rather than a field). The selection is the cheap hint; a caret next to a
+    # non-editable part (a placeholder, a mention) reads read-only too, so the whole document confirms it. That scan
+    # takes up to seconds in a long text area, so its answer is kept for the field.
+    if ($ranges[0].GetAttributeValue([System.Windows.Automation.TextPattern]::IsReadOnlyAttribute) -eq $true) {
+        $known = $script:readOnlyField
+        if ($null -eq $known -or -not $element.Equals($known.element)) {
+            $known = @{ element=$element; readOnly=($document.GetAttributeValue([System.Windows.Automation.TextPattern]::IsReadOnlyAttribute) -eq $true) }
+            $script:readOnlyField = $known
+        }
+        if ($known.readOnly) {
+            $script:mirror = $null
+            return @{ available=$false; text='' }
+        }
     }
     $raw = $document.GetText(262145)
     if ($raw.Length -gt 262144) { $script:mirror = $null; return @{ available=$false; text=''; reason='This field exceeds the 256 Ki character mirror limit.' } }
     $text = Normalize-LineEndings $raw
-    $ranges = $pattern.GetSelection()
-    if ($ranges.Count -ne 1) { $script:mirror = $null; return @{ available=$false; text='' } }
     $prefix = $document.Clone()
     $prefix.MoveEndpointByRange([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, $ranges[0], [System.Windows.Automation.Text.TextPatternRangeEndpoint]::Start)
     $start = (Normalize-LineEndings ($prefix.GetText(262145))).Length
-    $prefix.MoveEndpointByRange([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, $ranges[0], [System.Windows.Automation.Text.TextPatternRangeEndpoint]::End)
-    $end = (Normalize-LineEndings ($prefix.GetText(262145))).Length
+    # The end follows from the selected text itself, without reading the text before it a second time.
+    $end = $start + (Normalize-LineEndings ($ranges[0].GetText(262145))).Length
     $resolved = Resolve-FieldText $element $text $start
     if ($resolved.unreadable) {
         $script:mirror = $null
@@ -85,9 +108,11 @@ function Read-Mirror {
     }
     if ($resolved.empty) { $text = ''; $start = 0; $end = 0 }
     $framework = $element.Current.FrameworkId
+    # Rich text only: in an <input>/<textarea> every line break is the user's.
+    $rich = $framework -in @('Chrome', 'Gecko') -and -not $resolved.native
     # An emptied rich-text field keeps one <br>, displayed as a single empty line.
-    if ($framework -in @('Chrome', 'Gecko') -and $text -ceq "`n") { $text = ''; $start = 0; $end = 0 }
-    if ($framework -eq 'Chrome') {
+    if ($rich -and $text -ceq "`n") { $text = ''; $start = 0; $end = 0 }
+    if ($rich -and $framework -eq 'Chrome') {
         if ($text.EndsWith("`n") -and (Test-PhantomBreak $element)) {
             $text = $text.Substring(0, $text.Length - 1)
             $start = [Math]::Min($start, $text.Length); $end = [Math]::Min($end, $text.Length)

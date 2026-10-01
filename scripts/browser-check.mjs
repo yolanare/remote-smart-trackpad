@@ -122,6 +122,7 @@ try {
             const send = WebSocket.prototype.send;
             WebSocket.prototype.send = function (raw) {
                 const message = JSON.parse(raw);
+                (window.__sent ??= []).push({ action: message.action, at: performance.now() });
                 if (allowed.has(message.action)) return send.call(this, raw);
                 (window.__blocked ??= []).push(message);
                 const reply = message.action === 'mirror-edit' ? { ok: false, error: 'Blocked by the browser check' } : { ok: true, result: {} };
@@ -350,6 +351,29 @@ try {
         path.join(output, 'browser-editor.png'),
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
+    // Mirror polling: every 200 ms right after activity, slower once quiet, full speed again after a key.
+    const readGaps = (since) =>
+        evaluate(`(() => {
+            const reads = window.__sent.filter(entry => entry.action === 'mirror-read' && entry.at >= ${since}).map(entry => entry.at);
+            return reads.slice(1).map((at, index) => Math.round(at - reads[index]));
+        })()`);
+    await evaluate("document.dispatchEvent(new CustomEvent('text-key', { detail: { key: 'Escape' } }))");
+    const activeFrom = await evaluate('performance.now()');
+    await evaluate('new Promise(resolve => setTimeout(resolve, 1500))');
+    const activeGaps = await readGaps(activeFrom);
+    await evaluate('new Promise(resolve => setTimeout(resolve, 2500))');
+    const quietFrom = await evaluate('performance.now()');
+    await evaluate('new Promise(resolve => setTimeout(resolve, 2000))');
+    const quietGaps = await readGaps(quietFrom);
+    await evaluate("document.dispatchEvent(new CustomEvent('text-key', { detail: { key: 'Escape' } }))");
+    const wokenFrom = await evaluate('performance.now()');
+    await evaluate('new Promise(resolve => setTimeout(resolve, 1000))');
+    const wokenGaps = await readGaps(wokenFrom);
+    const median = (gaps) => [...gaps].sort((a, b) => a - b)[Math.floor(gaps.length / 2)];
+    assert.ok(median(activeGaps) < 320, 'Active polling should run about every 200 ms: ' + activeGaps);
+    assert.ok(median(quietGaps) >= 450, 'Quiet polling should slow down: ' + quietGaps);
+    assert.ok(median(wokenGaps) < 320, 'Activity should restore fast polling: ' + wokenGaps);
+    report.push({ name: 'adaptive-polling', activeGaps, quietGaps, wokenGaps });
     // Compact only while typing: leaving the field restores the normal layout with every row, editor still open.
     const shownRows =
         '[...document.querySelectorAll(".key-row")].filter(row => !row.hidden).map(row => row.dataset.row)';

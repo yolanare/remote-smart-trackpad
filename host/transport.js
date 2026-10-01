@@ -1,5 +1,21 @@
 import { createHash } from 'node:crypto';
 
+const allowedActions = new Set([
+    'move',
+    'click',
+    'button',
+    'scroll',
+    'key',
+    'shortcut',
+    'release',
+    'text',
+    'media-state',
+    'glide',
+    'mirror-read',
+    'mirror-edit',
+    'mirror-close',
+]);
+
 export function createTransport({ authorized, hasAccess, command, available }) {
     const clients = new Set();
     // Several devices may control the PC at once; each releases only the keys and buttons it pressed.
@@ -125,22 +141,7 @@ export function createTransport({ authorized, hasAccess, command, available }) {
                         if (!hasAccess(client.accessId)) return socket.destroy();
                         if (!Number.isSafeInteger(message.id) || message.id <= client.lastId) return;
                         client.lastId = message.id;
-                        const allowed = new Set([
-                            'move',
-                            'click',
-                            'button',
-                            'scroll',
-                            'key',
-                            'shortcut',
-                            'release',
-                            'text',
-                            'media-state',
-                            'glide',
-                            'mirror-read',
-                            'mirror-edit',
-                            'mirror-close',
-                        ]);
-                        if (!allowed.has(message.action))
+                        if (!allowedActions.has(message.action))
                             return client.send({ type: 'ack', id: message.id, ok: false, error: 'Unknown command' });
                         const data = message.data || {};
                         if (message.action === 'release' && clients.size > 1) {
