@@ -7,12 +7,14 @@ export function createMirror(send, render) {
         busy = false,
         composing = false,
         dirty = false,
+        retried = false,
         generation = 0;
     const publish = () => render({ ...state });
     function adopt(snapshot) {
         confirmed = snapshot;
         composing = false;
         dirty = false;
+        retried = false;
         state = {
             ...state,
             ...snapshot,
@@ -44,8 +46,16 @@ export function createMirror(send, render) {
                 selectionEnd: final ? local.selectionEnd : step.position,
             });
             if (current !== generation) return;
-            if (!result.accepted || result.snapshot.session !== confirmed.session) adopt(result.snapshot);
+            const moved = result.snapshot.session !== confirmed.session || result.snapshot.text !== confirmed.text;
+            if (!result.accepted && !moved && !retried) {
+                // Rejected for a newer revision only (the PC moved its caret, the text is as it was): the typing
+                // still applies, so it is sent again against that revision instead of being dropped.
+                retried = true;
+                confirmed = result.snapshot;
+                dirty = true;
+            } else if (!result.accepted || result.snapshot.session !== confirmed.session) adopt(result.snapshot);
             else {
+                retried = false;
                 confirmed = result.snapshot;
                 if (!dirty && final) adopt(confirmed);
                 else dirty = true;
@@ -65,8 +75,9 @@ export function createMirror(send, render) {
             }
         }
     }
+    // Never while local typing waits to be sent (an IME composition included): the PC's state would replace it.
     async function poll() {
-        if (!state.open || busy || (dirty && !composing)) return;
+        if (!state.open || busy || dirty) return;
         const current = generation;
         busy = true;
         try {

@@ -37,18 +37,42 @@ test('opening mirrors the complete field; PC focus changes replace it without cl
     assert.equal(h.changes.at(-1).text, 'Other field');
     assert.equal(h.changes.at(-1).open, true);
 });
-test('IME holds uncommitted input and a changed field invalidates composition', async () => {
+test('IME holds uncommitted input; a field changed meanwhile rejects it without replaying it', async () => {
     const h = harness();
     h.mirror.open();
     await h.reply(snapshot('Original'));
     h.mirror.compose(true);
     h.mirror.input('Uncommitted', 11, 11);
     assert.equal(h.requests.length, 0);
+    // No reading while the composition waits: the PC's state would replace what is being typed.
     h.mirror.poll();
-    await h.reply(snapshot('New field', 'field-b'));
-    h.mirror.compose(false);
     assert.equal(h.requests.length, 0);
+    h.mirror.compose(false);
+    assert.equal(h.requests[0].action, 'mirror-edit');
+    await h.reply({ accepted: false, snapshot: snapshot('New field', 'field-b') });
     assert.equal(h.changes.at(-1).text, 'New field');
+    assert.equal(h.requests.length, 0);
+});
+test('fast typing survives the PC moving on: no read while typing waits, a stale revision is retried', async () => {
+    const h = harness();
+    h.mirror.open();
+    await h.reply(snapshot('Hi'));
+    h.mirror.input('Hi t', 4, 4);
+    const first = h.requests.shift();
+    // More typing while the first edit is on its way; a poll would read the PC and lose it.
+    h.mirror.input('Hi the', 6, 6);
+    h.mirror.poll();
+    assert.equal(h.requests.length, 0);
+    // The PC only moved its caret (new revision, same text): the edit is sent again, nothing typed is dropped.
+    first.resolve({
+        accepted: false,
+        snapshot: { ...snapshot('Hi', 'field-a', 1), selectionStart: 0, selectionEnd: 0 },
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.requests[0].data.revision, 1);
+    assert.equal(h.requests[0].data.text, ' the');
+    await h.reply({ accepted: true, snapshot: snapshot('Hi the', 'field-a', 2) });
+    assert.equal(h.changes.at(-1).text, 'Hi the');
 });
 test('stale rejected edits use the authoritative snapshot and never replay old typing', async () => {
     const h = harness();
