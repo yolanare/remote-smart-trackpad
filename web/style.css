@@ -604,6 +604,9 @@ key-rows {
 /* Function keys: one container, several lines; only vertical rules, the gaps they leave show the lines. */
 .function-keys {
     flex-direction: column;
+}
+/* Compact rows (compact: true in key-rows.js): lower keys for dense rows of short labels. */
+.compact-keys .key-group {
     --key-height: 2rem;
 }
 .key-line {

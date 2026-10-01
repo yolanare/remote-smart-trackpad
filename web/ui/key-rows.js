@@ -1,41 +1,51 @@
 import { icon } from './icons.js';
 import { tick } from './haptics.js';
-// [key, label, icon (null for text), group, repeat]. Adjacent keys of the same group share one bordered container.
-// repeat (auto-repeat, like a physical keyboard): held down, the key is sent again and again until released.
+// Each row lists its keys; compact rows have lower keys (dense rows of short labels: function keys, characters).
+// A key is [key, label, icon (null for text), group, repeat]. Adjacent keys of the same group share one bordered
+// container. repeat (auto-repeat, like a physical keyboard): held down, the key is sent again and again until released.
 const functionKey = (index) => [`F${index + 1}`, `F${index + 1}`, null, 'functions'];
 const rows = {
-    functions: [],
-    media: [
-        ['PlayPause', 'Play / pause', 'play', null],
-        ['VolumeMute', 'Mute', 'mute', 'media'],
-        ['VolumeDown', 'Volume down', 'quieter', 'media', true],
-        ['VolumeUp', 'Volume up', 'louder', 'media', true],
-    ],
-    characters: [
-        ['Z', 'Z', null, 'characters', true],
-        ['S', 'S', null, 'characters', true],
-        ['Q', 'Q', null, 'characters', true],
-        ['D', 'D', null, 'characters', true],
-        ['F', 'F', null, 'characters', true],
-    ],
-    edit: [
-        ['Escape', 'ESC', null, null],
-        ['Undo', 'Undo', 'undo', 'history', true],
-        ['Redo', 'Redo', 'redo', 'history', true],
-        ['Cut', 'Cut', 'cut', 'clipboard'],
-        ['Copy', 'Copy', 'copy', 'clipboard'],
-        ['Paste', 'Paste', 'paste', 'clipboard'],
-        ['Backspace', 'Backspace', 'delete', 'delete', true],
-        ['Delete', 'Delete', 'delete', 'delete', true],
-    ],
-    modifiers: [
-        ['Shift', 'Shift', 'shift', 'modifiers'],
-        ['Control', 'CTRL', null, 'modifiers'],
-        ['Alt', 'ALT', null, 'modifiers'],
-        ['Win', 'Windows', 'windows', null],
-        ['Tab', 'TAB', null, null, true],
-        ['Enter', 'Enter', 'enter', null],
-    ],
+    functions: { compact: true, keys: [] },
+    media: {
+        keys: [
+            ['PlayPause', 'Play / pause', 'play', null],
+            ['VolumeMute', 'Mute', 'mute', 'media'],
+            ['VolumeDown', 'Volume down', 'quieter', 'media', true],
+            ['VolumeUp', 'Volume up', 'louder', 'media', true],
+        ],
+    },
+    characters: {
+        compact: true,
+        keys: [
+            ['Z', 'Z', null, 'characters', true],
+            ['S', 'S', null, 'characters', true],
+            ['Q', 'Q', null, 'characters', true],
+            ['D', 'D', null, 'characters', true],
+            ['F', 'F', null, 'characters', true],
+        ],
+    },
+    edit: {
+        keys: [
+            ['Escape', 'ESC', null, null],
+            ['Undo', 'Undo', 'undo', 'history', true],
+            ['Redo', 'Redo', 'redo', 'history', true],
+            ['Cut', 'Cut', 'cut', 'clipboard'],
+            ['Copy', 'Copy', 'copy', 'clipboard'],
+            ['Paste', 'Paste', 'paste', 'clipboard'],
+            ['Backspace', 'Backspace', 'delete', 'delete', true],
+            ['Delete', 'Delete', 'delete', 'delete', true],
+        ],
+    },
+    modifiers: {
+        keys: [
+            ['Shift', 'Shift', 'shift', 'modifiers'],
+            ['Control', 'CTRL', null, 'modifiers'],
+            ['Alt', 'ALT', null, 'modifiers'],
+            ['Win', 'Windows', 'windows', null],
+            ['Tab', 'TAB', null, null, true],
+            ['Enter', 'Enter', 'enter', null],
+        ],
+    },
 };
 const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'Win']);
 // Editing commands: the key sent with Control, whatever modifiers are active.
@@ -70,9 +80,10 @@ class KeyRows extends HTMLElement {
     functionCount = 0;
     connectedCallback() {
         if (this.firstChild) return;
-        for (const [name, keys] of Object.entries(rows)) {
+        for (const [name, { compact, keys }] of Object.entries(rows)) {
             const row = document.createElement('div');
             row.className = `key-row ${name}`;
+            row.classList.toggle('compact-keys', compact === true);
             row.dataset.row = name;
             this.append(row);
             if (name !== 'functions') this.fillRow(row, keys);
