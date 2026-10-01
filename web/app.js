@@ -110,7 +110,7 @@ function applyLayout() {
     applyHaptics();
     app.classList.toggle('editing', shownEditing);
     $('#editor-open').hidden = shownEditing;
-    editor.hidden = !shownEditing && !dock.classList.contains('editor-pending');
+    editor.hidden = !shownEditing;
     rows.configure(settings);
 }
 /** Freezes the app and dock at their current size so the layout can change underneath. */
@@ -151,9 +151,7 @@ function morphFrom(start) {
 /** Runs a layout change and fades in the controls it reveals. */
 function reveal(change) {
     const targets = [$('#editor-open'), editor, ...rows.children];
-    const wasHidden = targets.map(
-        (element) => element.hidden || (element === editor && dock.classList.contains('editor-pending'))
-    );
+    const wasHidden = targets.map((element) => element.hidden);
     change();
     if (reducedMotion()) return;
     targets.forEach((element, index) => {
@@ -166,48 +164,20 @@ function reveal(change) {
             });
     });
 }
-/** Resolves once the phone keyboard has finished resizing the viewport, or shortly after if it never does. */
-function viewportSettled() {
-    return new Promise((resolve) => {
-        let quiet = setTimeout(done, 220);
-        const limit = setTimeout(done, 700);
-        const changed = () => {
-            clearTimeout(quiet);
-            quiet = setTimeout(done, 80);
-        };
-        function done() {
-            clearTimeout(quiet);
-            clearTimeout(limit);
-            window.removeEventListener('resize', changed);
-            window.visualViewport?.removeEventListener('resize', changed);
-            resolve();
-        }
-        window.addEventListener('resize', changed);
-        window.visualViewport?.addEventListener('resize', changed);
-    });
-}
-async function switchEditing() {
+/**
+ * Switches the layout to the requested editing state, morphing from the current geometry. Opening moves at once: the
+ * keyboard then shrinks the viewport, and resizeViewport morphs on from wherever this morph is.
+ */
+function switchEditing() {
     switching = true;
     const opening = editing,
-        animated = !reducedMotion();
-    const start = animated && pinGeometry();
-    // Focus must happen now, inside the tap, for the keyboard to open; the field stays invisible until the layout moves.
-    if (opening !== shownEditing) {
-        if (opening) {
-            dock.classList.add('editor-pending');
-            editor.hidden = false;
-            editor.focus();
-        } else editor.blur();
-    }
-    // Opening waits for the keyboard to appear first: moving while it resizes the viewport looks incoherent. Closing
-    // follows the keyboard (or a tap) that already left, so the layout moves at once.
-    if (animated && opening) await viewportSettled();
+        start = !reducedMotion() && pinGeometry();
+    if (!opening) editor.blur();
     shownEditing = opening;
-    reveal(() => {
-        dock.classList.remove('editor-pending');
-        applyLayout();
-    });
-    if (animated) morphFrom(start);
+    reveal(applyLayout);
+    // Still inside the tap that opened it, which the phone needs to show its keyboard.
+    if (opening) editor.focus();
+    if (start) morphFrom(start);
     switching = false;
     layout();
 }
@@ -546,17 +516,17 @@ menu.addEventListener('change', (event) => {
 });
 // The phone keyboard is up while the visual viewport is notably shorter than the screen (a quarter of it: browser
 // bars take less, a keyboard much more). Desktop browsers never see it, so only the background closes editing there.
+// True when it just went down while editing with the field focused (its own close button, the back gesture).
 let keyboardSeen = false;
-function watchKeyboard() {
+function keyboardClosed() {
     const visible = window.visualViewport;
-    if (!mirrorState.open || !visible) return void (keyboardSeen = false);
+    if (!mirrorState.open || !visible) return (keyboardSeen = false);
     const portrait = screen.orientation?.type.startsWith('portrait') ?? innerHeight > innerWidth;
     const screenHeight = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
     const keyboardUp = (screenHeight - visible.height * visible.scale) / screenHeight > 0.25;
     if (keyboardUp) keyboardSeen = true;
-    else if (keyboardSeen && editor.contains(document.activeElement)) closeEditor();
+    return !keyboardUp && keyboardSeen && editor.contains(document.activeElement);
 }
-window.visualViewport?.addEventListener('resize', watchKeyboard);
 $('#editor-open').addEventListener('click', openEditor);
 $('#pair-form').addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -791,20 +761,35 @@ $('#reset-confirm').addEventListener('close', () => {
     refreshMedia();
 });
 
+let shownHeight = 0;
 function viewport() {
     const visible = window.visualViewport;
     const unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
-    document.documentElement.style.setProperty('--viewport-height', `${(visible?.height ?? innerHeight) / unit}rem`);
+    shownHeight = visible?.height ?? innerHeight;
+    document.documentElement.style.setProperty('--viewport-height', `${shownHeight / unit}rem`);
     document.documentElement.style.setProperty('--viewport-top', `${(visible?.offsetTop ?? 0) / unit}rem`);
+}
+// A new visible size (the phone keyboard coming up or going down) would snap the app to it. The current geometry is
+// frozen first (mid-morph if one runs), then morphs to the new one; when the keyboard closed, the editor closes in the
+// same move, its own morph starting from that frozen geometry. A pinch zoom just follows.
+function resizeViewport() {
+    const visible = window.visualViewport;
+    const closed = keyboardClosed();
+    const resized = Math.abs((visible?.height ?? innerHeight) - shownHeight) > 1;
+    const start = resized && !switching && !reducedMotion() && (visible?.scale ?? 1) === 1 ? pinGeometry() : null;
+    viewport();
+    const token = morphs;
+    if (closed) closeEditor();
+    if (start && morphs === token) morphFrom(start);
 }
 // The options menu opens under the top bar, which grows with a long status message.
 new ResizeObserver(([entry]) => {
     const unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
     document.documentElement.style.setProperty('--topbar-height', `${entry.target.offsetHeight / unit}rem`);
 }).observe($('.topbar'));
-window.visualViewport?.addEventListener('resize', viewport);
+window.visualViewport?.addEventListener('resize', resizeViewport);
 window.visualViewport?.addEventListener('scroll', viewport);
-window.addEventListener('resize', viewport);
+window.addEventListener('resize', resizeViewport);
 const release = () => {
     pad.cancelGesture();
     motion.reset();

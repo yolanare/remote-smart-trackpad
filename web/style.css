@@ -532,15 +532,6 @@ scroll-rail[axis='x'] .rail-content {
 .input-dock.is-morphing {
     overflow: hidden;
 }
-/* Focused before the layout moves so the phone keyboard opens within the tap; invisible until then. */
-.input-dock.editor-pending text-editor {
-    position: fixed;
-    top: 0;
-    right: 0;
-    left: 0;
-    opacity: 0;
-    pointer-events: none;
-}
 key-rows {
     display: flex;
     flex-direction: column;

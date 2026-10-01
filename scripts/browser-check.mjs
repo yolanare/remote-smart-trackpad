@@ -116,6 +116,16 @@ try {
         }
         throw new Error('Page condition did not become true: ' + expression);
     };
+    // Layout changes (editing, a new viewport size) morph for a moment: wait until the layout is at rest.
+    const settled = () =>
+        waitFor("!document.querySelector('.input-dock').classList.contains('is-morphing')").then(() =>
+            evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+        );
+    const resizeTo = async (width, height) => {
+        await page('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: true });
+        await evaluate('new Promise(resolve => setTimeout(resolve, 100))');
+        await settled();
+    };
     await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 711, deviceScaleFactor: 1, mobile: true });
     await page('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
     // The test page is paired with the real host: only reads reach the PC, so it never types, clicks or scrolls there.
@@ -148,12 +158,17 @@ try {
     assert.equal(typography.loaded, true);
     assert.equal(typography.weight, '400');
     const report = [];
-    // The key rows' switches start from the defaults declared in key-rows.js.
+    // The key rows' switches start from the defaults declared in key-rows.js (each row's `enabled`).
+    const declared = Object.fromEntries(
+        [...(await readFile('web/ui/key-rows.js', 'utf8')).matchAll(/^ {4}(\w+): \{\s*enabled: (true|false)/gm)].map(
+            ([, name, enabled]) => [name, enabled === 'true']
+        )
+    );
     assert.deepEqual(
         await evaluate(
-            "Object.fromEntries(['functions', 'media', 'characters', 'edit', 'modifiers'].map((name) => [name, document.querySelector('[name=' + name + ']').checked]))"
+            `Object.fromEntries(${JSON.stringify(Object.keys(declared))}.map((name) => [name, document.querySelector('[name=' + name + ']').checked]))`
         ),
-        { functions: false, media: true, characters: true, edit: true, modifiers: true }
+        declared
     );
     await evaluate(
         "document.querySelectorAll('#options input').forEach(input => { if (['functions','media','characters'].includes(input.name)) { input.checked = true; input.dispatchEvent(new Event('change')); } });"
@@ -162,8 +177,7 @@ try {
         ['figma-main', 375, 711],
         ['landscape', 844, 390],
     ]) {
-        await page('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: true });
-        await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
+        await resizeTo(width, height);
         const dimensions = await evaluate(
             '({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth, keys: document.querySelectorAll("key-rows button").length, padHeight: document.querySelector(".trackpad").getBoundingClientRect().height })'
         );
@@ -200,7 +214,7 @@ try {
     assert.ok(repeated >= 3, 'A held Volume up must repeat, sent ' + repeated);
     assert.equal(await holdKey('Escape', 1500), 1, 'A held Escape must be sent once');
     report.push({ name: 'auto-repeat', volumeUpHeld1500ms: repeated, escapeHeld1500ms: 1 });
-    await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 711, deviceScaleFactor: 1, mobile: true });
+    await resizeTo(375, 711);
     await evaluate(
         "document.querySelectorAll('#options input').forEach(input => { if (['functions','media','characters'].includes(input.name)) { input.checked = false; input.dispatchEvent(new Event('change')); } }); document.querySelector('#options-toggle').click();"
     );
@@ -325,8 +339,7 @@ try {
         [320, 568],
         [844, 390],
     ]) {
-        await page('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: true });
-        await evaluate('new Promise(resolve => setTimeout(resolve, 100))');
+        await resizeTo(width, height);
         assert.ok(
             await evaluate(`(() => { const menu = document.querySelector('#options'), rect = menu.getBoundingClientRect();
             menu.scrollTop = menu.scrollHeight; const last = menu.querySelector('[name=sticky]').getBoundingClientRect();
@@ -338,7 +351,7 @@ try {
     await evaluate("document.querySelector('#options-dismiss').click()");
     assert.equal(await evaluate("document.querySelector('#options').hidden"), true);
     await page('Emulation.setEmulatedMedia', { features: [] });
-    await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 711, deviceScaleFactor: 1, mobile: true });
+    await resizeTo(375, 711);
     await evaluate(
         "document.querySelector('#options-toggle').click(); document.querySelector('#options-toggle').click(); document.querySelector('#options-toggle').click()"
     );
@@ -370,8 +383,7 @@ try {
         "document.querySelector('#options-toggle').click(); document.querySelector('#editor-open').click();"
     );
     await waitFor("document.querySelector('.app').classList.contains('editing')");
-    await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 405, deviceScaleFactor: 1, mobile: true });
-    await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
+    await resizeTo(375, 405);
     // Editing keeps every enabled row (compact), the options button, and a usable trackpad above the field.
     const editingLayout = `(() => {
         const box = (selector) => document.querySelector(selector).getBoundingClientRect();
@@ -384,10 +396,6 @@ try {
             height: innerHeight,
         };
     })()`;
-    const settled = () =>
-        waitFor("!document.querySelector('.input-dock').classList.contains('is-morphing')").then(() =>
-            evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
-        );
     await settled();
     const bounds = await evaluate(editingLayout);
     assert.deepEqual(bounds.rows, ['edit', 'modifiers']);
@@ -402,13 +410,12 @@ try {
     const tall = await evaluate(editingLayout);
     assert.ok(tall.field > bounds.field, 'A long text must grow the field: ' + JSON.stringify(tall));
     assert.ok(tall.trackpad >= 79, 'The trackpad keeps its minimum: ' + JSON.stringify(tall));
-    await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 300, deviceScaleFactor: 1, mobile: true });
-    await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
+    await resizeTo(375, 300);
     await settled();
     const squeezed = await evaluate(editingLayout);
     assert.ok(squeezed.trackpad >= 79, 'The trackpad keeps its minimum: ' + JSON.stringify(squeezed));
     assert.ok(squeezed.field < 45, 'The field gives way first, down to one line: ' + JSON.stringify(squeezed));
-    await page('Emulation.setDeviceMetricsOverride', { width: 375, height: 405, deviceScaleFactor: 1, mobile: true });
+    await resizeTo(375, 405);
     await evaluate(
         "document.querySelector('text-editor').render({ available: true, text: '', selectionStart: 0, selectionEnd: 0 })"
     );
