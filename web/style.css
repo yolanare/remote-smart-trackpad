@@ -772,14 +772,15 @@ a.options-action.is-pressed {
     height: 1.875rem;
     margin-bottom: var(--space-1);
     padding: 0 var(--space-4);
-    gap: var(--space-4);
+    gap: var(--space-3);
 }
 .axis-setting > span {
     flex: 1;
 }
+/* A shared minimum width lines the checkboxes up in columns from row to row (X, Y, Mouse, Scroll). */
 .options .axis-setting label {
     flex: none;
-    width: 3rem;
+    min-width: 4rem;
     height: 100%;
     margin: 0;
     padding: 0;

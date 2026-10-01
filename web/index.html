@@ -146,17 +146,23 @@
                         >Y</label
                     >
                 </div>
-                <label
-                    ><input type="checkbox" name="mouseSliding" /><span class="checkbox" data-icon="check"></span>Mouse
-                    sliding</label
-                >
-                <label
-                    ><input type="checkbox" name="scrollSliding" checked /><span
-                        class="checkbox"
-                        data-icon="check"
-                    ></span
-                    >Scroll sliding</label
-                >
+                <div class="axis-setting" role="group" aria-label="Sliding">
+                    <span>Sliding</span>
+                    <label
+                        ><input type="checkbox" name="mouseSliding" aria-label="Mouse sliding" /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >Mouse</label
+                    >
+                    <label
+                        ><input type="checkbox" name="scrollSliding" aria-label="Scroll sliding" checked /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >Scroll</label
+                    >
+                </div>
                 <label
                     ><input type="checkbox" name="edgeMotion" checked /><span class="checkbox" data-icon="check"></span
                     >Keep moving at screen edges</label
@@ -167,8 +173,8 @@
                     function keys rows</label
                 >
                 <label
-                    ><input type="checkbox" name="media" checked /><span class="checkbox" data-icon="check"></span>Show media
-                    keys row</label
+                    ><input type="checkbox" name="media" checked /><span class="checkbox" data-icon="check"></span>Show
+                    media keys row</label
                 >
                 <label
                     ><input type="checkbox" name="edit" checked /><span class="checkbox" data-icon="check"></span>Show
@@ -212,21 +218,6 @@
                     modifier keys</label
                 >
                 <hr />
-                <label
-                    ><input type="checkbox" name="buttonHaptics" checked /><span
-                        class="checkbox"
-                        data-icon="check"
-                    ></span
-                    >Enable buttons haptics</label
-                >
-                <label
-                    ><input type="checkbox" name="scrollHaptics" checked /><span
-                        class="checkbox"
-                        data-icon="check"
-                    ></span
-                    >Enable scroll haptics</label
-                >
-                <hr />
                 <div class="choice-setting">
                     <span id="color-scheme-label">Color scheme</span>
                     <div class="segmented" role="radiogroup" aria-labelledby="color-scheme-label">
@@ -243,6 +234,23 @@
                             >Light</label
                         >
                     </div>
+                </div>
+                <div class="axis-setting" role="group" aria-label="Haptics">
+                    <span>Haptics</span>
+                    <label
+                        ><input type="checkbox" name="buttonHaptics" aria-label="Buttons haptics" checked /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >Buttons</label
+                    >
+                    <label
+                        ><input type="checkbox" name="scrollHaptics" aria-label="Scroll haptics" checked /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >Scroll</label
+                    >
                 </div>
                 <div class="stepper-setting">
                     <span id="ui-scale-label">Interface scale</span>

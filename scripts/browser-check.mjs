@@ -195,6 +195,12 @@ try {
         path.join(output, 'browser-menu.png'),
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
+    await evaluate("document.querySelector('.options').scrollTop = 1e6");
+    await writeFile(
+        path.join(output, 'browser-menu-end.png'),
+        Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
+    );
+    await evaluate("document.querySelector('.options').scrollTop = 0");
     // Interface scale: the stepper stays at the same height in the menu, ready for the next tap.
     const scaleStepper = 'document.querySelector(\'.stepper[data-setting="uiScale"]\')';
     const scaleTop = () => evaluate(scaleStepper + '.getBoundingClientRect().top');
