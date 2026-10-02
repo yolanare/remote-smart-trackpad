@@ -1233,6 +1233,25 @@ a.options-action {
     border: 0;
     background: var(--surface);
 }
+/* A separator naming the group under it: a rule on each side of a short, quiet label. */
+.option-separator {
+    display: flex;
+    align-items: center;
+    margin: 0.625rem var(--space-4);
+    gap: var(--space-2);
+}
+.options .option-separator hr {
+    flex: 1;
+    margin: 0;
+}
+.option-separator span {
+    flex: none;
+    color: var(--muted);
+    font-size: 0.625rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.6;
+}
 .pairing {
     width: 100%;
     max-width: 28rem;

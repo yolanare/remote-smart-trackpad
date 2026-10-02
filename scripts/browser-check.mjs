@@ -309,9 +309,13 @@ try {
             return sent;
         } finally { WebSocket.prototype.send = original; }
     })()`);
+    // Inversion follows the options (their defaults may invert scrolling).
+    const sign = await evaluate(
+        "Object.fromEntries(['invertMouseX', 'invertMouseY', 'invertScrollX', 'invertScrollY'].map((name) => [name, document.querySelector('[name=' + name + ']').checked ? -1 : 1]))"
+    );
     assert.deepEqual(scaledMotion, [
-        { action: 'move', dx: 20, dy: -10 },
-        { action: 'scroll', dx: 5, dy: -3 },
+        { action: 'move', dx: 20 * sign.invertMouseX, dy: -10 * sign.invertMouseY },
+        { action: 'scroll', dx: 5 * sign.invertScrollX, dy: -3 * sign.invertScrollY },
     ]);
     await evaluate("document.querySelector('#options-toggle').click(); document.querySelector('#mouse-speed').focus()");
     await page('Input.dispatchKeyEvent', {
@@ -421,7 +425,7 @@ try {
     })()`;
     await settled();
     const bounds = await evaluate(editingLayout);
-    assert.deepEqual(bounds.rows, ['edit', 'modifiers']);
+    assert.deepEqual(bounds.rows, ['edit', 'arrows', 'modifiers']);
     assert.equal(bounds.optionsVisible, true);
     assert.ok(bounds.fieldBottom <= bounds.height, 'The text field must stay on screen: ' + JSON.stringify(bounds));
     assert.ok(bounds.field < 45, 'An empty field shows one line: ' + bounds.field);
@@ -483,7 +487,7 @@ try {
         const rows = document.querySelector('key-rows'), sent = [];
         const capture = (event) => { event.stopPropagation(); sent.push(event.detail.data); };
         rows.addEventListener('command', capture);
-        for (const key of ['Undo', 'Redo', 'Paste', 'Z']) rows.querySelector('[data-key=' + key + ']').click();
+        for (const key of ['Undo', 'Redo', 'Paste', 'Z']) document.querySelector('.key-row [data-key=' + key + ']').click();
         rows.removeEventListener('command', capture);
         return sent;
     })()`);
@@ -608,8 +612,44 @@ try {
         await evaluate(
             "[...document.querySelectorAll('.key-row')].filter(row => !row.hidden).map(row => row.dataset.row)"
         ),
-        ['edit']
+        ['edit', 'arrows']
     );
+    // Tap to scroll once: a tap on the vertical rail's lower half scrolls one notch down, its upper half one up.
+    const steps = await evaluate(`(() => {
+        window.__blocked = [];
+        const rail = document.querySelector('scroll-rail[axis=y] .rail-viewport'), box = rail.getBoundingClientRect();
+        const tapAt = (y) => {
+            for (const type of ['pointerdown', 'pointerup'])
+                rail.dispatchEvent(new PointerEvent(type, { bubbles: true, isPrimary: true, pointerId: 7, pointerType: 'touch', clientX: box.left + box.width / 2, clientY: y }));
+        };
+        tapAt(box.bottom - 10);
+        tapAt(box.top + 10);
+        return window.__blocked.filter((message) => message.action === 'scroll').map((message) => message.data);
+    })()`);
+    assert.deepEqual(steps, [
+        { dx: 0, dy: 120 },
+        { dx: 0, dy: -120 },
+    ]);
+    // Text typed blind stays while the PC's focus stays on the same element, even when it reads for a moment;
+    // another element, or moving the caret, starts afresh.
+    const echo = await evaluate(`(() => {
+        const editor = document.querySelector('text-editor'), field = editor.querySelector('textarea');
+        const value = () => field.value.replace(String.fromCharCode(0x200b), '');
+        editor.render({ open: true, available: false, passthrough: true, field: 'a', text: '' });
+        editor.text = 'hello';
+        editor.write('hello', 5, 5);
+        editor.render({ open: true, available: false, passthrough: true, field: 'a', text: '' });
+        const kept = value();
+        editor.render({ open: true, available: false, passthrough: true, field: 'b', text: '' });
+        const otherField = value();
+        editor.text = 'again';
+        editor.write('again', 5, 5);
+        field.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
+        const afterArrow = value();
+        editor.render({ open: true, available: true, text: '', selectionStart: 0, selectionEnd: 0 });
+        return { kept, otherField, afterArrow };
+    })()`);
+    assert.deepEqual(echo, { kept: 'hello', otherField: '', afterArrow: '' });
     const scroll = await evaluate(
         "(() => { const rail = document.querySelector('scroll-rail[axis=y] .rail-viewport'); const before = rail.scrollTop; rail.scrollTop += 300; return { before, after: rail.scrollTop, native: getComputedStyle(rail).overflowY }; })()"
     );

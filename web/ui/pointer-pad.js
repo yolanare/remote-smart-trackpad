@@ -20,6 +20,11 @@ class PointerPad extends HTMLElement {
     set scrollSliding(value) {
         for (const rail of this.querySelectorAll('scroll-rail')) rail.sliding = value;
     }
+    /** Which rails scroll one step on a tap: { x, y }. */
+    set tapScroll({ x, y }) {
+        for (const rail of this.querySelectorAll('scroll-rail'))
+            rail.tapStep = rail.getAttribute('axis') === 'x' ? x : y;
+    }
     stopSliding() {
         cancelAnimationFrame(this.slideFrame);
         this.slideFrame = 0;

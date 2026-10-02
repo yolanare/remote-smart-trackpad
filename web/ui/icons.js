@@ -25,6 +25,10 @@ import {
     CornerDownLeft,
     TextCursor,
     Undo2,
+    ArrowUp,
+    ArrowDown,
+    ArrowLeft,
+    ArrowRight,
     Redo2,
 } from 'lucide';
 const icons = {
@@ -44,6 +48,10 @@ const icons = {
     auto: SunMoon,
     dark: Moon,
     light: Sun,
+    up: ArrowUp,
+    down: ArrowDown,
+    left: ArrowLeft,
+    right: ArrowRight,
     undo: Undo2,
     redo: Redo2,
     cut: Scissors,

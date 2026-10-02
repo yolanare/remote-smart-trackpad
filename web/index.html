@@ -82,7 +82,11 @@
                     >
                     <input id="mouse-speed" name="mouseSpeed" type="range" min="0.25" max="16" step="0.25" value="2" />
                 </div>
-                <hr />
+                <div class="option-separator">
+                    <hr />
+                    <span>Scroll</span>
+                    <hr />
+                </div>
                 <div class="speed-setting">
                     <label for="scroll-acceleration"
                         >Scroll acceleration
@@ -112,7 +116,11 @@
                         value="3"
                     />
                 </div>
-                <hr />
+                <div class="option-separator">
+                    <hr />
+                    <span>Motion</span>
+                    <hr />
+                </div>
                 <div class="axis-setting" role="group" aria-label="Invert mouse">
                     <span>Invert mouse</span>
                     <label
@@ -164,11 +172,32 @@
                         >Scroll</label
                     >
                 </div>
+                <div class="axis-setting" role="group" aria-label="Tap to scroll once">
+                    <span>Tap to scroll once</span>
+                    <label
+                        ><input type="checkbox" name="tapScrollX" aria-label="Tap to scroll once X" checked /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >X</label
+                    >
+                    <label
+                        ><input type="checkbox" name="tapScrollY" aria-label="Tap to scroll once Y" checked /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >Y</label
+                    >
+                </div>
                 <label
                     ><input type="checkbox" name="edgeMotion" checked /><span class="checkbox" data-icon="check"></span
                     >Keep moving at screen edges</label
                 >
-                <hr />
+                <div class="option-separator">
+                    <hr />
+                    <span>Keys above</span>
+                    <hr />
+                </div>
                 <label
                     ><input type="checkbox" name="functions" /><span class="checkbox" data-icon="check"></span>Show
                     function keys rows</label
@@ -178,18 +207,31 @@
                     keys row</label
                 >
                 <label
+                    ><input type="checkbox" name="edit" /><span class="checkbox" data-icon="check"></span>Show edit keys
+                    row</label
+                >
+                <div class="option-separator">
+                    <hr />
+                    <span>Keys below</span>
+                    <hr />
+                </div>
+                <label
                     ><input type="checkbox" name="characters" /><span class="checkbox" data-icon="check"></span>Show
                     common characters row</label
                 >
                 <label
-                    ><input type="checkbox" name="edit" /><span class="checkbox" data-icon="check"></span>Show edit keys
-                    row</label
+                    ><input type="checkbox" name="arrows" /><span class="checkbox" data-icon="check"></span>Show arrow
+                    keys row</label
                 >
                 <label
                     ><input type="checkbox" name="modifiers" /><span class="checkbox" data-icon="check"></span>Show
                     modifier keys row</label
                 >
-                <hr />
+                <div class="option-separator">
+                    <hr />
+                    <span>Keys</span>
+                    <hr />
+                </div>
                 <div class="stepper-setting">
                     <span id="function-keys-label">Function keys displayed</span>
                     <div
@@ -222,7 +264,11 @@
                     ><input type="checkbox" name="sticky" /><span class="checkbox" data-icon="check"></span>Sticky
                     modifier keys</label
                 >
-                <hr />
+                <div class="option-separator">
+                    <hr />
+                    <span>Display</span>
+                    <hr />
+                </div>
                 <div class="choice-setting">
                     <span id="color-scheme-label">Color scheme</span>
                     <div class="segmented" role="radiogroup" aria-labelledby="color-scheme-label">
@@ -282,7 +328,11 @@
                     </div>
                     <input id="ui-scale" name="uiScale" type="hidden" min="0.25" max="8" value="1" />
                 </div>
-                <hr />
+                <div class="option-separator">
+                    <hr />
+                    <span>App</span>
+                    <hr />
+                </div>
                 <button id="install-app" class="options-action" type="button" hidden>
                     <span data-icon="install"></span>Install as app
                 </button>

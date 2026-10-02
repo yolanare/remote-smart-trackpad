@@ -2,6 +2,8 @@ import { tick } from './haptics.js';
 
 export class ScrollRail extends HTMLElement {
     #sliding = true;
+    /** A tap (no drag) on either half of the rail scrolls one step that way (scroll-step event). */
+    tapStep = false;
     #viewport = null;
     get sliding() {
         return this.#sliding;
@@ -141,6 +143,37 @@ export class ScrollRail extends HTMLElement {
         viewport.addEventListener('pointerup', endDrag);
         viewport.addEventListener('pointercancel', endDrag);
         viewport.addEventListener('lostpointercapture', endDrag);
+
+        // Tap to scroll once: a short touch that does not move, on the rail's first or second half, asks for one step
+        // up/left or down/right. A drag never counts: the browser cancels the pointer once it scrolls.
+        let tap = null;
+        viewport.addEventListener('pointerdown', (event) => {
+            tap =
+                this.tapStep && event.isPrimary ?
+                    { id: event.pointerId, x: event.clientX, y: event.clientY, at: performance.now() }
+                :   null;
+        });
+        viewport.addEventListener('pointercancel', () => (tap = null));
+        viewport.addEventListener('pointerup', (event) => {
+            if (event.pointerId !== tap?.id) return;
+            const { x, y, at } = tap;
+            tap = null;
+            if (Math.hypot(event.clientX - x, event.clientY - y) > 6 || performance.now() - at > 300) return;
+            const box = viewport.getBoundingClientRect();
+            const step =
+                (
+                    horizontal ? event.clientX > box.left + box.width / 2 : event.clientY > box.top + box.height / 2
+                ) ?
+                    1
+                :   -1;
+            tick('scroll');
+            this.dispatchEvent(
+                new CustomEvent('scroll-step', {
+                    bubbles: true,
+                    detail: horizontal ? { dx: step, dy: 0 } : { dx: 0, dy: step },
+                })
+            );
+        });
 
         // Native mode (sliding on, mouse wheel, keyboard): scroll events carry the movement, fling included.
         // Touch feedback: the ticks brighten while a finger is on the rail (touch events last through native
