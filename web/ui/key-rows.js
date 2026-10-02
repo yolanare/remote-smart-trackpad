@@ -48,8 +48,8 @@ const rows = {
             { key: 'Down', label: 'Down', icon: 'down', group: 'arrows', repeat: true },
             { key: 'Right', label: 'Right', icon: 'right', group: 'arrows', repeat: true },
             { key: 'Left', label: 'Left', icon: 'left', group: 'arrows', repeat: true },
-            { key: 'Home', label: 'ORIGIN', group: 'line' },
-            { key: 'End', label: 'END', group: 'line' },
+            { key: 'Home', label: 'Home', icon: 'home', group: 'line' },
+            { key: 'End', label: 'End', icon: 'end', group: 'line' },
         ],
     },
     modifiers: {

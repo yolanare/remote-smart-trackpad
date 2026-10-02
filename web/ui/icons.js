@@ -29,6 +29,8 @@ import {
     ArrowDown,
     ArrowLeft,
     ArrowRight,
+    ArrowLeftToLine,
+    ArrowRightToLine,
     Redo2,
 } from 'lucide';
 const icons = {
@@ -52,6 +54,8 @@ const icons = {
     down: ArrowDown,
     left: ArrowLeft,
     right: ArrowRight,
+    home: ArrowLeftToLine,
+    end: ArrowRightToLine,
     undo: Undo2,
     redo: Redo2,
     cut: Scissors,
