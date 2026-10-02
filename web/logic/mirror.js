@@ -8,7 +8,15 @@ export function createMirror(send, render) {
         composing = false,
         dirty = false,
         retried = false,
-        generation = 0;
+        generation = 0,
+        // When the PC last took typing: a focus change soon after comes from that typing (a code's next box).
+        typedAt = -Infinity;
+    const typingMovesFocus = 1500;
+    /** A replay without key presses: the typing only (see replay). */
+    const typingOnly = (before, now, target) => {
+        const { backspaces, ...typed } = replay(before, now, target) || {};
+        return 'text' in typed ? typed : null;
+    };
     const publish = () => render({ ...state });
     // Nothing is known of the field: no text from an earlier one may show (typing blind would add to it).
     const unknown = { text: '', selectionStart: 0, selectionEnd: 0 };
@@ -89,7 +97,11 @@ export function createMirror(send, render) {
                 selectionEnd: final ? local.selectionEnd : step.position,
             });
             if (current !== generation) return;
-            const moved = result.snapshot.session !== confirmed.session || result.snapshot.text !== confirmed.text;
+            const movedOn = result.snapshot.session !== confirmed.session;
+            const moved = movedOn || result.snapshot.text !== confirmed.text;
+            const followsTyping = performance.now() - typedAt < typingMovesFocus;
+            if (result.typed || (result.accepted && step.text !== confirmed.text.slice(step.start, step.end)))
+                typedAt = performance.now();
             if (!result.accepted && !result.typed && !moved && !retried) {
                 // Rejected for a newer revision only (the PC moved its caret, the text is as it was): the typing
                 // still applies, so it is sent again against that revision instead of being dropped.
@@ -99,23 +111,38 @@ export function createMirror(send, render) {
             } else if (!result.accepted || result.snapshot.session !== confirmed.session) {
                 // Typed, but the field made something else of it (an input mask, a case change, a completion, the
                 // focus moving on): its text wins, and what was typed on the phone meanwhile follows at its caret.
+                // Not typed because the focus had already moved on, right after typing (the field moved it): the
+                // typing goes where the focus went, as on a keyboard. Moved on otherwise (the user went elsewhere):
+                // it is dropped.
+                const since =
+                    result.typed ? local.text
+                    : movedOn && followsTyping ? confirmed.text
+                    : null;
                 const { backspaces = 0, ...pending } =
-                    (result.typed && final && replay(local.text, state, result.snapshot)) || {};
+                    (since !== null && final && replay(since, state, result.snapshot)) || {};
                 // Only in another field: within the same one, an erasure the PC's text cannot hold is no key to press.
                 if (!backspaces || result.snapshot.session === confirmed.session)
                     adopt(result.snapshot, 'text' in pending ? pending : null);
                 else {
                     // Erased past the start of the field typing reached (a code's next box): Backspace goes to the
                     // PC as a key, which such fields answer themselves (back to the previous box), then it is reread.
+                    const before = state.text;
                     for (let count = 0; count < backspaces; count++)
                         await send('shortcut', { key: 'Backspace', modifiers: [] });
+                    typedAt = performance.now();
+                    const snapshot = await send('mirror-read', {});
                     if (current !== generation) return;
-                    adopt(await send('mirror-read', {}));
+                    // What was typed meanwhile follows in the field the keys led to.
+                    adopt(snapshot, typingOnly(before, state, snapshot));
                 }
             } else {
                 retried = false;
                 confirmed = result.snapshot;
-                if (!dirty && final) adopt(confirmed);
+                // The phone's caret stays where it is: the PC can report its own late (Chromium), and a caret the
+                // keyboard is moving would jump back. Every edit places the PC's caret where the phone's is anyway.
+                if (!dirty && final && confirmed.text === local.text)
+                    adopt({ ...confirmed, selectionStart: local.selectionStart, selectionEnd: local.selectionEnd });
+                else if (!dirty && final) adopt(confirmed);
                 else dirty = true;
             }
         } catch (error) {

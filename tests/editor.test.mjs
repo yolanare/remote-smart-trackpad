@@ -224,3 +224,15 @@ test('an erasure the same field cannot hold presses no key', async () => {
     await new Promise((resolve) => setImmediate(resolve));
     assert.ok(h.requests.every((request) => request.action !== 'shortcut'));
 });
+test('typing that reaches a field after it moved the focus on (a code box) follows the focus', async () => {
+    const h = harness();
+    h.mirror.open();
+    await h.reply(snapshot('', 'box-1'));
+    h.mirror.input('1', 1, 1);
+    await h.reply({ accepted: false, typed: true, snapshot: snapshot('', 'box-2') });
+    h.mirror.input('2', 1, 1);
+    // The field moved the focus on again before the 2 got there: it goes to the box that has it now.
+    await h.reply({ accepted: false, snapshot: snapshot('', 'box-3') });
+    assert.equal(h.requests[0].data.session, 'box-3');
+    assert.equal(h.requests[0].data.text, '2');
+});
