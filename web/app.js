@@ -107,6 +107,7 @@ function applyLayout() {
     pad.sliding = settings.mouseSliding === true;
     pad.edgeMotion = settings.edgeMotion === true;
     pad.scrollSliding = settings.scrollSliding !== false;
+    pad.tapScroll = { x: settings.tapScrollX === true, y: settings.tapScrollY === true };
     applyHaptics();
     app.classList.toggle('editing', shownEditing);
     $('#editor-open').hidden = shownEditing;
@@ -293,13 +294,20 @@ const connection = createConnection(({ state }) => {
 });
 const send = (action, data) => connection.send(action, data);
 const motion = createMotion(send, showNotice);
+// The PC element last typed into blind, while the focus stays on it (see the editor's passthrough below).
+let blindField = null;
 const mirror = createMirror(send, (state) => {
     mirrorState = state;
     // Called when the PC's text, caret or field changed: keep reading closely while it does.
     mirrorActivity();
     editing = state.open;
     layout();
-    editor.render({ ...state, passthrough: connected && state.open && !state.reading && !state.available });
+    // Typing blind (no readable PC field). An element typed into blind stays so until the focus leaves it: such an
+    // element can read as text for a moment (the character just typed), and switching would wipe the phone's text,
+    // which its keyboard then types again.
+    if (!state.open || state.field !== blindField) blindField = null;
+    const blind = !state.available || (blindField !== null && state.field === blindField);
+    editor.render({ ...state, passthrough: connected && state.open && !state.reading && blind });
     refreshStatus();
     schedulePolling();
 });
@@ -421,6 +429,7 @@ document.addEventListener('pointerup', unpress, { capture: true });
 document.addEventListener('pointercancel', unpress, { capture: true });
 
 const mediaKeys = new Set(['PlayPause', 'VolumeMute']);
+const navigationKeys = new Set(['Left', 'Right', 'Up', 'Down', 'Home', 'End', 'PageUp', 'PageDown']);
 document.addEventListener('command', async (event) => {
     const { action, data } = event.detail;
     try {
@@ -428,6 +437,8 @@ document.addEventListener('command', async (event) => {
         if (!rows.sticky && (action === 'click' || (action === 'button' && !data.down))) rows.reset();
         // Playback state changes asynchronously in the media app; confirm the optimistic toggle shortly after.
         if (action === 'shortcut' && mediaKeys.has(data.key)) setTimeout(refreshMedia, 400);
+        // The arrow keys move the PC's caret away from what was typed blind.
+        if (action === 'shortcut' && navigationKeys.has(data.key)) editor.clearEcho();
         mirror.poll();
     } catch (error) {
         showNotice(error.message);
@@ -443,6 +454,12 @@ document.addEventListener('motion', (event) => {
     const signX = settings[mouse ? 'invertMouseX' : 'invertScrollX'] ? -1 : 1;
     const signY = settings[mouse ? 'invertMouseY' : 'invertScrollY'] ? -1 : 1;
     motion.add(action, dx * gain * signX, dy * gain * signY);
+});
+// A tap on a rail scrolls one wheel notch (120) that way, like a scroll bar's arrow: down/right below/right of its
+// middle, whatever the scroll inversion (which follows a finger's drag).
+document.addEventListener('scroll-step', (event) => {
+    const { dx, dy } = event.detail;
+    send('scroll', { dx: dx * 120, dy: dy * 120 }).catch((error) => showNotice(error.message));
 });
 // Edge motion sends a velocity; the PC glides the pointer smoothly with the same speed, acceleration and inversion.
 document.addEventListener('edge-glide', (event) => {
@@ -463,9 +480,10 @@ document.addEventListener('text-key', (event) => {
         .catch((error) => showNotice(error.message));
     if (!rows.sticky) rows.reset();
 });
-document.addEventListener('text-passthrough', (event) =>
-    send('text', event.detail).catch((error) => showNotice(error.message))
-);
+document.addEventListener('text-passthrough', (event) => {
+    blindField = mirrorState.field ?? null;
+    send('text', event.detail).catch((error) => showNotice(error.message));
+});
 editor.firstElementChild.addEventListener('beforeinput', (event) => {
     if (event.isComposing || ![...rows.held].some((key) => ['Control', 'Alt', 'Win'].includes(key))) return;
     const key =

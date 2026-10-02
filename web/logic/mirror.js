@@ -89,6 +89,7 @@ export function createMirror(send, render) {
                 || snapshot.session !== confirmed.session
                 || snapshot.revision !== confirmed.revision
                 || snapshot.available !== confirmed.available
+                || snapshot.field !== confirmed.field
             )
                 adopt(snapshot);
         } catch (error) {

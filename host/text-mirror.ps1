@@ -83,19 +83,21 @@ function Read-Mirror {
 
 function Read-MirrorOnce {
     $element = [System.Windows.Automation.AutomationElement]::FocusedElement
+    # Which UI element has the focus, readable or not: the phone keeps what it typed blind while this stays the same.
+    $field = if ($null -ne $element) { ($element.GetRuntimeId() -join '.') } else { '' }
     $pattern = $null
     $valuePattern = $null
     if ($null -eq $element -or $element.Current.IsPassword -or
         -not $element.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern, [ref]$pattern)) {
         $script:mirror = $null
-        return @{ available=$false; text=''; selectionStart=0; selectionEnd=0 }
+        return @{ field=$field; available=$false; text=''; selectionStart=0; selectionEnd=0 }
     }
     if ($element.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$valuePattern) -and $valuePattern.Current.IsReadOnly) {
         $script:mirror = $null
-        return @{ available=$false; text=''; selectionStart=0; selectionEnd=0 }
+        return @{ field=$field; available=$false; text=''; selectionStart=0; selectionEnd=0 }
     }
     $ranges = $pattern.GetSelection()
-    if ($ranges.Count -ne 1) { $script:mirror = $null; return @{ available=$false; text='' } }
+    if ($ranges.Count -ne 1) { $script:mirror = $null; return @{ field=$field; available=$false; text='' } }
     $document = $pattern.DocumentRange
     # Read-only text (a web page rather than a field). The selection is the cheap hint; a caret next to a
     # non-editable part (a placeholder, a mention) reads read-only too, so the whole document confirms it. That scan
@@ -108,11 +110,11 @@ function Read-MirrorOnce {
         }
         if ($known.readOnly) {
             $script:mirror = $null
-            return @{ available=$false; text='' }
+            return @{ field=$field; available=$false; text='' }
         }
     }
     $raw = $document.GetText(262145)
-    if ($raw.Length -gt 262144) { $script:mirror = $null; return @{ available=$false; text=''; reason='This field exceeds the 256 Ki character mirror limit.' } }
+    if ($raw.Length -gt 262144) { $script:mirror = $null; return @{ field=$field; available=$false; text=''; reason='This field exceeds the 256 Ki character mirror limit.' } }
     $text = Normalize-LineEndings $raw
     $prefix = $document.Clone()
     $prefix.MoveEndpointByRange([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, $ranges[0], [System.Windows.Automation.Text.TextPatternRangeEndpoint]::Start)
@@ -122,7 +124,7 @@ function Read-MirrorOnce {
     $resolved = Resolve-FieldText $element $text $start
     if ($resolved.unreadable) {
         $script:mirror = $null
-        return @{ available=$false; text=''; selectionStart=0; selectionEnd=0; reason='Text not readable here' }
+        return @{ field=$field; available=$false; text=''; selectionStart=0; selectionEnd=0; reason='Text not readable here' }
     }
     if ($resolved.empty) { $text = ''; $start = 0; $end = 0 }
     $framework = $element.Current.FrameworkId
@@ -151,7 +153,7 @@ function Read-MirrorOnce {
     }
     # singleLine: the field cannot hold a line break (an <input>, a one-line edit box): the phone's Enter key sends
     # Enter there instead of a new line.
-    return @{ available=$true; session=$script:mirror.id; revision=$script:mirror.revision; text=$text; selectionStart=$start; selectionEnd=$end; singleLine=($resolved.singleLine -eq $true) }
+    return @{ field=$field; available=$true; session=$script:mirror.id; revision=$script:mirror.revision; text=$text; selectionStart=$start; selectionEnd=$end; singleLine=($resolved.singleLine -eq $true) }
 }
 
 function Select-MirrorRange([int]$start, [int]$end, [string]$text) {

@@ -19,6 +19,8 @@ const passthroughKeys = {
 
 const sizesItself = CSS.supports('field-sizing', 'content');
 
+const navigationKeys = new Set(['Left', 'Right', 'Up', 'Down', 'Home', 'End', 'PageUp', 'PageDown']);
+
 class TextEditor extends HTMLElement {
     text = '';
     caret = 0;
@@ -84,6 +86,8 @@ class TextEditor extends HTMLElement {
             if (!key) return;
             event.preventDefault();
             emit('text-key', { key });
+            // Moving the PC's caret blind leaves the echoed text behind: it no longer matches what follows the caret.
+            if (this.passthrough && navigationKeys.has(key)) this.clearEcho();
         });
         // Keep the caret after the anchor so Backspace always has something to delete.
         document.addEventListener('selectionchange', () => {
@@ -162,8 +166,9 @@ class TextEditor extends HTMLElement {
     render(state) {
         if (this.composing && (this.state?.session !== state.session || this.state?.revision !== state.revision))
             this.invalidated = true;
-        // Blind typing keeps its local echo until a readable field appears.
-        const keepEcho = this.passthrough && state.passthrough;
+        // Text typed blind stays on the phone, to read and fix, while the PC's focus stays on the same element;
+        // another element starts afresh (so do closing, and moving the caret: clearEcho).
+        const keepEcho = this.passthrough && state.passthrough && state.field === this.state?.field;
         this.state = state;
         this.passthrough = state.passthrough === true;
         this.singleLine = state.available === true && state.singleLine === true;
@@ -175,6 +180,14 @@ class TextEditor extends HTMLElement {
             this.text = state.text;
             this.write(state.text, state.selectionStart, state.selectionEnd);
         }
+        this.resize();
+        this.updateHint();
+    }
+    /** Forgets the text typed blind, once it no longer matches the PC (the caret moved away from it). */
+    clearEcho() {
+        if (!this.passthrough || this.composing) return;
+        this.text = '';
+        this.write('', 0, 0);
         this.resize();
         this.updateHint();
     }
