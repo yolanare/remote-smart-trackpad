@@ -32,6 +32,8 @@ import {
     ArrowLeftToLine,
     ArrowRightToLine,
     Redo2,
+    ChevronLeft,
+    ChevronRight,
 } from 'lucide';
 const icons = {
     more: EllipsisVertical,
@@ -56,6 +58,8 @@ const icons = {
     right: ArrowRight,
     home: ArrowLeftToLine,
     end: ArrowRightToLine,
+    back: ChevronLeft,
+    forward: ChevronRight,
     undo: Undo2,
     redo: Redo2,
     cut: Scissors,

@@ -646,27 +646,37 @@ try {
         ),
         ['edit', 'arrows']
     );
-    // Tap to scroll once: a tap on the vertical rail's lower half scrolls one notch down, its upper half one up.
-    const steps = await evaluate(`(() => {
+    // Double tap to scroll once: a double tap on the vertical rail's lower half scrolls one notch down, on its upper
+    // half one up. A single tap scrolls nothing.
+    const steps = await evaluate(`(async () => {
         window.__blocked = [];
         const rail = document.querySelector('scroll-rail[axis=y] .rail-viewport'), box = rail.getBoundingClientRect();
         const tapAt = (y) => {
             for (const type of ['pointerdown', 'pointerup'])
                 rail.dispatchEvent(new PointerEvent(type, { bubbles: true, isPrimary: true, pointerId: 7, pointerType: 'touch', clientX: box.left + box.width / 2, clientY: y }));
         };
+        const scrolls = () => window.__blocked.filter((message) => message.action === 'scroll').map((message) => message.data);
+        tapAt(box.bottom - 10);
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        const single = scrolls().length;
+        tapAt(box.bottom - 10);
         tapAt(box.bottom - 10);
         tapAt(box.top + 10);
-        return window.__blocked.filter((message) => message.action === 'scroll').map((message) => message.data);
+        tapAt(box.top + 10);
+        return { single, double: scrolls() };
     })()`);
-    assert.deepEqual(steps, [
-        { dx: 0, dy: 120 },
-        { dx: 0, dy: -120 },
-    ]);
+    assert.deepEqual(steps, {
+        single: 0,
+        double: [
+            { dx: 0, dy: 120 },
+            { dx: 0, dy: -120 },
+        ],
+    });
     // Text typed blind stays while the PC's focus stays on the same element, even when it reads for a moment;
     // another element, or moving the caret, starts afresh.
     const echo = await evaluate(`(() => {
         const editor = document.querySelector('text-editor'), field = editor.querySelector('textarea');
-        const value = () => field.value.replace(String.fromCharCode(0x200b), '');
+        const value = () => field.value.replaceAll(String.fromCharCode(0x200b), '');
         editor.render({ open: true, available: false, passthrough: true, field: 'a', text: '' });
         editor.text = 'hello';
         editor.write('hello', 5, 5);

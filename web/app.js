@@ -107,7 +107,8 @@ function applyLayout() {
     pad.sliding = settings.mouseSliding === true;
     pad.edgeMotion = settings.edgeMotion === true;
     pad.scrollSliding = settings.scrollSliding !== false;
-    pad.tapScroll = { x: settings.tapScrollX === true, y: settings.tapScrollY === true };
+    pad.tapScroll = { x: settings.doubleTapScrollX === true, y: settings.doubleTapScrollY === true };
+    pad.navButtons = settings.navButtons !== false;
     applyHaptics();
     app.classList.toggle('editing', shownEditing);
     $('#editor-open').hidden = shownEditing;
@@ -471,6 +472,9 @@ document.addEventListener('motion', (event) => {
 // middle, whatever the scroll inversion (which follows a finger's drag).
 document.addEventListener('scroll-step', (event) => {
     const { dx, dy } = event.detail;
+    // The rail moves as a drag giving this scroll would have moved it (scrolling follows the inversion option).
+    const inverted = settings[dx ? 'invertScrollX' : 'invertScrollY'] ? -1 : 1;
+    event.target.closest('scroll-rail')?.nudge((dx || dy) * inverted);
     send('scroll', { dx: dx * 120, dy: dy * 120 }).catch((error) => showNotice(error.message));
 });
 // Edge motion sends a velocity; the PC glides the pointer smoothly with the same speed, acceleration and inversion.

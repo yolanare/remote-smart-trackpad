@@ -38,7 +38,7 @@ while ($null -ne ($line = [Console]::ReadLine())) {
                 if (-not $buttons.ContainsKey($name)) { throw 'Unsupported mouse button' }
                 $times = if ($data.double) { 2 } else { 1 }
                 for ($index = 0; $index -lt $times; $index++) {
-                    if (-not [NativeInput]::Mouse($buttons[$name][0]) -or -not [NativeInput]::Mouse($buttons[$name][1])) { throw 'Windows rejected mouse input' }
+                    if (-not [NativeInput]::Mouse($buttons[$name][0], [int]$buttons[$name][2]) -or -not [NativeInput]::Mouse($buttons[$name][1], [int]$buttons[$name][2])) { throw 'Windows rejected mouse input' }
                 }
             }
             'button' {
@@ -47,7 +47,7 @@ while ($null -ne ($line = [Console]::ReadLine())) {
                 $down = [bool]$data.down
                 if ($down -and $held.Contains($name)) { break }
                 if (-not $down -and -not $held.Contains($name)) { break }
-                if (-not [NativeInput]::Mouse($buttons[$name][[int](-not $down)])) { throw 'Windows rejected mouse button' }
+                if (-not [NativeInput]::Mouse($buttons[$name][[int](-not $down)], [int]$buttons[$name][2])) { throw 'Windows rejected mouse button' }
                 if ($down) { [void]$held.Add($name) } else { [void]$held.Remove($name) }
             }
             'scroll' {

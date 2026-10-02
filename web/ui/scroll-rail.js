@@ -2,7 +2,7 @@ import { tick } from './haptics.js';
 
 export class ScrollRail extends HTMLElement {
     #sliding = true;
-    /** A tap (no drag) on either half of the rail scrolls one step that way (scroll-step event). */
+    /** A double tap (no drag) on either half of the rail scrolls one step that way (scroll-step event). */
     tapStep = false;
     #viewport = null;
     get sliding() {
@@ -97,6 +97,24 @@ export class ScrollRail extends HTMLElement {
                 resetting = false;
             });
         };
+        /**
+         * Shows one step (a double tap's scroll): the ticks glide by one period, by code with `previous` in step so
+         * no scroll is sent for it. direction: 1 as if the rail were scrolled down/right, -1 up/left.
+         */
+        this.nudge = (direction) => {
+            const from = viewport[property],
+                distance = direction * ticks().period,
+                started = performance.now();
+            const frame = (now) => {
+                const progress = Math.min(1, (now - started) / 180);
+                viewport[property] = from + distance * (1 - (1 - progress) ** 3);
+                previous = viewport[property];
+                lastMark = mark();
+                if (progress < 1) requestAnimationFrame(frame);
+                else recenterLater();
+            };
+            requestAnimationFrame(frame);
+        };
         const recenterLater = () => {
             clearTimeout(idle);
             // Recenter only after native momentum stops; moving during a fling cancels it on iOS.
@@ -144,9 +162,13 @@ export class ScrollRail extends HTMLElement {
         viewport.addEventListener('pointercancel', endDrag);
         viewport.addEventListener('lostpointercapture', endDrag);
 
-        // Tap to scroll once: a short touch that does not move, on the rail's first or second half, asks for one step
-        // up/left or down/right. A drag never counts: the browser cancels the pointer once it scrolls.
-        let tap = null;
+        // Double tap to scroll once: two short touches that do not move, close together on the rail's first or second
+        // half, ask for one step up/left or down/right (a single touch never scrolls: resting a finger on the rail is
+        // harmless). A drag never counts: the browser cancels the pointer once it scrolls.
+        const doubleTapWindow = 350,
+            doubleTapDistance = 32;
+        let tap = null,
+            firstTap = null;
         viewport.addEventListener('pointerdown', (event) => {
             tap =
                 this.tapStep && event.isPrimary ?
@@ -158,7 +180,8 @@ export class ScrollRail extends HTMLElement {
             if (event.pointerId !== tap?.id) return;
             const { x, y, at } = tap;
             tap = null;
-            if (Math.hypot(event.clientX - x, event.clientY - y) > 6 || performance.now() - at > 300) return;
+            const now = performance.now();
+            if (Math.hypot(event.clientX - x, event.clientY - y) > 6 || now - at > 300) return (firstTap = null);
             const box = viewport.getBoundingClientRect();
             const step =
                 (
@@ -166,6 +189,13 @@ export class ScrollRail extends HTMLElement {
                 ) ?
                     1
                 :   -1;
+            const second =
+                firstTap
+                && now - firstTap.at < doubleTapWindow
+                && firstTap.step === step
+                && Math.hypot(x - firstTap.x, y - firstTap.y) < doubleTapDistance;
+            firstTap = second ? null : { x, y, at: now, step };
+            if (!second) return;
             tick('scroll');
             this.dispatchEvent(
                 new CustomEvent('scroll-step', {

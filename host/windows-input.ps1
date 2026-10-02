@@ -235,7 +235,8 @@ $keyCodes = @{
     K=0x4B; L=0x4C; M=0x4D; N=0x4E; O=0x4F; P=0x50; Q=0x51; S=0x53
     T=0x54; U=0x55; W=0x57; Y=0x59; Z=0x5A
 }
-$buttons = @{ left=@(0x0002,0x0004); right=@(0x0008,0x0010); middle=@(0x0020,0x0040) }
+# Down and up flags, and the button for the side ones (X1: back, X2: forward, in browsers, Explorer and most apps).
+$buttons = @{ left=@(0x0002,0x0004); right=@(0x0008,0x0010); middle=@(0x0020,0x0040); back=@(0x0080,0x0100,1); forward=@(0x0080,0x0100,2) }
 $held = New-Object 'System.Collections.Generic.HashSet[string]'
 . (Join-Path $PSScriptRoot 'text-mirror.ps1')
 
@@ -290,7 +291,7 @@ function Insert-Text([string]$text) {
 function Release-All {
     [Glider]::Stop()
     foreach ($name in @($held)) {
-        if ($buttons.ContainsKey($name)) { [void][NativeInput]::Mouse($buttons[$name][1]) }
+        if ($buttons.ContainsKey($name)) { [void][NativeInput]::Mouse($buttons[$name][1], [int]$buttons[$name][2]) }
         elseif ($keyCodes.ContainsKey($name)) { [void][NativeInput]::Key($keyCodes[$name], $false) }
         [void]$held.Remove($name)
     }
