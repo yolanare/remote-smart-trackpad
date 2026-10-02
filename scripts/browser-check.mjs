@@ -682,6 +682,31 @@ try {
         return { kept, otherField, afterArrow };
     })()`);
     assert.deepEqual(echo, { kept: 'hello', otherField: '', afterArrow: '' });
+    // Through the app: typing blind can itself move the PC's focus (a suggestion list opening); the text stays and
+    // is sent once. A focus change later on starts afresh.
+    const typingMoves = await evaluate(`(async () => {
+        const field = document.querySelector('textarea');
+        const value = () => field.value.replace(String.fromCharCode(0x200b), '');
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        const blind = () => document.querySelector('text-editor').passthrough;
+        window.__blocked = [];
+        window.__readAnswer = { available: false, text: '', field: 'zone-a' };
+        for (let attempt = 0; attempt < 40 && !blind(); attempt++) await wait(50);
+        field.focus();
+        field.value = String.fromCharCode(0x200b) + 'h';
+        field.setSelectionRange(2, 2);
+        field.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: 'h' }));
+        window.__readAnswer = { available: false, text: '', field: 'zone-a-suggestions' };
+        await wait(600);
+        const kept = value();
+        await wait(1200);
+        window.__readAnswer = { available: false, text: '', field: 'zone-b' };
+        await wait(800);
+        const later = value();
+        window.__readAnswer = null;
+        return { kept, later, sent: window.__blocked.filter((message) => message.action === 'text').map((message) => message.data.text) };
+    })()`);
+    assert.deepEqual(typingMoves, { kept: 'h', later: '', sent: ['h'] });
     const scroll = await evaluate(
         "(() => { const rail = document.querySelector('scroll-rail[axis=y] .rail-viewport'); const before = rail.scrollTop; rail.scrollTop += 300; return { before, after: rail.scrollTop, native: getComputedStyle(rail).overflowY }; })()"
     );

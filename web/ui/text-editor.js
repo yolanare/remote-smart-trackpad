@@ -171,14 +171,14 @@ class TextEditor extends HTMLElement {
         // During an IME composition the field is the keyboard's: writing into it makes the keyboard commit its word
         // again, a doubled letter. Only the state is taken; the text waits for the composition's end.
         if (this.composing) {
-            if (state.field !== this.composedIn?.field || state.session !== this.composedIn?.session)
-                this.invalidated = true;
+            const moved = state.field !== this.composedIn?.field || state.session !== this.composedIn?.session;
+            if (moved && !state.keepEcho) this.invalidated = true;
             this.applyState(state);
             return;
         }
-        // Text typed blind stays on the phone, to read and fix, while the PC's focus stays on the same element;
-        // another element starts afresh (so do closing, and moving the caret: clearEcho).
-        const keepEcho = this.passthrough && state.passthrough && state.field === this.state?.field;
+        // Text typed blind stays on the phone, to read and fix, while the PC's focus stays where it was typed (the
+        // app says so: keepEcho); another element starts afresh (so do closing, and moving the caret: clearEcho).
+        const keepEcho = this.passthrough && state.passthrough && (state.keepEcho ?? state.field === this.state?.field);
         this.applyState(state);
         if (!keepEcho) {
             this.text = state.text;

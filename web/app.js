@@ -294,8 +294,12 @@ const connection = createConnection(({ state }) => {
 });
 const send = (action, data) => connection.send(action, data);
 const motion = createMotion(send, showNotice);
-// The PC element last typed into blind, while the focus stays on it (see the editor's passthrough below).
-let blindField = null;
+// The PC element last typed into blind, while the focus stays on it (see the editor's passthrough below), and when.
+let blindField = null,
+    blindTypedAt = 0;
+// A focus change this soon after typing blind comes from the typing itself (a suggestion list opening, the field
+// rebuilt), not from the user moving elsewhere.
+const typingMovesFocus = 1500;
 const mirror = createMirror(send, (state) => {
     mirrorState = state;
     // Called when the PC's text, caret or field changed: keep reading closely while it does.
@@ -305,9 +309,17 @@ const mirror = createMirror(send, (state) => {
     // Typing blind (no readable PC field). An element typed into blind stays so until the focus leaves it: such an
     // element can read as text for a moment (the character just typed), and switching would wipe the phone's text,
     // which its keyboard then types again.
-    if (!state.open || state.field !== blindField) blindField = null;
+    if (!state.open) blindField = null;
+    else if (blindField !== null && state.field !== blindField)
+        blindField = performance.now() - blindTypedAt < typingMovesFocus ? state.field : null;
     const blind = !state.available || (blindField !== null && state.field === blindField);
-    editor.render({ ...state, passthrough: connected && state.open && !state.reading && blind });
+    // keepEcho: the phone's text still matches where the PC's caret is, so it stays (clearing it would make the
+    // keyboard commit its word again: the typing sent twice).
+    editor.render({
+        ...state,
+        passthrough: connected && state.open && !state.reading && blind,
+        keepEcho: blindField !== null && state.field === blindField,
+    });
     refreshStatus();
     schedulePolling();
 });
@@ -482,6 +494,7 @@ document.addEventListener('text-key', (event) => {
 });
 document.addEventListener('text-passthrough', (event) => {
     blindField = mirrorState.field ?? null;
+    blindTypedAt = performance.now();
     send('text', event.detail).catch((error) => showNotice(error.message));
 });
 editor.firstElementChild.addEventListener('beforeinput', (event) => {
