@@ -30,7 +30,7 @@ const option = (name) =>
         .split(',');
 const targets = option('target') ?? ['chrome', 'firefox', 'winforms', 'wpf'];
 const onlyCases = option('case');
-const modes = option('mode') ?? ['keys', 'ime', 'slow', 'typo', 'correct'];
+const modes = option('mode') ?? ['keys', 'ime', 'slow', 'typo', 'correct', 'move', 'reopen', 'swipe'];
 const marker = `rst${Math.random().toString(36).slice(2, 8)}`;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const timeout = (promise, ms, what) => {
@@ -43,20 +43,20 @@ const temp = (name) => mkdtemp(path.join(tmpdir(), `remote-smart-trackpad-${name
 // Native fixtures: what is typed into each field and what it must hold then (scripts/typing-windows.ps1).
 const nativeCases = {
     winforms: [
-        { id: 'textbox', typed: 'hello world', expected: 'hello world' },
-        { id: 'multiline', typed: 'hello world', expected: 'hello world' },
+        { id: 'textbox', typed: 'hello world', expected: 'hello world', caret: true },
+        { id: 'multiline', typed: 'hello world', expected: 'hello world', caret: true },
         { id: 'upper', typed: 'hello', expected: 'HELLO' },
         { id: 'maxlength', typed: 'hello world', expected: 'hello' },
         { id: 'masked', typed: '02102026', expected: '02/10/2026' },
-        { id: 'rich', typed: 'hello world', expected: 'hello world' },
+        { id: 'rich', typed: 'hello world', expected: 'hello world', caret: true },
         { id: 'combo', typed: 'apple pie', expected: 'apple pie' },
     ],
     wpf: [
-        { id: 'textbox', typed: 'hello world', expected: 'hello world' },
-        { id: 'multiline', typed: 'hello world', expected: 'hello world' },
+        { id: 'textbox', typed: 'hello world', expected: 'hello world', caret: true },
+        { id: 'multiline', typed: 'hello world', expected: 'hello world', caret: true },
         { id: 'upper', typed: 'hello', expected: 'HELLO' },
         { id: 'maxlength', typed: 'hello world', expected: 'hello' },
-        { id: 'rich', typed: 'hello world', expected: 'hello world' },
+        { id: 'rich', typed: 'hello world', expected: 'hello world', caret: true },
         { id: 'combo', typed: 'apple pie', expected: 'apple pie' },
     ],
 };
@@ -64,7 +64,7 @@ const nativeCases = {
 // The browser's own address bar: a search, and an address it completes inline from its history (the fixture page's),
 // which must start with exactly what was typed.
 const addressCases = [
-    { id: 'address', typed: 'hello world', expected: 'hello world' },
+    { id: 'address', typed: 'hello world', expected: 'hello world', caret: true },
     { id: 'address-completion', typed: '127.0', expected: '127.0…', check: (value) => /^127\.0(\.0\.1|$)/.test(value) },
 ];
 
@@ -349,6 +349,28 @@ async function startPhone(host) {
                 await wait(gap);
             }
         },
+        /** Moves the keyboard's cursor by `steps` characters, one at a time, like a finger dragging on the space bar. */
+        async moveCaret(steps, gap = 60) {
+            for (let step = 0; step < Math.abs(steps); step++) {
+                await evaluate(
+                    `(() => { const field = document.querySelector('#editor-text'), at = field.selectionStart + ${Math.sign(steps)}; field.setSelectionRange(at, at); })()`
+                );
+                await wait(gap);
+            }
+        },
+        /** Presses Backspace (lifting the finger after a Backspace swipe deletes what it selected). */
+        async press(name) {
+            const key = { key: name, code: name, windowsVirtualKeyCode: 8 };
+            await page('Input.dispatchKeyEvent', { type: 'keyDown', ...key });
+            await page('Input.dispatchKeyEvent', { type: 'keyUp', ...key });
+        },
+        /** Selects the `count` characters before the cursor, as Gboard's Backspace swipe does. */
+        async selectBack(count) {
+            await evaluate(
+                `(() => { const field = document.querySelector('#editor-text'), end = field.selectionEnd; field.setSelectionRange(end - ${count}, end); })()`
+            );
+            await wait(100);
+        },
         /** Resolves once the phone has sent nothing for `quiet` ms and every message has its answer. */
         async settle(quiet = 1500, ms = 20000) {
             for (const end = Date.now() + ms; Date.now() < end; await wait(100)) {
@@ -366,7 +388,7 @@ async function startPhone(host) {
         },
         state: () =>
             evaluate(
-                `({ text: document.querySelector('#editor-text').value.replace(${JSON.stringify(anchor)}, ''), passthrough: ${editor}.passthrough, available: ${editor}.state?.available, log: window.__log, renders: window.__renders, now: performance.now() })`
+                `({ text: document.querySelector('#editor-text').value.replaceAll(${JSON.stringify(anchor)}, ''), passthrough: ${editor}.passthrough, available: ${editor}.state?.available, log: window.__log, renders: window.__renders, now: performance.now() })`
             ),
         async stop() {
             socket.close();
@@ -383,6 +405,29 @@ const typingModes = {
     slow: { style: 'ime', gap: 250 },
     typo: { style: 'typo', gap: 40 },
     correct: { style: 'correct', gap: 40 },
+};
+// In fields with a caret: Gboard's cursor moves (dragging on the space bar, one step per character) and its
+// Backspace swipe (dragging left over Backspace selects words, lifting deletes them), within the text typed, and
+// past it once the editor was closed and opened again (the phone then knows nothing of the field's text when blind).
+const caretScenarios = {
+    move: {
+        steps: [
+            ['type', 'hello world'],
+            ['move', -6],
+            ['type', ','],
+        ],
+        expected: 'hello, world',
+    },
+    reopen: { steps: [['type', 'hello world'], ['reopen'], ['move', -6], ['type', ',']], expected: 'hello, world' },
+    swipe: {
+        steps: [
+            ['type', 'hello big world'],
+            ['select', 5],
+            ['key', 'Backspace'],
+            ['type', 'there'],
+        ],
+        expected: 'hello big there',
+    },
 };
 
 /** What the phone sent, in short: typed text, keys, edits (with how the PC answered). */
@@ -408,18 +453,39 @@ function summarize(log) {
 
 const results = [];
 async function runCase({ target, entry, mode, focus, value, phone, windows, title = `${marker} ${entry.id}` }) {
+    if (caretScenarios[mode] && !entry.caret) return;
     await focus(entry.id);
     await windows.ask({ do: 'bring', title });
     // A window coming to the foreground can give the focus back to its first field (WinForms): focus again.
     await focus(entry.id);
     await wait(150);
+    const scenario = caretScenarios[mode];
+    if (scenario)
+        entry = {
+            ...entry,
+            typed: scenario.steps.find(([step]) => step === 'type')[1],
+            expected: scenario.expected,
+            check: null,
+        };
     await phone.open();
-    const { style, gap } = typingModes[mode];
     const started = performance.now();
     let phoneState,
         problem = '';
     try {
-        await phone.type(entry.typed, style, gap);
+        if (!scenario) await phone.type(entry.typed, typingModes[mode].style, typingModes[mode].gap);
+        for (const [step, value] of scenario?.steps ?? []) {
+            if (step === 'type') await phone.type(value, 'keys', 40);
+            else if (step === 'move') await phone.moveCaret(value);
+            else if (step === 'select') await phone.selectBack(value);
+            else if (step === 'key') await phone.press(value);
+            else if (step === 'reopen') {
+                await phone.settle();
+                await phone.close();
+                await wait(300);
+                await phone.open();
+            }
+            await phone.settle(400);
+        }
         await phone.settle();
     } catch (error) {
         problem = error.message;
@@ -433,7 +499,11 @@ async function runCase({ target, entry, mode, focus, value, phone, windows, titl
         id: entry.id,
         mode,
         // The phone shows the PC's text, or what was typed blind: all of it, or its end once the focus moved on.
-        echo: (phoneState.passthrough ? entry.typed : got).endsWith(phoneState.text),
+        // Moving the caret or deleting leaves only part of the text on the phone: any part of the final text.
+        echo:
+            scenario ?
+                entry.expected.includes(phoneState.text)
+            :   (phoneState.passthrough ? entry.typed : got).endsWith(phoneState.text),
         pass: (entry.check ? entry.check(got) : got === entry.expected) && !problem,
         problem,
         got,

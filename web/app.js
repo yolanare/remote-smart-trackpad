@@ -242,7 +242,7 @@ function mirrorActivity() {
     mirrorActiveAt = performance.now();
     if (mirrorPolling && wasQuiet) pollMirrorLater(200);
 }
-for (const type of ['command', 'text-input', 'text-key', 'text-passthrough', 'text-composition'])
+for (const type of ['command', 'text-input', 'text-key', 'text-move', 'text-passthrough', 'text-composition'])
     document.addEventListener(type, mirrorActivity, { capture: true });
 function schedulePolling() {
     const active = connected && !document.hidden;
@@ -495,6 +495,16 @@ document.addEventListener('text-key', (event) => {
         .then(() => mirror.poll())
         .catch((error) => showNotice(error.message));
     if (!rows.sticky) rows.reset();
+});
+// The keyboard moved its cursor over text typed blind (Gboard's space bar): the PC's caret moves as many steps, one
+// arrow key each, in order; held modifiers apply (Shift selects).
+document.addEventListener('text-move', (event) => {
+    const { key, count } = event.detail;
+    const modifiers = [...rows.held];
+    // Sent at once, in order: typing that follows goes after them.
+    Promise.all(Array.from({ length: count }, () => send('shortcut', { key, modifiers })))
+        .then(() => mirror.poll())
+        .catch((error) => showNotice(error.message));
 });
 document.addEventListener('text-passthrough', (event) => {
     blindField = mirrorState.field ?? null;

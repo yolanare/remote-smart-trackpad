@@ -1,6 +1,11 @@
+import { replacementFor } from '../text-operations.js';
+
 // A zero-width space before the text keeps a character behind the caret, so mobile keyboards report Backspace even
 // when the mirrored field is empty. Deleting it is forwarded to the PC as a Backspace key press.
-const anchor = '​';
+const anchor = String.fromCharCode(0x200b);
+// Typing blind, a run of them on each side of the text typed: the keyboard's cursor (Gboard's space bar drag) can
+// move past that text, and each step it moves is an arrow key on the PC. Deleting one is Backspace or Delete there.
+const margin = 32;
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 // Keys that never change the local text; they are always sent to the PC.
 const forwardedKeys = { Escape: 'Escape', Tab: 'Tab' };
@@ -30,13 +35,28 @@ class TextEditor extends HTMLElement {
         this.innerHTML =
             '<textarea id="editor-text" rows="1" aria-label="PC text field" spellcheck="true" autocapitalize="sentences"></textarea><span class="editor-hint" aria-hidden="true">Cannot retrieve text here. Start typing to edit</span>';
         const textarea = this.firstElementChild;
-        textarea.value = anchor;
+        textarea.value = this.written = anchor;
+        this.writtenLead = 1;
+        this.writtenPads = 1;
         this.composing = false;
         this.invalidated = false;
         const emit = (name, detail) => this.dispatchEvent(new CustomEvent(name, { bubbles: true, detail }));
+        // The text and selection without the anchors, read as they were written: one anchor before the PC's text
+        // (which may hold zero-width spaces of its own), anchors only around the text typed blind.
         const read = () => {
-            const raw = textarea.value,
-                at = raw.indexOf(anchor);
+            const raw = textarea.value;
+            if (this.writtenLead > 1) {
+                const strip = (part) => part.replaceAll(anchor, '');
+                return {
+                    at: 0,
+                    pads: raw.length - strip(raw).length,
+                    lead: raw.length - raw.replace(/^\u200b+/, '').length,
+                    text: strip(raw),
+                    start: strip(raw.slice(0, textarea.selectionStart)).length,
+                    end: strip(raw.slice(0, textarea.selectionEnd)).length,
+                };
+            }
+            const at = raw.indexOf(anchor);
             const shift = (position) => (at >= 0 && position > at ? position - 1 : position);
             return {
                 at,
@@ -46,10 +66,20 @@ class TextEditor extends HTMLElement {
             };
         };
         const input = () => {
-            const { at, text, start, end } = read();
-            if (at !== 0 && !this.composing) this.write(text, start, end);
-            if (at < 0 && text === this.text) emit('text-key', { key: 'Backspace' });
-            else if (this.passthrough) {
+            const { at, pads, lead, text, start, end } = read();
+            // An anchor deleted, the text as it was: the key went past the text the phone has. One at a time (a key
+            // press): a keyboard deleting a selection that reaches into them only deletes the text in it.
+            const erased = pads === undefined ? Number(at < 0) : this.writtenPads - pads;
+            if (!this.composing && textarea.value !== this.layout(text)) this.write(text, start, end);
+            else {
+                // What the field holds now is the layout the caret is followed in (see followCaret).
+                this.written = textarea.value;
+                this.writtenPads = textarea.value.length - text.length;
+            }
+            if (text === this.text && erased > 0) {
+                const forward = pads !== undefined && lead === this.writtenLead;
+                if (erased === 1) emit('text-key', { key: forward ? 'Delete' : 'Backspace' });
+            } else if (this.passthrough) {
                 if (!this.composing) this.forward(text, start, emit);
             } else if (!this.invalidated) {
                 // previous: the text this typing went over, which the PC's text may have replaced meanwhile (a
@@ -62,7 +92,6 @@ class TextEditor extends HTMLElement {
             this.updateHint();
         };
         textarea.addEventListener('beforeinput', (event) => {
-            this.caret = read().start;
             // Phone keyboards often skip the Enter keydown: the line break they insert is the Enter key, too.
             if (!['insertLineBreak', 'insertParagraph'].includes(event.inputType) || !this.submits()) return;
             event.preventDefault();
@@ -75,6 +104,26 @@ class TextEditor extends HTMLElement {
             if (textarea.selectionStart === this.writtenStart && textarea.selectionEnd === this.writtenEnd) return;
             input();
         });
+        // The keyboard moving its cursor (Gboard: dragging on the space bar) moves the PC's caret too.
+        const followCaret = () => {
+            if (textarea.value !== this.written) return;
+            const { selectionStart: from, selectionEnd: to } = textarea;
+            if (this.passthrough) {
+                // A selection (the keyboard selecting words to delete) goes once deleted, as the keys erasing it.
+                if (from !== to) return;
+                const target = from - this.writtenLead,
+                    steps = target - this.caret;
+                if (!steps) return;
+                emit('text-move', { key: steps < 0 ? 'Left' : 'Right', count: Math.abs(steps) });
+                // Past the text typed blind, the phone no longer knows what borders the PC's caret: it starts afresh,
+                // its cursor back between the anchors to go on moving either way.
+                if (target < 0 || target > this.text.length) this.clearEcho();
+                else this.caret = target;
+                return;
+            }
+            if (from === this.writtenStart && to === this.writtenEnd) return;
+            input();
+        };
         textarea.addEventListener('keydown', (event) => {
             if (event.isComposing || event.keyCode === 229) return;
             const { start, end } = read();
@@ -92,15 +141,12 @@ class TextEditor extends HTMLElement {
             // Moving the PC's caret blind leaves the echoed text behind: it no longer matches what follows the caret.
             if (this.passthrough && navigationKeys.has(key)) this.clearEcho();
         });
-        // Keep the caret after the anchor so Backspace always has something to delete.
         document.addEventListener('selectionchange', () => {
-            if (
-                document.activeElement === textarea
-                && !this.composing
-                && textarea.selectionStart === 0
-                && textarea.value.startsWith(anchor)
-            )
+            if (document.activeElement !== textarea || this.composing) return;
+            // Keep the caret after the anchor so Backspace always has something to delete.
+            if (!this.passthrough && textarea.selectionStart === 0 && textarea.value.startsWith(anchor))
                 textarea.setSelectionRange(1, Math.max(1, textarea.selectionEnd));
+            else followCaret();
         });
         textarea.addEventListener('compositionstart', () => {
             this.composing = true;
@@ -128,39 +174,49 @@ class TextEditor extends HTMLElement {
     submits() {
         return this.passthrough || this.singleLine;
     }
-    /** Sends the difference from the last forwarded text as key presses and typed text. */
+    /**
+     * Sends the difference from the last forwarded text as key presses and typed text, at the PC's caret (this.caret,
+     * in the text typed blind): Backspace erases up to it, Delete after it. A change elsewhere (a word the keyboard
+     * selected before the cursor and replaced) first moves the PC's caret to its end.
+     */
     forward(text, caret, emit) {
         const previous = this.text;
-        const shorter = Math.min(previous.length, text.length);
-        let prefix = 0,
-            suffix = 0;
-        while (prefix < shorter && previous[prefix] === text[prefix]) prefix++;
-        while (suffix < shorter - prefix && previous[previous.length - 1 - suffix] === text[text.length - 1 - suffix])
-            suffix++;
-        const removed = [...segmenter.segment(previous.slice(prefix, previous.length - suffix))].length;
-        const inserted = text.slice(prefix, text.length - suffix);
-        const forwardDelete = !inserted && this.caret <= prefix;
+        const change = replacementFor(previous, text, caret);
+        const removed = [...segmenter.segment(previous.slice(change.start, change.end))].length;
+        const forwardDelete = !change.text && change.start === this.caret;
+        const steps = forwardDelete ? 0 : change.end - this.caret;
+        // No change (a selection the keyboard made): the PC's caret has not moved.
+        if (!removed && !change.text) return;
         this.text = text;
         this.caret = caret;
-        if (removed || inserted)
-            emit('text-passthrough', {
-                backspace: forwardDelete ? 0 : removed,
-                delete: forwardDelete ? removed : 0,
-                text: inserted,
-            });
+        if (steps) emit('text-move', { key: steps < 0 ? 'Left' : 'Right', count: Math.abs(steps) });
+        emit('text-passthrough', {
+            backspace: forwardDelete ? 0 : removed,
+            delete: forwardDelete ? removed : 0,
+            text: change.text,
+        });
     }
     /** The field's own placeholder cannot show behind the anchor, so blind typing gets an overlay hint. */
     updateHint() {
-        const empty = this.firstElementChild.value.replace(anchor, '') === '';
+        const empty = this.firstElementChild.value.replaceAll(anchor, '') === '';
         this.classList.toggle('show-hint', this.passthrough && empty && !this.composing);
+    }
+    /** The field's value for `text`: the anchor before the PC's text, or the anchors around the text typed blind. */
+    layout(text) {
+        return this.passthrough ? anchor.repeat(margin) + text + anchor.repeat(margin) : anchor + text;
     }
     write(text, start, end) {
         const field = this.firstElementChild;
-        if (field.value !== anchor + text) field.value = anchor + text;
-        if (field.selectionStart !== start + 1 || field.selectionEnd !== end + 1)
-            field.setSelectionRange(start + 1, end + 1);
-        this.writtenStart = start + 1;
-        this.writtenEnd = end + 1;
+        const value = this.layout(text),
+            lead = this.passthrough ? margin : 1;
+        if (field.value !== value) field.value = value;
+        if (field.selectionStart !== start + lead || field.selectionEnd !== end + lead)
+            field.setSelectionRange(start + lead, end + lead);
+        this.written = value;
+        this.writtenLead = lead;
+        this.writtenPads = value.length - text.length;
+        this.writtenStart = start + lead;
+        this.writtenEnd = end + lead;
     }
     /** The field grows with its text through CSS field-sizing; this measures it where that is unsupported (Firefox). */
     resize() {
@@ -185,6 +241,7 @@ class TextEditor extends HTMLElement {
         this.applyState(state);
         if (!keepEcho) {
             this.text = state.text;
+            this.caret = state.selectionStart;
             this.write(state.text, state.selectionStart, state.selectionEnd);
         }
         this.resize();
@@ -204,6 +261,7 @@ class TextEditor extends HTMLElement {
     clearEcho() {
         if (!this.passthrough || this.composing) return;
         this.text = '';
+        this.caret = 0;
         this.write('', 0, 0);
         this.resize();
         this.updateHint();

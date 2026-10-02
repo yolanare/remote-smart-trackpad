@@ -572,7 +572,7 @@ try {
     // word again); at the composition's end the typing stays, unless the PC's focus moved to another field.
     const composition = await evaluate(`(() => {
         const editor = document.querySelector('text-editor'), field = editor.querySelector('textarea');
-        const value = () => field.value.replace(String.fromCharCode(0x200b), '');
+        const value = () => field.value.replaceAll(String.fromCharCode(0x200b), '');
         const typed = [];
         const capture = (event) => { event.stopImmediatePropagation(); typed.push(event.detail.text); };
         document.addEventListener('text-input', capture, { capture: true });
@@ -696,15 +696,14 @@ try {
     // is sent once. A focus change later on starts afresh.
     const typingMoves = await evaluate(`(async () => {
         const field = document.querySelector('textarea');
-        const value = () => field.value.replace(String.fromCharCode(0x200b), '');
+        const value = () => field.value.replaceAll(String.fromCharCode(0x200b), '');
         const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
         const blind = () => document.querySelector('text-editor').passthrough;
         window.__blocked = [];
         window.__readAnswer = { available: false, text: '', field: 'zone-a' };
         for (let attempt = 0; attempt < 40 && !blind(); attempt++) await wait(50);
         field.focus();
-        field.value = String.fromCharCode(0x200b) + 'h';
-        field.setSelectionRange(2, 2);
+        field.setRangeText('h', field.selectionStart, field.selectionEnd, 'end');
         field.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: 'h' }));
         window.__readAnswer = { available: false, text: '', field: 'zone-a-suggestions' };
         await wait(600);

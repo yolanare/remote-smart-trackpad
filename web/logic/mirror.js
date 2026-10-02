@@ -218,6 +218,13 @@ export function createMirror(send, render) {
          */
         input(text, selectionStart, selectionEnd, previous = state.text) {
             if (!state.available) return;
+            // Nothing new (the caret reported where it already is): nothing to send.
+            const same =
+                previous === state.text
+                && text === state.text
+                && selectionStart === state.selectionStart
+                && selectionEnd === state.selectionEnd;
+            if (same) return;
             const { backspaces, ...replayed } =
                 (previous !== state.text && replay(previous, { text, selectionStart }, state)) || {};
             state = { ...state, ...('text' in replayed ? replayed : { text, selectionStart, selectionEnd }) };
