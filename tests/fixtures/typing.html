@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Typing fixtures</title>
+        <style>
+            body {
+                margin: 16px;
+                font:
+                    14px system-ui,
+                    sans-serif;
+            }
+            section {
+                display: grid;
+                grid-template-columns: 14rem 1fr;
+                align-items: center;
+                margin-bottom: 6px;
+                gap: 8px;
+            }
+            input,
+            textarea,
+            [contenteditable],
+            .screen {
+                box-sizing: border-box;
+                width: 100%;
+                padding: 4px;
+                border: 1px solid #888;
+                font: inherit;
+            }
+            .screen {
+                min-height: 1.6em;
+                white-space: pre;
+            }
+            .otp {
+                display: flex;
+                gap: 4px;
+            }
+            .otp input {
+                width: 2em;
+                text-align: center;
+            }
+        </style>
+    </head>
+    <body>
+        <!--
+            Fields the phone types into for real through the host (scripts/typing-check.mjs), each with what the
+            keyboard types (data-typed) and what the field must end up holding (data-expected). Some read back as
+            text on the phone, some only blind (the proxy and terminal kinds), some change the typing (masks), some
+            move the focus while typed into (rebuild, otp), some answer late (delayed).
+        -->
+        <section data-case="input" data-typed="hello world" data-expected="hello world">
+            <label>input</label><input data-field />
+        </section>
+        <section data-case="textarea" data-typed="hello world" data-expected="hello world">
+            <label>textarea</label><textarea data-field rows="2"></textarea>
+        </section>
+        <section data-case="editable" data-typed="hello world" data-expected="hello world">
+            <label>contenteditable</label>
+            <div data-field contenteditable></div>
+        </section>
+        <section data-case="search" data-typed="hello world" data-expected="hello world">
+            <label>search</label><input data-field type="search" />
+        </section>
+        <section data-case="upper" data-typed="hello" data-expected="HELLO" data-mask="upper">
+            <label>mask: uppercase</label><input data-field />
+        </section>
+        <section data-case="phone" data-typed="0612345678" data-expected="06 12 34 56 78" data-mask="phone">
+            <label>mask: phone</label><input data-field inputmode="tel" />
+        </section>
+        <section data-case="date" data-typed="02102026" data-expected="02/10/2026" data-mask="date">
+            <label>mask: date</label><input data-field />
+        </section>
+        <section data-case="card" data-typed="4111111111111111" data-expected="4111 1111 1111 1111" data-mask="card">
+            <label>mask: card</label><input data-field />
+        </section>
+        <section data-case="digits" data-typed="a1b2c3" data-expected="123" data-mask="digits">
+            <label>mask: digits only</label><input data-field />
+        </section>
+        <section data-case="maxlength" data-typed="hello world" data-expected="hello">
+            <label>maxlength 5</label><input data-field maxlength="5" />
+        </section>
+        <section data-case="complete" data-typed="apple pie" data-expected="apple pie" data-mask="complete">
+            <label>inline completion</label><input data-field />
+        </section>
+        <section data-case="delayed" data-typed="hello" data-expected="hello" data-mask="delayed">
+            <label>late answer (600 ms)</label><input data-field />
+        </section>
+        <section data-case="proxy" data-typed="hello world" data-expected="hello world" data-screen>
+            <label>hidden proxy (code editor)</label>
+            <div class="screen"></div>
+            <textarea data-field data-proxy style="position: absolute; width: 1px; height: 1px; opacity: 0"></textarea>
+        </section>
+        <section data-case="terminal" data-typed="hello world" data-expected="hello world" data-screen>
+            <label>terminal (keys only)</label>
+            <div class="screen" data-field data-terminal tabindex="0"></div>
+        </section>
+        <section data-case="rebuild" data-typed="hello" data-expected="hello" data-mask="rebuild">
+            <label>rebuilt after a key</label><input data-field />
+        </section>
+        <section data-case="otp" data-typed="123456" data-expected="123456">
+            <label>code, one box per digit</label>
+            <div class="otp" data-field data-otp>
+                <input maxlength="1" /><input maxlength="1" /><input maxlength="1" /><input maxlength="1" /><input
+                    maxlength="1"
+                /><input maxlength="1" />
+            </div>
+        </section>
+        <script>
+            const sectionOf = (id) => document.querySelector(`[data-case="${id}"]`);
+            const fieldOf = (id) => sectionOf(id).querySelector('[data-field]');
+            // Masks rewrite the value on each input and put the caret back after the same number of kept characters.
+            const masks = {
+                upper: (value) => value.toUpperCase(),
+                phone: (value) =>
+                    value
+                        .replace(/[^0-9]/g, '')
+                        .slice(0, 10)
+                        .replace(/(..)(?=.)/g, '$1 '),
+                date: (value) => {
+                    const digits = value.replace(/[^0-9]/g, '').slice(0, 8);
+                    return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)].filter(Boolean).join('/');
+                },
+                card: (value) =>
+                    value
+                        .replace(/[^0-9]/g, '')
+                        .slice(0, 16)
+                        .replace(/(....)(?=.)/g, '$1 '),
+                digits: (value) => value.replace(/[^0-9]/g, ''),
+            };
+            const words = ['apple', 'apricot', 'banana'];
+            function setUp(section) {
+                const field = section.querySelector('[data-field]');
+                const mask = section.dataset.mask;
+                if (masks[mask])
+                    field.addEventListener('input', () => {
+                        const kept = (text) => text.replace(/[^0-9A-Za-z]/g, '').length;
+                        const before = kept(field.value.slice(0, field.selectionStart));
+                        const value = masks[mask](field.value);
+                        if (value === field.value) return;
+                        field.value = value;
+                        let caret = 0;
+                        for (let count = 0; caret < value.length && count < before; caret++)
+                            if (/[0-9A-Za-z]/.test(value[caret])) count++;
+                        field.setSelectionRange(caret, caret);
+                    });
+                // An address bar: typing a word's start completes it, the rest selected so typing on replaces it.
+                if (mask === 'complete')
+                    field.addEventListener('input', (event) => {
+                        if (event.inputType !== 'insertText') return;
+                        const typed = field.value;
+                        const word = words.find((word) => typed && word.startsWith(typed) && word !== typed);
+                        if (!word) return;
+                        field.value = word;
+                        field.setSelectionRange(typed.length, word.length);
+                    });
+                // A slow app (a remote desktop, a busy editor): each edit shows up 600 ms later, in order.
+                if (mask === 'delayed')
+                    field.addEventListener('beforeinput', (event) => {
+                        const backward = event.inputType === 'deleteContentBackward';
+                        if (event.inputType !== 'insertText' && !backward) return;
+                        event.preventDefault();
+                        setTimeout(() => {
+                            const { selectionStart: start, selectionEnd: end } = field;
+                            if (!backward) field.setRangeText(event.data, start, end, 'end');
+                            else if (start !== end || start > 0)
+                                field.setRangeText('', start === end ? start - 1 : start, end, 'end');
+                        }, 600);
+                    });
+                // A search page that replaces its box once typing starts: the focus moves to a new element.
+                if (mask === 'rebuild')
+                    field.addEventListener(
+                        'input',
+                        () => {
+                            const copy = field.cloneNode();
+                            copy.value = field.value;
+                            field.replaceWith(copy);
+                            copy.focus();
+                            copy.setSelectionRange(copy.value.length, copy.value.length);
+                        },
+                        { once: true }
+                    );
+                // A code editor: a 1 px textarea takes the keyboard, the text shows elsewhere and the textarea empties.
+                if ('proxy' in field.dataset) {
+                    const screen = section.querySelector('.screen');
+                    field.addEventListener('input', () => {
+                        if (field.value) screen.textContent += field.value;
+                        field.value = '';
+                    });
+                    field.addEventListener('keydown', (event) => {
+                        if (event.key !== 'Backspace') return;
+                        event.preventDefault();
+                        screen.textContent = screen.textContent.slice(0, -1);
+                    });
+                }
+                // A terminal: no text field at all, only keys.
+                if ('terminal' in field.dataset)
+                    field.addEventListener('keydown', (event) => {
+                        if (event.key === 'Backspace') field.textContent = field.textContent.slice(0, -1);
+                        else if (event.key.length === 1 && !event.ctrlKey && !event.altKey)
+                            field.textContent += event.key;
+                        else return;
+                        event.preventDefault();
+                    });
+                // Each digit moves on to the next box; Backspace in an empty box erases the one before.
+                if ('otp' in field.dataset)
+                    field.querySelectorAll('input').forEach((box, index, boxes) => {
+                        box.addEventListener('input', () => box.value && boxes[index + 1]?.focus());
+                        box.addEventListener('keydown', (event) => {
+                            if (event.key !== 'Backspace' || box.value || !index) return;
+                            event.preventDefault();
+                            boxes[index - 1].value = '';
+                            boxes[index - 1].focus();
+                        });
+                    });
+            }
+            document.querySelectorAll('[data-case]').forEach(setUp);
+            // Where a click on the field would put the focus: the first box of a code, the field itself otherwise.
+            const focusTarget = (id) => {
+                const field = fieldOf(id);
+                return 'otp' in field.dataset ? field.querySelector('input') : field;
+            };
+            function clear(id) {
+                const section = sectionOf(id);
+                // A rebuilt field starts over as a fresh element, which rebuilds itself again on its first key.
+                if (section.dataset.mask === 'rebuild') {
+                    fieldOf(id).replaceWith(fieldOf(id).cloneNode());
+                    setUp(section);
+                }
+                const field = fieldOf(id);
+                if ('otp' in field.dataset) field.querySelectorAll('input').forEach((box) => (box.value = ''));
+                else if ('value' in field && !('terminal' in field.dataset)) field.value = '';
+                else field.textContent = '';
+                const screen = section.querySelector('.screen');
+                if (screen && screen !== field) screen.textContent = '';
+            }
+            function value(id) {
+                const section = sectionOf(id);
+                const field = fieldOf(id);
+                if ('screen' in section.dataset) return section.querySelector('.screen').textContent;
+                if ('otp' in field.dataset)
+                    return [...field.querySelectorAll('input')].map((box) => box.value).join('');
+                return 'value' in field ? field.value : field.innerText.replace(/\n$/, '');
+            }
+            // Driven by scripts/typing-check.mjs: the page reports its cases, then runs each command it is sent (focus a
+            // case, report its value) and answers with the next request. The window title names the focused case, which
+            // the host's input guard checks before any input.
+            const harness = new URLSearchParams(location.search).get('harness');
+            if (harness)
+                (async () => {
+                    document.title = `Typing fixtures ${harness}`;
+                    let current = null;
+                    addEventListener(
+                        'focus',
+                        () => current?.isConnected && document.activeElement !== current && current.focus()
+                    );
+                    const cases = [...document.querySelectorAll('[data-case]')].map((section) => ({
+                        id: section.dataset.case,
+                        typed: section.dataset.typed,
+                        expected: section.dataset.expected,
+                    }));
+                    let reply = { cases };
+                    for (;;) {
+                        const command = await (
+                            await fetch('/next', { method: 'POST', body: JSON.stringify(reply) })
+                        ).json();
+                        if (command.do === 'focus') {
+                            clear(command.id);
+                            current = focusTarget(command.id);
+                            current.focus();
+                            document.title = `Typing fixtures ${harness} ${command.id}`;
+                            reply = { focused: command.id, hasFocus: document.hasFocus() };
+                        } else if (command.do === 'value') reply = { value: value(command.id) };
+                        else break;
+                    }
+                })();
+        </script>
+    </body>
+</html>

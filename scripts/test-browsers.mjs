@@ -13,16 +13,17 @@ export const PROFILE_PREFIX = 'remote-smart-trackpad-test-browser-';
 const programFiles = process.env.ProgramFiles ?? 'C:/Program Files';
 const programFilesX86 = process.env['ProgramFiles(x86)'] ?? 'C:/Program Files (x86)';
 
+// app: a window with the page alone (no address bar or tabs), or a regular browser window.
 const chromium = (executable) => ({
     executable,
-    args: (profile, url) => [
+    args: (profile, url, app) => [
         '--no-first-run',
         '--no-default-browser-check',
         '--disable-search-engine-choice-screen',
         '--force-renderer-accessibility',
         '--window-size=1200,900',
         `--user-data-dir=${profile}`,
-        `--app=${url}`,
+        app ? `--app=${url}` : url,
     ],
 });
 // Firefox: no welcome or what's-new pages, no default browser or "pin to taskbar" prompts (in the window or as
@@ -77,12 +78,15 @@ const closeProcesses = (marker) =>
         `Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*${marker}*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`
     );
 
-/** Opens `url` in a fresh window of browser `name`; close() ends all its processes and removes its profile. */
-export async function openBrowser(name, url) {
+/**
+ * Opens `url` in a fresh window of browser `name`, with the page alone or, `app: false`, as a regular window (with
+ * an address bar; Firefox always is). close() ends all its processes and removes its profile.
+ */
+export async function openBrowser(name, url, { app = true } = {}) {
     const browser = browsers[name];
     const profile = await mkdtemp(path.join(tmpdir(), `${PROFILE_PREFIX}${name}-`));
     await browser.prepare?.(profile);
-    spawn(browser.executable, browser.args(profile, url), { stdio: 'ignore', detached: false });
+    spawn(browser.executable, browser.args(profile, url, app), { stdio: 'ignore', detached: false });
     return {
         async close() {
             await closeProcesses(path.basename(profile));

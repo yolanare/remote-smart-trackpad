@@ -1,11 +1,34 @@
 [Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 . (Join-Path $PSScriptRoot 'windows-input.ps1')
+# Tests that type for real (scripts/typing-check.mjs) set this to a marker in their own windows' titles: input then
+# only ever reaches a window carrying it, never another app the user has in the foreground.
+$inputGuard = $env:REMOTE_SMART_TRACKPAD_INPUT_GUARD
+if ($inputGuard) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class InputGuard {
+    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr window, StringBuilder text, int size);
+    public static string ForegroundTitle() {
+        var text = new StringBuilder(512);
+        GetWindowText(GetForegroundWindow(), text, text.Capacity);
+        return text.ToString();
+    }
+}
+'@
+}
+$readActions = @('mirror-read', 'mirror-close', 'media-state', 'release')
 while ($null -ne ($line = [Console]::ReadLine())) {
     try {
         $request = ConvertFrom-Json -InputObject $line
         $data = $request.data
         $result = $null
+        if ($inputGuard -and $request.action -notin $readActions -and -not [InputGuard]::ForegroundTitle().Contains($inputGuard)) {
+            throw "Input guard: the foreground window is not a test window"
+        }
         switch ($request.action) {
             'move' {
                 if (-not [NativeInput]::MoveBy([int]$data.dx, [int]$data.dy)) { throw 'Windows rejected pointer movement' }
