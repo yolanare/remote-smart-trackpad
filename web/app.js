@@ -483,7 +483,7 @@ document.addEventListener('edge-glide', (event) => {
     }).catch(() => {});
 });
 document.addEventListener('text-input', (event) =>
-    mirror.input(event.detail.text, event.detail.start, event.detail.end)
+    mirror.input(event.detail.text, event.detail.start, event.detail.end, event.detail.previous)
 );
 document.addEventListener('text-composition', (event) => mirror.compose(event.detail));
 document.addEventListener('text-key', (event) => {

@@ -122,3 +122,105 @@ test('a failed edit rereads the PC so typing resumes without refocusing', async 
     await h.reply(snapshot('ab\n\nc'));
     assert.equal(h.changes.at(-1).available, true);
 });
+test('typing the PC took is never sent again, even when the field shows something else', async () => {
+    const h = harness();
+    h.mirror.open();
+    await h.reply(snapshot(''));
+    h.mirror.input('a', 1, 1);
+    // A digits-only field refused the letter: same text, but the key was pressed. Sending it again would type it
+    // twice in a field that answers late.
+    await h.reply({ accepted: false, typed: true, snapshot: snapshot('', 'field-a', 0) });
+    assert.equal(h.requests.length, 0);
+    assert.equal(h.changes.at(-1).text, '');
+});
+test('typing done while a masked field reshapes the previous key follows at its caret', async () => {
+    const h = harness();
+    h.mirror.open();
+    await h.reply(snapshot('06'));
+    h.mirror.input('061', 3, 3);
+    const edit = h.requests.shift();
+    h.mirror.input('0612', 4, 4);
+    // The mask spaced the digits: "06 1". The 2 typed meanwhile goes after its caret, not lost with the phone's text.
+    edit.resolve({ accepted: false, typed: true, snapshot: snapshot('06 1', 'field-a', 1) });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.changes.at(-1).text, '06 12');
+    assert.deepEqual(
+        { start: h.requests[0].data.start, end: h.requests[0].data.end, text: h.requests[0].data.text },
+        { start: 4, end: 4, text: '2' }
+    );
+    await h.reply({ accepted: true, snapshot: snapshot('06 12', 'field-a', 2) });
+    assert.equal(h.changes.at(-1).text, '06 12');
+});
+test('a field that cannot be read leaves no text from the one before', async () => {
+    const h = harness();
+    h.mirror.open();
+    await h.reply(snapshot('Earlier field'));
+    h.mirror.poll();
+    h.requests.shift().reject(new Error('Text selection is not supported on this element.'));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.changes.at(-1).text, '');
+    h.mirror.close();
+    h.mirror.open();
+    assert.equal(h.changes.at(-1).text, '', 'reopening shows nothing until the PC is read');
+});
+test('a PC answer arriving during a composition never sends it early nor lets stale text overwrite the PC', async () => {
+    const h = harness();
+    h.mirror.open();
+    await h.reply(snapshot(''));
+    h.mirror.input('hello', 5, 5, '');
+    const edit = h.requests.shift();
+    // The keyboard composes the next word while the edit is on its way.
+    h.mirror.compose(true);
+    h.mirror.input('hello w', 7, 7, 'hello');
+    // The field made it upper case: its text wins, the composition so far follows, nothing is sent mid-word.
+    edit.resolve({ accepted: false, typed: true, snapshot: snapshot('HELLO', 'field-a', 1) });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.changes.at(-1).text, 'HELLO w');
+    assert.equal(h.requests.length, 0);
+    // The editor still shows its own text (not rewritten during a composition) and types on top of it.
+    h.mirror.input('hello wo', 8, 8, 'hello w');
+    assert.equal(h.changes.at(-1).text, 'HELLO wo');
+    h.mirror.compose(false);
+    assert.deepEqual(
+        { start: h.requests[0].data.start, end: h.requests[0].data.end, text: h.requests[0].data.text },
+        { start: 5, end: 5, text: ' wo' }
+    );
+});
+test('typing over a completion the PC selected replaces it, as a keyboard types', async () => {
+    const h = harness();
+    h.mirror.open();
+    await h.reply({ ...snapshot('apple'), selectionStart: 1, selectionEnd: 5 });
+    h.mirror.input('ap', 2, 2);
+    assert.deepEqual(
+        { start: h.requests[0].data.start, end: h.requests[0].data.end, text: h.requests[0].data.text },
+        { start: 1, end: 5, text: 'p' }
+    );
+});
+test('Backspace typed while the focus moved on to an empty field reaches the PC as a key', async () => {
+    const h = harness();
+    h.mirror.open();
+    await h.reply(snapshot('', 'box-3'));
+    h.mirror.input('9', 1, 1);
+    const edit = h.requests.shift();
+    h.mirror.input('', 0, 0);
+    // The code field moved the focus to its next box, empty: the erased 9 is behind, in the previous box.
+    edit.resolve({ accepted: false, typed: true, snapshot: snapshot('', 'box-4') });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(h.requests[0].data, { key: 'Backspace', modifiers: [] });
+    await h.reply({});
+    assert.equal(h.requests[0].action, 'mirror-read');
+    await h.reply(snapshot('', 'box-3'));
+    assert.equal(h.changes.at(-1).session, 'box-3');
+});
+test('an erasure the same field cannot hold presses no key', async () => {
+    const h = harness();
+    h.mirror.open();
+    await h.reply({ ...snapshot('apple'), selectionStart: 3, selectionEnd: 5 });
+    h.mirror.input('app', 3, 3);
+    const edit = h.requests.shift();
+    h.mirror.input('ap', 2, 2);
+    // The field read empty for a moment: no Backspace may be sent to make up for it.
+    edit.resolve({ accepted: false, typed: true, snapshot: snapshot('', 'field-a', 1) });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.ok(h.requests.every((request) => request.action !== 'shortcut'));
+});

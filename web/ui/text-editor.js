@@ -52,8 +52,11 @@ class TextEditor extends HTMLElement {
             else if (this.passthrough) {
                 if (!this.composing) this.forward(text, start, emit);
             } else if (!this.invalidated) {
+                // previous: the text this typing went over, which the PC's text may have replaced meanwhile (a
+                // composition defers writing it, see render).
+                const previous = this.text;
                 this.text = text;
-                emit('text-input', { text, start, end });
+                emit('text-input', { text, start, end, previous });
             }
             this.resize();
             this.updateHint();

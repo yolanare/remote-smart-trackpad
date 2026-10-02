@@ -19,6 +19,9 @@ public sealed class FieldContent {
     public bool OtherText;
     // No accessible children at all: empty, or Firefox's role=textbox fields, which hide their text nodes.
     public bool Leafless = true;
+    // A page's element (IAccessible2 names its tag), not the browser's own interface (Chrome's address bar), whose
+    // text is always the user's.
+    public bool Dom;
     // The field holds one line only (IAccessible2's single-line state; text-mirror.ps1 trusts it for <input> only).
     public bool SingleLine;
 
@@ -63,6 +66,8 @@ public sealed class FieldContent {
         var content = new FieldContent();
         content.SingleLine = (Accessible2State(focused) & SingleLineState) != 0;
         content.Native = attributes.Contains("tag:input;") || attributes.Contains("tag:textarea;");
+        content.Dom = attributes.Contains("tag:");
+        if (!content.Dom) return content;
         if (content.Native) {
             try { content.Value = focused.get_accValue(0) ?? ""; } catch {}
             return content;

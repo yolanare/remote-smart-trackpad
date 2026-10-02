@@ -1,6 +1,11 @@
 $script:mirror = $null
 . (Join-Path $PSScriptRoot 'field-content.ps1')
 
+# The text as the phone gets it: one kind of line break, and plain spaces. Rich-text fields keep a space typed at the
+# end of a line as a no-break space until more text follows; the user typed a space, and an edit checked against
+# its own text must find one there.
+function Normalize-MirrorText([string]$text) { return (Normalize-LineEndings $text).Replace([string][char]0xA0, ' ') }
+
 # Chromium exposes a <br> that ends a line with other content as a final line break the caret can never reach.
 # An empty line (<div><br></div>, <p><br></p>) is real: its break is the only content of its block.
 function Test-PhantomBreak($element) {
@@ -34,8 +39,9 @@ function Find-FieldVerdict($element, [string]$text, [int]$caret) {
     $current = $element.Current
     $content = $null
     if ($current.FrameworkId -in @('Chrome', 'Gecko')) {
-        # Right after a focus change IAccessible2 can lag behind UI Automation for a moment.
-        for ($attempt = 0; $null -eq $content -and $attempt -lt 3; $attempt++) {
+        # Right after a focus change IAccessible2 can lag behind UI Automation for a moment (Firefox then reports no
+        # tag yet; all its fields have one, its own interface included).
+        for ($attempt = 0; $attempt -lt 3 -and ($null -eq $content -or ($current.FrameworkId -eq 'Gecko' -and -not $content.Dom)); $attempt++) {
             if ($attempt) { Start-Sleep -Milliseconds 30 }
             $content = [FieldContent]::Focused($current.Name)
         }
@@ -46,6 +52,8 @@ function Find-FieldVerdict($element, [string]$text, [int]$caret) {
         $singleLine = [FieldContent]::Win32SingleLine([IntPtr]$current.NativeWindowHandle, $current.ClassName)
         return @{ unreadable=($text.Length -and $text -ceq $current.Name); empty=$false; singleLine=$singleLine }
     }
+    # Chrome's own text fields (its address bar): their text is the user's, except that empty they read as their name.
+    if (-not $content.Dom -and $current.FrameworkId -eq 'Chrome') { return @{ unreadable=$false; empty=($text -ceq $current.Name); singleLine=$content.SingleLine } }
     if ($content.Native) {
         # A field too small to show any text is the hidden input of an editor drawn elsewhere (VS Code's editor and
         # terminal): unreadable, the phone types blind. Whatever it holds: such an editor leaves each typed character
@@ -96,8 +104,9 @@ function Read-MirrorOnce {
         $script:mirror = $null
         return @{ field=$field; available=$false; text=''; selectionStart=0; selectionEnd=0 }
     }
-    $ranges = $pattern.GetSelection()
-    if ($ranges.Count -ne 1) { $script:mirror = $null; return @{ field=$field; available=$false; text='' } }
+    # Some providers refuse to report it at times (WPF's RichTextBox): the field cannot be followed, type blind.
+    $ranges = try { $pattern.GetSelection() } catch { $null }
+    if ($null -eq $ranges -or $ranges.Count -ne 1) { $script:mirror = $null; return @{ field=$field; available=$false; text='' } }
     $document = $pattern.DocumentRange
     # Read-only text (a web page rather than a field). The selection is the cheap hint; a caret next to a
     # non-editable part (a placeholder, a mention) reads read-only too, so the whole document confirms it. That scan
@@ -115,12 +124,12 @@ function Read-MirrorOnce {
     }
     $raw = $document.GetText(262145)
     if ($raw.Length -gt 262144) { $script:mirror = $null; return @{ field=$field; available=$false; text=''; reason='This field exceeds the 256 Ki character mirror limit.' } }
-    $text = Normalize-LineEndings $raw
+    $text = Normalize-MirrorText $raw
     $prefix = $document.Clone()
     $prefix.MoveEndpointByRange([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, $ranges[0], [System.Windows.Automation.Text.TextPatternRangeEndpoint]::Start)
-    $start = (Normalize-LineEndings ($prefix.GetText(262145))).Length
+    $start = (Normalize-MirrorText ($prefix.GetText(262145))).Length
     # The end follows from the selected text itself, without reading the text before it a second time.
-    $end = $start + (Normalize-LineEndings ($ranges[0].GetText(262145))).Length
+    $end = $start + (Normalize-MirrorText ($ranges[0].GetText(262145))).Length
     $resolved = Resolve-FieldText $element $text $start
     if ($resolved.unreadable) {
         $script:mirror = $null
@@ -137,6 +146,11 @@ function Read-MirrorOnce {
             $text = $text.Substring(0, $text.Length - 1)
             $start = [Math]::Min($start, $text.Length); $end = [Math]::Min($end, $text.Length)
         }
+    }
+    # A Windows rich edit box (RichEdit, WinForms' RichTextBox) ends with a paragraph mark the caret never passes.
+    if ($framework -in @('Win32', 'WinForm') -and $element.Current.ClassName -like '*RichEdit*' -and $text.EndsWith("`n")) {
+        $text = $text.Substring(0, $text.Length - 1)
+        $start = [Math]::Min($start, $text.Length); $end = [Math]::Min($end, $text.Length)
     }
     # Chromium can misreport the caret on an empty line; after our own edit the caret position is known instead.
     $believed = if ($null -ne $script:mirror -and $element.Equals($script:mirror.element)) { $script:mirror.believed } else { $null }
@@ -167,7 +181,7 @@ function Select-MirrorRange([int]$start, [int]$end, [string]$text) {
     $range.MoveEndpointByRange([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, $range, [System.Windows.Automation.Text.TextPatternRangeEndpoint]::Start)
     if ($range.MoveEndpointByUnit([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, [System.Windows.Automation.Text.TextUnit]::Character, $to) -ne $to) { throw 'PC text range cannot be selected' }
     if ($range.MoveEndpointByUnit([System.Windows.Automation.Text.TextPatternRangeEndpoint]::Start, [System.Windows.Automation.Text.TextUnit]::Character, $from) -ne $from) { throw 'PC text range cannot be selected' }
-    if ((Normalize-LineEndings ($range.GetText(262145))) -cne $text.Substring($start, $end - $start)) { throw 'PC text range differs' }
+    if ((Normalize-MirrorText ($range.GetText(262145))) -cne $text.Substring($start, $end - $start)) { throw 'PC text range differs' }
     # A caret at the start of a line is ambiguous in Chromium: it can resolve to the end of the previous line. Place
     # it instead right after the last real character before the line breaks, then step over them with Right.
     if ($start -eq $end -and $start -gt 0 -and $text[$start - 1] -eq "`n" -and
@@ -221,15 +235,22 @@ function Edit-Mirror($data) {
             } elseif ($insert.Length) { Insert-Text $insert }
             elseif ($overSelection) { Tap-Key 'Backspace' }
             else { Tap-Key 'Delete' }
-            # UI Automation providers can publish text after SendInput returns; a paste lands later still.
+            # UI Automation providers can publish text after SendInput returns; a paste lands later still. A field that
+            # reshapes what it is typed (an input mask, a case change, a length limit) never shows the expected text:
+            # once its text has changed and stays so for a moment, that is its answer.
+            $clock = [System.Diagnostics.Stopwatch]::StartNew()
+            $seen = $null; $seenAt = 0
             for ($attempt=0; $attempt -lt 60; $attempt++) {
                 $updated = Read-Mirror
                 if ($updated.session -cne $snapshot.session -or $updated.text -ceq $next -or (Test-InlineCompletion $updated $next $landed)) { break }
+                if ($updated.text -cne $seen) { $seen = $updated.text; $seenAt = $clock.ElapsedMilliseconds }
+                elseif ($seen -cne $old -and $clock.ElapsedMilliseconds - $seenAt -ge 120) { break }
                 Start-Sleep -Milliseconds 10
             }
         } finally { [ClipboardText]::Restore() }
         $completed = Test-InlineCompletion $updated $next $landed
-        if ($updated.session -cne $snapshot.session -or ($updated.text -cne $next -and -not $completed)) { return @{ accepted=$false; snapshot=$updated } }
+        # Typed, but the field holds something else: the phone takes the PC's text, never sends the same typing again.
+        if ($updated.session -cne $snapshot.session -or ($updated.text -cne $next -and -not $completed)) { return @{ accepted=$false; typed=$true; snapshot=$updated } }
         # The field completed the typing itself and selected the suggestion: the PC's caret and selection stay.
         if ($completed) {
             $script:mirror.lastOperation=[string]$data.operationId
