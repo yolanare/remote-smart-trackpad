@@ -103,8 +103,11 @@ class TextEditor extends HTMLElement {
             this.composing = true;
             this.updateHint();
             this.invalidated = false;
+            this.composedIn = { field: this.state?.field, session: this.state?.session };
             emit('text-composition', true);
         });
+        // The PC's text that arrived during the composition was not written (see render): the typing wins, sent
+        // against the PC's latest state, unless the PC's focus moved to another field meanwhile.
         textarea.addEventListener('compositionend', () => {
             this.composing = false;
             if (this.invalidated) {
@@ -115,11 +118,12 @@ class TextEditor extends HTMLElement {
         });
     }
     /**
-     * In a PC field that holds one line (a search box, an <input>), Enter cannot add a line: the keyboard's Enter key
-     * presses Enter there (search, submit). Anywhere else it adds a line, never sending a message by mistake.
+     * The keyboard's Enter key presses Enter (search, submit, run) where a new line cannot be mirrored: a PC field
+     * that holds one line (a search box, an <input>), or one the phone cannot read (typing blind). Only in a
+     * readable multi-line field does it add a line, never sending a message by mistake.
      */
     submits() {
-        return this.singleLine && !this.passthrough;
+        return this.passthrough || this.singleLine;
     }
     /** Sends the difference from the last forwarded text as key presses and typed text. */
     forward(text, caret, emit) {
@@ -164,24 +168,34 @@ class TextEditor extends HTMLElement {
         field.style.height = `${(field.scrollHeight + borders) / parseFloat(getComputedStyle(document.documentElement).fontSize)}rem`;
     }
     render(state) {
-        if (this.composing && (this.state?.session !== state.session || this.state?.revision !== state.revision))
-            this.invalidated = true;
+        // During an IME composition the field is the keyboard's: writing into it makes the keyboard commit its word
+        // again, a doubled letter. Only the state is taken; the text waits for the composition's end.
+        if (this.composing) {
+            if (state.field !== this.composedIn?.field || state.session !== this.composedIn?.session)
+                this.invalidated = true;
+            this.applyState(state);
+            return;
+        }
         // Text typed blind stays on the phone, to read and fix, while the PC's focus stays on the same element;
         // another element starts afresh (so do closing, and moving the caret: clearEcho).
         const keepEcho = this.passthrough && state.passthrough && state.field === this.state?.field;
-        this.state = state;
-        this.passthrough = state.passthrough === true;
-        this.singleLine = state.available === true && state.singleLine === true;
-        // The keyboard's Enter key shows what it does: an action in a one-line field, a new line elsewhere.
-        this.firstElementChild.enterKeyHint = this.submits() ? 'go' : 'enter';
-        // Never read-only while the first read is on its way: the phone would not show its keyboard on the focus.
-        this.firstElementChild.readOnly = !state.available && !this.passthrough && !state.reading;
+        this.applyState(state);
         if (!keepEcho) {
             this.text = state.text;
             this.write(state.text, state.selectionStart, state.selectionEnd);
         }
         this.resize();
         this.updateHint();
+    }
+    /** Everything a PC state sets but the text itself. */
+    applyState(state) {
+        this.state = state;
+        this.passthrough = state.passthrough === true;
+        this.singleLine = state.available === true && state.singleLine === true;
+        // The keyboard's Enter key shows what it does: an action where it presses Enter, a new line elsewhere.
+        this.firstElementChild.enterKeyHint = this.submits() ? 'go' : 'enter';
+        // Never read-only while the first read is on its way: the phone would not show its keyboard on the focus.
+        this.firstElementChild.readOnly = !state.available && !this.passthrough && !state.reading;
     }
     /** Forgets the text typed blind, once it no longer matches the PC (the caret moved away from it). */
     clearEcho() {

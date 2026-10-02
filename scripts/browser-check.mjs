@@ -556,14 +556,46 @@ try {
         const single = press();
         editor.render({ available: true, singleLine: false, text: 'notes', selectionStart: 5, selectionEnd: 5 });
         const multi = press();
+        editor.render({ available: false, passthrough: true, field: 'blind', text: '' });
+        const blind = press();
         document.removeEventListener('text-key', capture, { capture: true });
         editor.render({ available: true, text: '', selectionStart: 0, selectionEnd: 0 });
-        return { single, multi, keys };
+        return { single, multi, blind, keys };
     })()`);
     assert.deepEqual(enterKey, {
         single: { keydown: true, lineBreak: true, hint: 'go' },
         multi: { keydown: false, lineBreak: false, hint: 'enter' },
-        keys: ['Enter', 'Enter'],
+        blind: { keydown: true, lineBreak: true, hint: 'go' },
+        keys: ['Enter', 'Enter', 'Enter', 'Enter'],
+    });
+    // A PC state arriving during an IME composition is not written into the field (the keyboard would commit its
+    // word again); at the composition's end the typing stays, unless the PC's focus moved to another field.
+    const composition = await evaluate(`(() => {
+        const editor = document.querySelector('text-editor'), field = editor.querySelector('textarea');
+        const value = () => field.value.replace(String.fromCharCode(0x200b), '');
+        const typed = [];
+        const capture = (event) => { event.stopImmediatePropagation(); typed.push(event.detail.text); };
+        document.addEventListener('text-input', capture, { capture: true });
+        editor.render({ available: true, field: 'a', session: 's', revision: 1, text: 'hi', selectionStart: 2, selectionEnd: 2 });
+        field.dispatchEvent(new CompositionEvent('compositionstart'));
+        editor.write('hi wor', 6, 6);
+        editor.render({ available: true, field: 'a', session: 's', revision: 2, text: 'hi ', selectionStart: 3, selectionEnd: 3 });
+        const during = value();
+        field.dispatchEvent(new CompositionEvent('compositionend'));
+        const sameField = { value: value(), sent: typed.at(-1) };
+        field.dispatchEvent(new CompositionEvent('compositionstart'));
+        editor.write('hi world', 8, 8);
+        editor.render({ available: true, field: 'b', session: 't', revision: 0, text: 'other', selectionStart: 5, selectionEnd: 5 });
+        field.dispatchEvent(new CompositionEvent('compositionend'));
+        const otherField = value();
+        document.removeEventListener('text-input', capture, { capture: true });
+        editor.render({ available: true, text: '', selectionStart: 0, selectionEnd: 0 });
+        return { during, sameField, otherField };
+    })()`);
+    assert.deepEqual(composition, {
+        during: 'hi wor',
+        sameField: { value: 'hi wor', sent: 'hi wor' },
+        otherField: 'other',
     });
     // Editing follows the field's focus: controls keep it, a tap on the background lets it go and ends editing.
     const focusRules = await evaluate(`(async () => {

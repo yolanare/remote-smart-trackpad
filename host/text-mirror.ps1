@@ -181,6 +181,15 @@ function Select-MirrorRange([int]$start, [int]$end, [string]$text) {
     $range.Select()
 }
 
+# Inline completion (an address bar, a search box): the field shows what was typed followed by a suggestion it
+# selected, so typing on replaces it. That is the typing applied, not a different text.
+function Test-InlineCompletion($updated, [string]$next, [int]$landed) {
+    $added = $updated.text.Length - $next.Length
+    return $updated.available -and $added -gt 0 -and $updated.selectionStart -eq $landed -and
+        $updated.selectionEnd -eq $landed + $added -and $updated.text.StartsWith($next.Substring(0, $landed), [StringComparison]::Ordinal) -and
+        $updated.text.EndsWith($next.Substring($landed), [StringComparison]::Ordinal)
+}
+
 function Edit-Mirror($data) {
     $snapshot = Read-Mirror
     if (-not $snapshot.available -or $snapshot.session -cne [string]$data.session -or $snapshot.revision -ne [int]$data.revision) {
@@ -215,11 +224,18 @@ function Edit-Mirror($data) {
             # UI Automation providers can publish text after SendInput returns; a paste lands later still.
             for ($attempt=0; $attempt -lt 60; $attempt++) {
                 $updated = Read-Mirror
-                if ($updated.session -cne $snapshot.session -or $updated.text -ceq $next) { break }
+                if ($updated.session -cne $snapshot.session -or $updated.text -ceq $next -or (Test-InlineCompletion $updated $next $landed)) { break }
                 Start-Sleep -Milliseconds 10
             }
         } finally { [ClipboardText]::Restore() }
-        if ($updated.session -cne $snapshot.session -or $updated.text -cne $next) { return @{ accepted=$false; snapshot=$updated } }
+        $completed = Test-InlineCompletion $updated $next $landed
+        if ($updated.session -cne $snapshot.session -or ($updated.text -cne $next -and -not $completed)) { return @{ accepted=$false; snapshot=$updated } }
+        # The field completed the typing itself and selected the suggestion: the PC's caret and selection stay.
+        if ($completed) {
+            $script:mirror.lastOperation=[string]$data.operationId
+            $script:mirror.believed = $null
+            return @{ accepted=$true; snapshot=(Read-Mirror) }
+        }
     }
     $script:mirror.lastOperation=[string]$data.operationId
     $natural = $changed -and $selectionStart -eq $landed -and $selectionEnd -eq $landed
