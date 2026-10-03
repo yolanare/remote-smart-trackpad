@@ -96,7 +96,7 @@ while ($null -ne ($line = [Console]::ReadLine())) {
                 for ($index = 0; $index -lt $backspaces; $index++) { Tap-Key 'Backspace' }
                 for ($index = 0; $index -lt $deletes; $index++) { Tap-Key 'Delete' }
                 if ($value.Length) {
-                    try { Insert-Text $value; Start-Sleep -Milliseconds 150 } finally { [ClipboardText]::Restore() }
+                    try { Insert-Text $value; if ($script:pasted) { Start-Sleep -Milliseconds 150 } } finally { [ClipboardText]::Restore() }
                 }
             }
             'media-state' { $result = Get-MediaState }

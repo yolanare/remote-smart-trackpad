@@ -262,8 +262,11 @@ function Tap-Key($name) {
 }
 # A line break must never press plain Enter, which sends the message in chat inputs. Chromium rich-text fields get
 # Shift+Enter: it is their newline and the only break that leaves their caret on the new line. Other fields get a
-# pasted line break, a real paragraph break. The caller restores the clipboard with [ClipboardText]::Restore().
+# pasted line break, a real paragraph break. The caller restores the clipboard with [ClipboardText]::Restore(), a
+# moment later when $script:pasted says it pasted (the paste lands after the call returns).
+$script:pasted = $false
 function Insert-Text([string]$text) {
+    $script:pasted = $false
     if (-not $text.Contains("`n")) {
         if (-not [NativeInput]::Text($text)) { throw 'Windows rejected text input' }
         return
@@ -284,6 +287,7 @@ function Insert-Text([string]$text) {
         return
     }
     if (-not [ClipboardText]::Set($text)) { throw 'Clipboard unavailable' }
+    $script:pasted = $true
     $control = -not $held.Contains('Control')
     if ($control) { Send-Key 'Control' $true }
     try { Tap-Key 'V' } finally { if ($control) { Send-Key 'Control' $false } }
