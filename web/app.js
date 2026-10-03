@@ -610,8 +610,9 @@ function applyTheme() {
     themeColor.content = getComputedStyle(document.body).backgroundColor;
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
-// The interface's base size: "1×" on the scale stepper is this much larger than the browser's default text size.
-const scaleBase = 1.1;
+// The interface's base size: "1×" on the scale stepper is this much larger than the browser's default text size
+// (1: the same).
+const scaleBase = 1;
 function applyScale() {
     document.documentElement.style.fontSize = `${option.uiScale * scaleBase * 100}%`;
     viewport();
