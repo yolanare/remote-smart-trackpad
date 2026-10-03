@@ -248,7 +248,7 @@ try {
     );
     assert.deepEqual(overflowing, { wide: [], scrolls: false }, 'Options must wrap long text');
     // Interface scale: the stepper stays at the same height in the menu, ready for the next tap.
-    const scaleStepper = 'document.querySelector(\'.stepper[data-setting="uiScale"]\')';
+    const scaleStepper = 'document.querySelector(\'.stepper[data-option="uiScale"]\')';
     const scaleTop = () => evaluate(scaleStepper + '.getBoundingClientRect().top');
     await evaluate(scaleStepper + ".scrollIntoView({ block: 'center' })");
     for (const step of ['1', '1', '-1', '-1']) {

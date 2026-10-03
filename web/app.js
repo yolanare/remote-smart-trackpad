@@ -5,6 +5,8 @@ import './ui/text-editor.js';
 import { addIcons } from './ui/icons.js';
 import { attachHaptics, setHaptics, tick } from './ui/haptics.js';
 import { createConnection } from './logic/connection.js';
+import { createOptions } from './logic/options.js';
+import { bindOptionsMenu, readSchema } from './ui/options-menu.js';
 import { createTypingSession } from './logic/typing-session.js';
 import { createMotion, pointerGain } from './logic/motion.js';
 
@@ -25,33 +27,14 @@ const app = $('.app'),
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const rem = (pixels) => `${pixels / parseFloat(getComputedStyle(document.documentElement).fontSize)}rem`;
 
-// The option inputs' HTML attributes are the defaults (the key rows' switches take theirs from key-rows.js); values
-// stored on this phone override them.
-for (const [name, enabled] of Object.entries(rowDefaults))
-    menu.querySelector(`input[name="${name}"]`).defaultChecked = enabled;
-const fields = [...menu.querySelectorAll('input[name]')];
-// A radio group (segmented control) is one text setting: its default is the radio checked in the markup.
-const radios = (name) => [...menu.querySelectorAll(`input[type="radio"][name="${name}"]`)];
-const defaultOf = (input) =>
-    input.type === 'checkbox' ? input.defaultChecked
-    : input.type === 'radio' ? radios(input.name).find((radio) => radio.defaultChecked).value
-    : Number(input.defaultValue);
-const isValid = (input, value) =>
-    input.type === 'checkbox' ? typeof value === 'boolean'
-    : input.type === 'radio' ? radios(input.name).some((radio) => radio.value === value)
-    : Number.isFinite(value) && value >= Number(input.min) && value <= Number(input.max);
-// Captured once: writing a hidden input's value also rewrites its default.
-const defaults = Object.fromEntries(fields.map((input) => [input.name, defaultOf(input)]));
-const settings = { ...defaults };
-try {
-    const stored = JSON.parse(localStorage.getItem(storageKey) || '{}');
-    for (const input of fields) if (isValid(input, stored[input.name])) settings[input.name] = stored[input.name];
-} catch {}
-function saveSettings() {
-    try {
-        localStorage.setItem(storageKey, JSON.stringify(settings));
-    } catch {}
-}
+// The options (CONTEXT.md): defaults from the menu's markup, remembered on this phone.
+const options = createOptions(readSchema(menu, rowDefaults), {
+    load: () => JSON.parse(localStorage.getItem(storageKey) || 'null') ?? undefined,
+    save: (values) => localStorage.setItem(storageKey, JSON.stringify(values)),
+    clear: () => localStorage.removeItem(storageKey),
+});
+// The current values, read where they apply.
+const option = options.values;
 
 const labels = {
     pairing: 'Pair this device',
@@ -103,18 +86,18 @@ let editing = false,
     switching = false,
     morphs = 0;
 const applyHaptics = () =>
-    setHaptics({ button: settings.buttonHaptics !== false, scroll: settings.scrollHaptics !== false });
+    setHaptics({ button: option.buttonHaptics !== false, scroll: option.scrollHaptics !== false });
 function applyLayout() {
-    pad.sliding = settings.mouseSliding === true;
-    pad.edgeMotion = settings.edgeMotion === true;
-    pad.scrollSliding = settings.scrollSliding !== false;
-    pad.tapScroll = { x: settings.doubleTapScrollX === true, y: settings.doubleTapScrollY === true };
-    pad.navButtons = settings.navButtons !== false;
+    pad.sliding = option.mouseSliding === true;
+    pad.edgeMotion = option.edgeMotion === true;
+    pad.scrollSliding = option.scrollSliding !== false;
+    pad.tapScroll = { x: option.doubleTapScrollX === true, y: option.doubleTapScrollY === true };
+    pad.navButtons = option.navButtons !== false;
     applyHaptics();
     app.classList.toggle('editing', shownEditing);
     $('#editor-open').hidden = shownEditing;
     editor.hidden = !shownEditing;
-    rows.configure(settings);
+    rows.configure(option);
 }
 /** Freezes the app and dock at their current size so the layout can change underneath. */
 function pinGeometry() {
@@ -257,7 +240,7 @@ function schedulePolling() {
         mirrorPolling = false;
         clearTimeout(mirrorTimer);
     }
-    const wantMedia = active && settings.media && !typing.open;
+    const wantMedia = active && option.media && !typing.open;
     if (wantMedia && !mediaTimer) mediaTimer = setInterval(refreshMedia, 5000);
     if (!wantMedia && mediaTimer) {
         clearInterval(mediaTimer);
@@ -265,7 +248,7 @@ function schedulePolling() {
     }
 }
 async function refreshMedia() {
-    if (!connected || !settings.media) return;
+    if (!connected || !option.media) return;
     try {
         rows.media(await send('media-state'));
     } catch {}
@@ -449,10 +432,10 @@ document.addEventListener('motion', (event) => {
     const mouse = action === 'move';
     const gain =
         mouse ?
-            settings.mouseSpeed * pointerGain(speed, settings.mouseAcceleration)
-        :   settings.scrollSpeed * pointerGain(speed, settings.scrollAcceleration);
-    const signX = settings[mouse ? 'invertMouseX' : 'invertScrollX'] ? -1 : 1;
-    const signY = settings[mouse ? 'invertMouseY' : 'invertScrollY'] ? -1 : 1;
+            option.mouseSpeed * pointerGain(speed, option.mouseAcceleration)
+        :   option.scrollSpeed * pointerGain(speed, option.scrollAcceleration);
+    const signX = option[mouse ? 'invertMouseX' : 'invertScrollX'] ? -1 : 1;
+    const signY = option[mouse ? 'invertMouseY' : 'invertScrollY'] ? -1 : 1;
     motion.add(action, dx * gain * signX, dy * gain * signY);
 });
 // A tap on a rail scrolls one wheel notch (120) that way, like a scroll bar's arrow: down/right below/right of its
@@ -460,17 +443,17 @@ document.addEventListener('motion', (event) => {
 document.addEventListener('scroll-step', (event) => {
     const { dx, dy } = event.detail;
     // The rail moves as a drag giving this scroll would have moved it (scrolling follows the inversion option).
-    const inverted = settings[dx ? 'invertScrollX' : 'invertScrollY'] ? -1 : 1;
+    const inverted = option[dx ? 'invertScrollX' : 'invertScrollY'] ? -1 : 1;
     event.target.closest('scroll-rail')?.nudge((dx || dy) * inverted);
     send('scroll', { dx: dx * 120, dy: dy * 120 }).catch((error) => showNotice(error.message));
 });
 // Edge motion sends a velocity; the PC glides the pointer smoothly with the same speed, acceleration and inversion.
 document.addEventListener('edge-glide', (event) => {
     const { vx, vy, speed } = event.detail;
-    const gain = settings.mouseSpeed * pointerGain(speed, settings.mouseAcceleration);
+    const gain = option.mouseSpeed * pointerGain(speed, option.mouseAcceleration);
     send('glide', {
-        vx: vx * gain * (settings.invertMouseX ? -1 : 1),
-        vy: vy * gain * (settings.invertMouseY ? -1 : 1),
+        vx: vx * gain * (option.invertMouseX ? -1 : 1),
+        vy: vy * gain * (option.invertMouseY ? -1 : 1),
     }).catch(() => {});
 });
 // The phone's text field reports to the typing session.
@@ -611,111 +594,46 @@ document.addEventListener('keydown', (event) => {
         setMenu(false);
 });
 
-const times = (value) => `${Number(value.toFixed(2))}×`;
-function showSetting(input) {
-    const value = settings[input.name];
-    if (input.type === 'checkbox') return void (input.checked = value);
-    if (input.type === 'radio') return void (input.checked = input.value === value);
-    input.value = value;
-    const off = input.name.endsWith('Acceleration') && value === 0;
-    // Sliders name their output with for=; a stepper's output sits in its own pill.
-    const output =
-        menu.querySelector(`output[for="${input.id}"]`)
-        ?? menu.querySelector(`.stepper[data-setting="${input.name}"] output`);
-    // data-unit="" shows a plain number (a count); otherwise a multiplier.
-    if (output)
-        output.value =
-            off ? 'Off'
-            : input.dataset.unit === '' ? String(value)
-            : times(value);
-    if (input.type !== 'range') return;
-    const fill = (value - Number(input.min)) / (Number(input.max) - Number(input.min));
-    input.style.setProperty('--fill', `${fill * 100}%`);
-    input.setAttribute('aria-valuetext', off ? 'Off' : `${Number(value.toFixed(2))} times`);
-}
-// Steppers step through the values listed in data-steps for the setting named in data-setting.
-const steppers = [...menu.querySelectorAll('.stepper')].map((stepper) => ({
-    stepper,
-    name: stepper.dataset.setting,
-    steps: stepper.dataset.steps.split(' ').map(Number),
-}));
-function updateSteppers() {
-    for (const { stepper, name, steps } of steppers) {
-        stepper.querySelector('[data-step="-1"]').disabled = settings[name] <= steps[0];
-        stepper.querySelector('[data-step="1"]').disabled = settings[name] >= steps.at(-1);
-    }
-}
 // Color scheme: Auto follows the device; Dark and Light force it (tokens.css reads data-theme).
 const themeColor = $('meta[name="theme-color"]');
 function applyTheme() {
-    if (settings.colorScheme === 'auto') delete document.documentElement.dataset.theme;
-    else document.documentElement.dataset.theme = settings.colorScheme;
+    if (option.colorScheme === 'auto') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = option.colorScheme;
     themeColor.content = getComputedStyle(document.body).backgroundColor;
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
-// A scale change reflows the whole options menu: scroll it so the element stays where it was on screen, under the
-// finger for the next tap. Again once the top bar's height has followed (ResizeObserver, after this frame).
-function keepInPlace(element, top) {
-    const adjust = () => (menu.scrollTop += element.getBoundingClientRect().top - top);
-    adjust();
-    requestAnimationFrame(() => requestAnimationFrame(adjust));
-}
 // The interface's base size: "1×" on the scale stepper is this much larger than the browser's default text size.
 const scaleBase = 1.1;
 function applyScale() {
-    document.documentElement.style.fontSize = `${settings.uiScale * scaleBase * 100}%`;
-    updateSteppers();
+    document.documentElement.style.fontSize = `${option.uiScale * scaleBase * 100}%`;
     viewport();
 }
-for (const input of fields) {
-    showSetting(input);
-    if (input.type === 'range')
-        input.addEventListener('input', () => {
-            settings[input.name] = input.valueAsNumber;
-            showSetting(input);
-            saveSettings();
-        });
-    if (input.type === 'radio')
-        input.addEventListener('change', () => {
-            settings[input.name] = input.value;
-            tick();
-            saveSettings();
-            applyTheme();
-        });
-    if (input.type === 'checkbox')
-        input.addEventListener('change', () => {
-            settings[input.name] = input.checked;
-            // After applying, so turning button haptics on ticks and turning them off does not.
-            applyHaptics();
-            tick();
-            saveSettings();
-            rows.reset({ force: true });
-            layout({ animate: true });
-            schedulePolling();
-            refreshMedia();
-        });
-}
-for (const { stepper, name, steps } of steppers)
-    for (const button of stepper.querySelectorAll('[data-step]'))
-        button.addEventListener('click', () => {
-            const current = settings[name];
-            const next =
-                button.dataset.step === '1' ?
-                    steps.find((step) => step > current + 1e-6)
-                :   steps.findLast((step) => step < current - 1e-6);
-            if (next === undefined) return;
-            const top = stepper.getBoundingClientRect().top;
-            settings[name] = next;
-            tick();
-            showSetting(menu.querySelector(`input[name="${name}"]`));
-            saveSettings();
-            updateSteppers();
-            if (name === 'uiScale') {
-                applyScale();
-                keepInPlace(stepper, top);
-            }
-            if (name === 'functionKeys') layout({ animate: true });
-        });
+bindOptionsMenu(menu, options);
+// Each part of the app follows the options it reads.
+const layoutOptions = new Set([
+    ...Object.keys(rowDefaults),
+    'sticky',
+    'functionKeys',
+    'mouseSliding',
+    'edgeMotion',
+    'scrollSliding',
+    'doubleTapScrollX',
+    'doubleTapScrollY',
+    'navButtons',
+]);
+options.onChange((names) => {
+    if (names.some((name) => name.endsWith('Haptics'))) applyHaptics();
+    if (names.includes('colorScheme')) applyTheme();
+    if (names.includes('uiScale')) applyScale();
+    if (names.some((name) => layoutOptions.has(name))) {
+        rows.reset({ force: true });
+        layout({ animate: true });
+    }
+    if (names.includes('media')) {
+        schedulePolling();
+        refreshMedia();
+    }
+});
 // Reset confirmation: fades and scales in; Cancel, Reset and Escape play the reverse before the dialog really closes.
 const confirmDialog = $('#reset-confirm');
 let closingDialog = false;
@@ -771,22 +689,8 @@ $('#options-reset').addEventListener('click', () => {
     animateDialog(true);
 });
 $('#reset-confirm').addEventListener('close', () => {
-    if ($('#reset-confirm').returnValue !== 'reset') return;
-    for (const input of fields) {
-        settings[input.name] = defaults[input.name];
-        showSetting(input);
-    }
-    try {
-        localStorage.removeItem(storageKey);
-    } catch {}
-    applyScale();
-    applyTheme();
-    rows.reset({ force: true });
-    layout({ animate: true });
-    schedulePolling();
-    refreshMedia();
+    if ($('#reset-confirm').returnValue === 'reset') options.reset();
 });
-
 let shownHeight = 0;
 function viewport() {
     const visible = window.visualViewport;

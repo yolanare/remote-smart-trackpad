@@ -260,16 +260,16 @@ class KeyRows extends HTMLElement {
     }
     /**
      * Releases active modifiers. Outside sticky mode the app calls it after the next key or click (scrolling and
-     * moving keep them); sticky modifiers only go on a manual tap, or when forced (blur, disconnect, settings).
+     * moving keep them); sticky modifiers only go on a manual tap, or when forced (blur, disconnect, options).
      */
     reset({ force = false } = {}) {
         if (this.sticky && !force) return;
         for (const key of [...this.held]) this.press(key, false);
     }
-    configure(settings) {
-        this.sticky = settings.sticky;
-        this.renderFunctions(settings.functionKeys);
-        for (const row of this.rowElements) row.hidden = !settings[row.dataset.row];
+    configure(options) {
+        this.sticky = options.sticky;
+        this.renderFunctions(options.functionKeys);
+        for (const row of this.rowElements) row.hidden = !options[row.dataset.row];
     }
 }
 customElements.define('key-rows', KeyRows);
