@@ -294,17 +294,25 @@ try {
         ${scaleStepper}.querySelector('[data-step="1"]').click();
         await wait(50);
         const scaled = size();
+        // A mode on too: the reset turns it off.
+        document.querySelector('pointer-pad').setHolding(true);
         document.querySelector('#options-reset').click();
         await wait(300);
         document.querySelector('#reset-confirm button[value="reset"]').click();
         await wait(400);
-        return { before, scaled, after: size(), output: document.querySelector('#ui-scale-value').value, open: document.querySelector('#reset-confirm').open };
+        return { before, scaled, after: size(), output: document.querySelector('#ui-scale-value').value, open: document.querySelector('#reset-confirm').open, holding: document.querySelector('pointer-pad').holding, holdBox: document.querySelector('#hold-clicks').checked };
     })()`);
     assert.notEqual(resetScale.scaled, resetScale.before, 'The scale must change first: ' + JSON.stringify(resetScale));
     assert.deepEqual(
-        { after: resetScale.after, output: resetScale.output, open: resetScale.open },
-        { after: resetScale.before, output: '1×', open: false },
-        'Reset must bring the interface scale back'
+        {
+            after: resetScale.after,
+            output: resetScale.output,
+            open: resetScale.open,
+            holding: resetScale.holding,
+            holdBox: resetScale.holdBox,
+        },
+        { after: resetScale.before, output: '1×', open: false, holding: false, holdBox: false },
+        'Reset must bring the interface scale back and turn the modes off'
     );
     // The rows as the checks after this one expect them (the reset brought back their defaults).
     await evaluate(

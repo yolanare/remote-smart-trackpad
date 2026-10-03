@@ -796,7 +796,10 @@ $('#options-reset').addEventListener('click', () => {
     animateDialog(true);
 });
 $('#reset-confirm').addEventListener('close', () => {
-    if ($('#reset-confirm').returnValue === 'reset') options.reset();
+    if ($('#reset-confirm').returnValue !== 'reset') return;
+    options.reset();
+    // The modes too: free scroll and sliding are options; hold clicks is the pad's own state.
+    pad.setHolding(false);
 });
 let shownHeight = 0;
 function viewport() {
