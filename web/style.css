@@ -160,9 +160,12 @@ svg.icon-large {
     /* Top-aligned: with a long, wrapped status the buttons stay in the corner. */
     align-items: flex-start;
     /* Grows with a long status (up to 30vh); the controls below take what is left, so the page never overflows. */
-    min-height: 2.75rem;
-    padding: var(--space-2) 0.875rem 0 var(--space-4);
+    min-height: 2.25rem;
+    /* No space above: the phone's status bar, in the page's color, already sets the bar off the screen's edge. */
+    padding: 0 0.875rem 0 var(--space-4);
     gap: 0.625rem;
+    /* The middle of the status's first line: the dot and the options button center on it. */
+    --status-middle: calc(0.25rem + 0.75rem * 1.35 / 2);
 }
 #connection {
     display: flex;
@@ -176,8 +179,7 @@ svg.icon-large {
     flex: none;
     width: 0.6764rem;
     height: 0.6764rem;
-    /* Centered on the label's first line. */
-    margin-top: calc(0.25rem + (0.75rem * 1.35 - 0.6764rem) / 2);
+    margin-top: calc(var(--status-middle) - 0.6764rem / 2);
     border-radius: 999rem;
     corner-shape: round;
     background: var(--border);
@@ -196,11 +198,17 @@ svg.icon-large {
     overflow-wrap: anywhere;
     touch-action: pan-y;
 }
+/* A small icon centered on the status dot's line; its tap area stays full size, reaching above the bar. */
 #options-toggle {
     --fill-inset: 0.125rem;
     width: 2.25rem;
     height: 2.25rem;
+    margin-top: calc(var(--status-middle) - 1.125rem);
     color: var(--border);
+}
+#options-toggle svg {
+    width: 1rem;
+    height: 1rem;
 }
 #controls {
     display: flex;
@@ -242,15 +250,24 @@ svg.icon-large {
  * (--trackpad-min plus the button row, the rail row and the padding under them). Below that the key rows
  * above it and the input dock give way: first the text field, down to one line, then the key rows scroll.
  */
+/*
+ * When space runs short the click buttons and the rail give way too, down to their minimums: first the trackpad gets
+ * its minimum, then they get their full height (grid tracks grow up to their maximum before the trackpad's 1fr
+ * takes the rest).
+ */
 pointer-pad {
     --trackpad-min: 5rem;
     --buttons-height: 2.25rem;
+    --buttons-min: 1.5rem;
     --rail-height: 3.5rem;
+    --rail-min: 1.75rem;
     display: grid;
-    grid-template-rows: minmax(0, 1fr) var(--rail-height);
+    grid-template-rows:
+        minmax(calc(var(--trackpad-min) + 0.375rem + var(--buttons-min)), 1fr)
+        minmax(var(--rail-min), var(--rail-height));
     grid-template-columns: minmax(0, 1fr) 20vw;
     flex: 1 1 0;
-    min-height: calc(var(--trackpad-min) + 0.375rem + var(--buttons-height) + var(--rail-height) + var(--space-2));
+    min-height: calc(var(--trackpad-min) + 0.375rem + var(--buttons-min) + var(--rail-min) + var(--space-2));
     padding: 0 0 0 var(--space-4);
     /* The grid rows and the minimum height follow these as they move. */
     transition:
@@ -262,7 +279,7 @@ pointer-pad {
    also runs under the back and forward column. */
 .mouse {
     display: grid;
-    grid-template-rows: minmax(0, 1fr) var(--buttons-height);
+    grid-template-rows: minmax(var(--trackpad-min), 1fr) minmax(var(--buttons-min), var(--buttons-height));
     grid-template-columns: auto 1fr auto 1fr;
     min-height: 0;
     /* No horizontal gap: every tap on the button row lands on a button, never in dead space between them. */
@@ -606,23 +623,40 @@ scroll-rail[axis='x'] .rail-content {
     overscroll-behavior: contain;
     scrollbar-width: none;
 }
-.input-dock > .key-rows,
 .input-dock > .editor-launch {
     flex: none;
+}
+/* The rows below give way like those above (see .key-row), down to their minimum; then the dock scrolls. */
+.input-dock > .key-rows {
+    flex: 0 1 auto;
 }
 .input-dock.is-morphing {
     overflow: hidden;
 }
+/* No lower than its rows at their minimum (key-rows.js counts the lines and rows shown): below that, it scrolls. */
 .key-rows {
+    --key-min: 1.25rem;
     display: flex;
     flex-direction: column;
+    min-height: calc(
+        var(--shown-lines, 0) * var(--key-min) + max(0, var(--shown-rows, 1) - 1) * var(--space-1) + var(--space-2)
+    );
     padding: 0 var(--space-4) var(--space-2);
     gap: var(--space-1);
     transition: padding var(--layout-transition);
 }
+/*
+ * A row is as tall as its keys (--key-height, per line of keys: --lines), and gives way when the space runs out, down
+ * to --key-min a line: everything enabled, while editing, keys shrink rather than being cut off. Only below that
+ * do the rows scroll. Keys and rules follow their row's height.
+ */
 .key-row {
     display: flex;
+    flex: 0 1 calc(var(--key-height) * var(--lines, 1));
+    min-height: calc(var(--key-min) * var(--lines, 1));
     gap: var(--space-1);
+    --key-height: 2.75rem;
+    transition: --key-height var(--layout-transition);
 }
 .mouse-left,
 .mouse-right,
@@ -637,11 +671,9 @@ scroll-rail[axis='x'] .rail-content {
     display: flex;
     flex: var(--keys, 1) 1 0;
     min-width: 0;
-    --key-height: 2.75rem;
     --group-radius: var(--radius);
     border: var(--stroke) solid var(--border);
     border-radius: var(--group-radius);
-    transition: --key-height var(--layout-transition);
 }
 /*
  * Keys are fill buttons: a tappable margin (--fill-inset) keeps their fill off the group's border. Radii are
@@ -650,11 +682,15 @@ scroll-rail[axis='x'] .rail-content {
 .key-group button {
     flex: 1;
     min-width: 0;
-    height: calc(var(--key-height) - 2 * var(--stroke));
+    min-height: 0;
     --fill-inset: 0.125rem;
     border-radius: max(0px, var(--group-radius) - var(--stroke));
     font-weight: 500;
     font-size: 0.75rem;
+}
+/* Icons shrink with low keys instead of overflowing them. */
+.key-group button svg {
+    max-height: 70%;
 }
 .key-group button > .fill {
     border-radius: max(0px, var(--group-radius) - var(--stroke) - var(--fill-inset));
@@ -664,13 +700,12 @@ scroll-rail[axis='x'] .rail-content {
 .key-group button > .fill {
     corner-shape: var(--corner-shape);
 }
-/* Vertical rule between buttons, floating in the middle: half the key height, so it follows smaller keys (function
-   keys, editing). */
+/* Vertical rule between buttons, floating in the middle: half their height, so it follows smaller keys. */
 .key-separator {
     flex: none;
     align-self: center;
     width: var(--stroke);
-    height: calc(var(--key-height) / 2);
+    height: 50%;
     margin: 0;
     border: 0;
     background: var(--surface);
@@ -680,14 +715,14 @@ scroll-rail[axis='x'] .rail-content {
     flex-direction: column;
 }
 /* Compact rows (compact: true in key-rows.js): lower keys for dense rows of short labels. */
-.compact-keys .key-group {
+.key-row.compact-keys {
     --key-height: 2rem;
 }
+/* Each line of function keys takes an equal share of the row. */
 .key-line {
     display: flex;
-}
-.function-keys button {
-    height: var(--key-height);
+    flex: 1 1 0;
+    min-height: 0;
 }
 .forward-delete svg {
     transform: scaleX(-1);
@@ -773,8 +808,11 @@ textarea {
     --editor-side: var(--space-2);
     padding-bottom: var(--space-2);
 }
-.editing .key-group {
+.editing .key-row {
     --key-height: 2rem;
+}
+.editing .key-row.compact-keys {
+    --key-height: 1.625rem;
 }
 .editing .editor-launch {
     display: none;
@@ -783,13 +821,13 @@ textarea {
     z-index: 5;
     position: absolute;
     /* Just under the top bar, whose height follows the status (app.js keeps --topbar-height current). */
-    top: calc(var(--topbar-height, 2.75rem) + 0.25rem + env(safe-area-inset-top));
+    top: calc(var(--topbar-height, 2.25rem) + 0.25rem + env(safe-area-inset-top));
     right: var(--space-4);
     /* Every option on one line at 1× scale with room to spare; longer text wraps (see the option rows below). */
     width: 19rem;
     max-width: calc(100% - 2 * var(--space-4));
     max-height: calc(
-        var(--viewport-height, 100dvh) - var(--topbar-height, 2.75rem) - 0.25rem - env(safe-area-inset-top) -
+        var(--viewport-height, 100dvh) - var(--topbar-height, 2.25rem) - 0.25rem - env(safe-area-inset-top) -
             env(safe-area-inset-bottom) - var(--space-4)
     );
     padding: var(--space-3) 0;
@@ -1348,7 +1386,7 @@ a.options-action {
     }
 }
 @media (max-height: 22rem) {
-    .key-group {
+    .key-row {
         --key-height: 1.75rem;
     }
     textarea {

@@ -416,7 +416,8 @@ try {
         const box = (selector) => document.querySelector(selector).getBoundingClientRect();
         return {
             rows: [...document.querySelectorAll('.key-row')].filter((row) => !row.hidden).map((row) => row.dataset.row),
-            optionsVisible: !document.querySelector('#options-toggle').hidden && box('#options-toggle').top >= 0,
+            // Its icon on screen (its tap area reaches above the bar).
+            optionsVisible: !document.querySelector('#options-toggle').hidden && box('#options-toggle svg').top >= 0,
             trackpad: Math.round(box('.trackpad').height),
             field: Math.round(box('textarea').height),
             fieldBottom: Math.round(box('textarea').bottom),
@@ -429,6 +430,42 @@ try {
     assert.equal(bounds.optionsVisible, true);
     assert.ok(bounds.fieldBottom <= bounds.height, 'The text field must stay on screen: ' + JSON.stringify(bounds));
     assert.ok(bounds.field < 45, 'An empty field shows one line: ' + bounds.field);
+    // Every row on while editing on a short screen (the keyboard up): the keys shrink, none is cut off by its row.
+    const allRows = ['functions', 'media', 'edit', 'characters', 'arrows', 'modifiers'];
+    const switchRows = (on) =>
+        evaluate(
+            `${JSON.stringify(allRows)}.forEach((name) => { const input = document.querySelector('[name=' + name + ']'); if (input.checked !== ${on}) { input.checked = ${on}; input.dispatchEvent(new Event('change')); } })`
+        );
+    const wereOn = await evaluate(
+        `${JSON.stringify(allRows)}.filter((name) => document.querySelector('[name=' + name + ']').checked)`
+    );
+    await switchRows(true);
+    await settled();
+    const crowded = await evaluate(`(() => {
+        const rows = [...document.querySelectorAll('.key-row')].filter((row) => !row.hidden);
+        const cut = [];
+        for (const row of rows) {
+            const box = row.getBoundingClientRect();
+            for (const button of row.querySelectorAll('button')) {
+                const key = button.getBoundingClientRect();
+                if (key.top < box.top - 0.5 || key.bottom > box.bottom + 0.5) cut.push(button.dataset.key);
+            }
+        }
+        const heights = rows.map((row) => Math.round(row.getBoundingClientRect().height));
+        return { rows: rows.length, cut, lowest: Math.min(...heights), trackpad: Math.round(document.querySelector('.trackpad').getBoundingClientRect().height) };
+    })()`);
+    await writeFile(
+        path.join(output, 'browser-editing-all-rows.png'),
+        Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
+    );
+    assert.equal(crowded.rows, allRows.length);
+    assert.deepEqual(crowded.cut, [], 'Keys must shrink with their rows, not be cut off: ' + JSON.stringify(crowded));
+    assert.ok(crowded.lowest >= 20, 'Rows keep a usable height: ' + JSON.stringify(crowded));
+    report.push({ name: 'editing-all-rows', ...crowded });
+    await evaluate(
+        `${JSON.stringify(allRows)}.forEach((name) => { const input = document.querySelector('[name=' + name + ']'); const on = ${JSON.stringify(wereOn)}.includes(name); if (input.checked !== on) { input.checked = on; input.dispatchEvent(new Event('change')); } })`
+    );
+    await settled();
     // A long text grows the field while room is left, and shrinks it back to one line before the pad gets smaller.
     await evaluate(
         "document.querySelector('text-editor').render({ readable: true, text: 'line\\n'.repeat(12), selectionStart: 0, selectionEnd: 0 })"

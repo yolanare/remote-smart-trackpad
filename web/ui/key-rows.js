@@ -155,6 +155,9 @@ class KeyRows extends HTMLElement {
             group.append(line);
         }
         row.replaceChildren(group);
+        // The row is as tall as its lines (style.css).
+        row.style.setProperty('--lines', group.children.length);
+        this.countShown();
         row.dispatchEvent(new CustomEvent('keys-rendered', { bubbles: true }));
     }
     button({ key, label, icon: glyph, repeat = false }) {
