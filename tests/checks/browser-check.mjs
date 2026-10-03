@@ -956,6 +956,10 @@ try {
     // Zoomed shots of each state, for review.
     const modeLooks = {};
     const modeCorner = async (name) => {
+        // A new content resizes the box and fades in; at its end for the shot and the measure.
+        const animated = await evaluate(
+            "(() => { const animations = document.querySelector('.mode-box').getAnimations({ subtree: true }); animations.forEach((animation) => animation.finish()); return animations.length > 0; })()"
+        );
         const box = await evaluate(
             "(() => { const r = document.querySelector('.mouse-mode').getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; })()"
         );
@@ -966,9 +970,12 @@ try {
                 'base64'
             )
         );
-        modeLooks[name] = await evaluate(
-            "(() => { const r = document.querySelector('.mode-box').getBoundingClientRect(); return { size: [Math.round(r.width), Math.round(r.height)], count: document.querySelector('.mode-count').textContent }; })()"
-        );
+        modeLooks[name] = {
+            animated,
+            ...(await evaluate(
+                "(() => { const r = document.querySelector('.mode-box').getBoundingClientRect(); return { size: [Math.round(r.width), Math.round(r.height)], count: document.querySelector('.mode-count').textContent }; })()"
+            )),
+        };
     };
     await modeCorner('none');
     await evaluate("document.querySelector('pointer-pad').setHolding(true)");
@@ -984,8 +991,34 @@ try {
             && JSON.stringify(modeLooks.scroll.size) === JSON.stringify(square)
             && JSON.stringify(modeLooks.several.size) === JSON.stringify(square)
             && modeLooks.several.count === '2'
+            && !modeLooks.none.animated
+            && modeLooks.hold.animated
+            && modeLooks.several.animated
+            && modeLooks.scroll.animated
             && modeLooks.none.size[0] > modeLooks.none.size[1],
         'Mode box: ' + JSON.stringify(modeLooks)
+    );
+    // Toggled again and again before an animation ends, the box always heads for the new content's own size, with
+    // one resize running at a time.
+    const spam = await evaluate(`(async () => {
+        const pad = document.querySelector('pointer-pad'), box = document.querySelector('.mode-box');
+        const targets = [];
+        for (let toggle = 0; toggle < 6; toggle++) {
+            pad.setHolding(!pad.holding);
+            const resizes = box.getAnimations().filter((animation) => animation.effect.getKeyframes().at(-1).width);
+            targets.push([pad.holding, resizes.length, Math.round(parseFloat(resizes.at(-1)?.effect.getKeyframes().at(-1).width))]);
+            await new Promise((resolve) => setTimeout(resolve, 40));
+        }
+        box.getAnimations({ subtree: true }).forEach((animation) => animation.finish());
+        return targets;
+    })()`);
+    assert.deepEqual(
+        spam,
+        [true, false, true, false, true, false].map((holding) => [
+            holding,
+            1,
+            holding ? modeLooks.hold.size[0] : modeLooks.none.size[0],
+        ])
     );
     // The options menu opens right under its button's round fill (2px), whatever the top bar's height.
     await evaluate("document.querySelector('#options-toggle').click()");

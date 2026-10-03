@@ -661,12 +661,45 @@ function setModeMenu(open, { fromKeyboard = false } = {}) {
  * The hold box and the MODE button follow the modes that are on: none shows MODE, quietly; one shows its icon (hold
  * clicks, free scroll); several show how many. The check badge marks any.
  */
+let modeShown,
+    modeAnimations = [];
 function showModes() {
     holdClicks.checked = pad.holding;
     const active = [pad.holding && 'hold', option.freeScroll === true && 'scroll'].filter(Boolean);
-    if (active.length) modeButton.dataset.active = active.length > 1 ? 'several' : active[0];
+    const shown = active.length > 1 ? 'several' : (active[0] ?? '');
+    const box = modeButton.querySelector('.mode-box'),
+        // Where the box is now, mid-animation included; then the running animations go, so the size measured next is
+        // the new content's own (a toggle repeated quickly would otherwise measure the old animation's frame).
+        from = box.getBoundingClientRect();
+    if (shown !== modeShown) {
+        for (const animation of modeAnimations) animation.cancel();
+        modeAnimations = [];
+    }
+    if (shown) modeButton.dataset.active = shown;
     else delete modeButton.dataset.active;
     modeButton.querySelector('.mode-count').textContent = active.length > 1 ? String(active.length) : '';
+    // A new content (MODE, an icon, a count): the box resizes to it and the content fades in. Not on the first show.
+    if (modeShown !== undefined && shown !== modeShown && !reducedMotion() && from.width) {
+        const to = box.getBoundingClientRect();
+        const resize = box.animate(
+            [
+                { width: `${from.width}px`, height: `${from.height}px` },
+                { width: `${to.width}px`, height: `${to.height}px` },
+            ],
+            { duration: 220, easing: 'cubic-bezier(0.2, 0, 0, 1)' }
+        );
+        const content = [...box.children].find(
+            (child) => !child.classList.contains('mode-badge') && getComputedStyle(child).display !== 'none'
+        );
+        const fade = content?.animate([{ opacity: 0 }, { opacity: 1 }], {
+            duration: 160,
+            delay: 60,
+            easing: 'ease-out',
+            fill: 'backwards',
+        });
+        modeAnimations = [resize, fade].filter(Boolean);
+    }
+    modeShown = shown;
     const names = { hold: 'Hold clicks', scroll: 'Free scroll' };
     modeButton.setAttribute(
         'aria-label',
