@@ -70,7 +70,7 @@
             <!-- Option defaults live in these attributes; values stored on the phone override them. -->
             <div id="options" class="options" role="region" aria-label="Options" hidden>
                 <div class="choice-setting">
-                    <span id="color-scheme-label">Color scheme</span>
+                    <span id="color-scheme-label" class="visually-hidden">Color scheme</span>
                     <div class="segmented" role="radiogroup" aria-labelledby="color-scheme-label">
                         <label
                             ><input type="radio" name="colorScheme" value="auto" checked /><span data-icon="auto"></span
@@ -109,7 +109,7 @@
                             data-icon="plus"
                         ></button>
                     </div>
-                    <input id="ui-scale" name="uiScale" type="hidden" min="0.25" max="8" value="1" />
+                    <input id="ui-scale" name="uiScale" type="hidden" min="0.25" max="8" value="1" data-default="1" />
                 </div>
                 <div class="axis-setting" role="group" aria-label="Haptics">
                     <span>Haptics</span>
@@ -223,7 +223,15 @@
                     <label for="mouse-speed"
                         >Mouse speed <output id="mouse-speed-value" for="mouse-speed">1×</output></label
                     >
-                    <input id="mouse-speed" name="mouseSpeed" type="range" min="0.25" max="16" step="0.25" value="2.25" />
+                    <input
+                        id="mouse-speed"
+                        name="mouseSpeed"
+                        type="range"
+                        min="0.25"
+                        max="16"
+                        step="0.25"
+                        value="2.25"
+                    />
                 </div>
                 <div class="axis-setting" role="group" aria-label="Invert mouse">
                     <span>Invert mouse</span>

@@ -5,8 +5,9 @@ import { tick } from './haptics.js';
 /**
  * The options' schema, from the menu's inputs: their HTML attributes are the defaults (the key rows' switches take
  * theirs from `rowDefaults`, key-rows.js), and their kind and limits what a value may be. A radio group (segmented
- * control) is one option, its default the radio checked in the markup. Read once: writing a hidden input's value
- * also rewrites its default.
+ * control) is one option, its default the radio checked in the markup. A hidden input names its default in
+ * data-default: desktop browsers restore form values when the page reloads, and a hidden input's restored value
+ * becomes its default too (a reset then went back to the last interface scale).
  */
 export function readSchema(menu, rowDefaults) {
     for (const [name, enabled] of Object.entries(rowDefaults))
@@ -23,7 +24,7 @@ export function readSchema(menu, rowDefaults) {
                     valid: (value) => radios(input.name).some((radio) => radio.value === value),
                 }
             :   {
-                    default: Number(input.defaultValue),
+                    default: Number(input.dataset.default ?? input.defaultValue),
                     valid: (value) =>
                         Number.isFinite(value) && value >= Number(input.min) && value <= Number(input.max),
                 };
@@ -32,6 +33,51 @@ export function readSchema(menu, rowDefaults) {
 }
 
 const times = (value) => `${Number(value.toFixed(2))}×`;
+
+/**
+ * A slider under a finger (style.css lets touches through it to its row): a drag that starts sideways sets it, one
+ * that starts up or down is the menu scrolling and leaves it alone, a tap sets it where it lands. Mouse and keyboard
+ * keep the native slider.
+ */
+function followFinger(input, options) {
+    const row = input.parentElement,
+        slop = 8;
+    let touch = null;
+    const valueAt = (x) => {
+        const box = input.getBoundingClientRect(),
+            thumb = 0.875 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+        const share = Math.min(1, Math.max(0, (x - box.left - thumb / 2) / (box.width - thumb)));
+        const min = Number(input.min),
+            step = Number(input.step) || 1;
+        const value = min + Math.round((share * (Number(input.max) - min)) / step) * step;
+        return Number(value.toFixed(6));
+    };
+    const set = (x) => options.set(input.name, valueAt(x));
+    row.addEventListener('pointerdown', (event) => {
+        if (event.pointerType === 'mouse') return;
+        const box = input.getBoundingClientRect();
+        if (event.clientY < box.top || event.clientY > box.bottom) return;
+        touch = { id: event.pointerId, x: event.clientX, y: event.clientY, dragging: false };
+    });
+    row.addEventListener('pointermove', (event) => {
+        if (event.pointerId !== touch?.id) return;
+        const dx = Math.abs(event.clientX - touch.x),
+            dy = Math.abs(event.clientY - touch.y);
+        if (!touch.dragging) {
+            if (dy > slop && dy > dx) return void (touch = null);
+            if (dx <= slop) return;
+            touch.dragging = true;
+            row.setPointerCapture(event.pointerId);
+        }
+        set(event.clientX);
+    });
+    row.addEventListener('pointerup', (event) => {
+        if (event.pointerId !== touch?.id) return;
+        if (!touch.dragging) set(event.clientX);
+        touch = null;
+    });
+    row.addEventListener('pointercancel', () => (touch = null));
+}
 
 /**
  * Shows the options in the menu and lets its inputs change them: switches and segments tick when they change, sliders
@@ -79,6 +125,7 @@ export function bindOptionsMenu(menu, options) {
         // Again once the top bar's height has followed (ResizeObserver, after this frame).
         requestAnimationFrame(() => requestAnimationFrame(adjust));
     }
+    for (const input of fields.filter((field) => field.type === 'range')) followFinger(input, options);
     for (const input of fields) {
         show(input);
         if (input.type === 'range') input.addEventListener('input', () => options.set(input.name, input.valueAsNumber));

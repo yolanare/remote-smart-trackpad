@@ -261,6 +261,54 @@ try {
         assert.ok(Math.abs(after - before) <= 2, `Scale stepper moved from ${before} to ${after}`);
     }
     report.push({ name: 'scale-keeps-stepper', top: await scaleTop() });
+    // Reset brings every option back, the interface scale included.
+    const resetScale = await evaluate(`(async () => {
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        const size = () => getComputedStyle(document.documentElement).fontSize;
+        const before = size();
+        ${scaleStepper}.querySelector('[data-step="1"]').click();
+        ${scaleStepper}.querySelector('[data-step="1"]').click();
+        await wait(50);
+        const scaled = size();
+        document.querySelector('#options-reset').click();
+        await wait(300);
+        document.querySelector('#reset-confirm button[value="reset"]').click();
+        await wait(400);
+        return { before, scaled, after: size(), output: document.querySelector('#ui-scale-value').value, open: document.querySelector('#reset-confirm').open };
+    })()`);
+    assert.notEqual(resetScale.scaled, resetScale.before, 'The scale must change first: ' + JSON.stringify(resetScale));
+    assert.deepEqual(
+        { after: resetScale.after, output: resetScale.output, open: resetScale.open },
+        { after: resetScale.before, output: '1×', open: false },
+        'Reset must bring the interface scale back'
+    );
+    // The rows as the checks after this one expect them (the reset brought back their defaults).
+    await evaluate(
+        "document.querySelectorAll('#options input').forEach(input => { if (['functions','media','characters'].includes(input.name) && input.checked) { input.checked = false; input.dispatchEvent(new Event('change')); } });"
+    );
+    // Starting a scroll of the menu on a slider scrolls the menu and leaves the slider's value alone.
+    await evaluate("document.querySelector('.options').scrollTop = 0");
+    const scrolledOver = await evaluate(`(() => {
+        const input = document.querySelector('#mouse-speed'), rect = input.getBoundingClientRect();
+        return { x: rect.x + rect.width * 0.2, y: rect.y + rect.height / 2, value: input.valueAsNumber };
+    })()`);
+    for (const [type, dy] of [
+        ['touchStart', 0],
+        ['touchMove', -12],
+        ['touchMove', -40],
+        ['touchMove', -90],
+    ])
+        await page('Input.dispatchTouchEvent', {
+            type,
+            touchPoints: [{ x: scrolledOver.x + 2, y: scrolledOver.y + dy }],
+        });
+    await page('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    assert.equal(
+        await evaluate("document.querySelector('#mouse-speed').valueAsNumber"),
+        scrolledOver.value,
+        'A scroll starting on a slider must not change it'
+    );
+    await evaluate("document.querySelector('.options').scrollTop = 0");
     await evaluate("document.querySelector('.options').scrollTop = 0");
     const slider = await evaluate(`(() => {
         const input = document.querySelector('#mouse-speed'), rect = input.getBoundingClientRect();
@@ -810,7 +858,7 @@ try {
     console.log('Screenshots and report: ' + output);
     await send('Browser.close');
 } catch (error) {
-    console.error(error.message);
+    console.error(error.stack);
     process.exitCode = 1;
 } finally {
     socket?.close();

@@ -25,6 +25,15 @@
 [hidden] {
     display: none !important;
 }
+/* Read by screen readers, not shown (a label the control's look already gives). */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    white-space: nowrap;
+    clip-path: inset(50%);
+}
 /* The page never zooms. Scroll containers ignore their ancestors' touch-action, so each one sets its own. */
 html,
 body,
@@ -1081,7 +1090,7 @@ a.options-action.is-pressed {
 .choice-setting {
     padding: var(--space-1) var(--space-4) var(--space-2);
 }
-.choice-setting > span {
+.choice-setting > span:not(.visually-hidden) {
     display: block;
     margin-bottom: var(--space-2);
 }
@@ -1200,6 +1209,12 @@ a.options-action {
     background: transparent;
     cursor: pointer;
     touch-action: pan-y;
+}
+/* Touches go to the slider's row (options-menu.js): a scroll starting on the slider must not move it. */
+@media (pointer: coarse) {
+    .speed-setting input[type='range'] {
+        pointer-events: none;
+    }
 }
 /* Sliders (shadcn/ui Slider anatomy, quieter): thin track, muted range, small borderless thumb whose halo in the
    panel color cuts the track; a ring only while dragging or with keyboard focus. */
