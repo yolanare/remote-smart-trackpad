@@ -87,6 +87,15 @@ test('field verdict: readable, placeholder only, or typed blind', { skip: !windo
         }),
         { unreadable: true, empty: true, singleLine: false }
     );
+    // VS Code's editor (EditContext): its element reads its accessible name, or a few characters around the caret.
+    const editContext = {
+        framework: 'Chrome',
+        className: 'native-edit-context',
+        name: 'The editor is not accessible at this time. To enable screen reader optimized mode, use Shift+Alt+F1',
+        content: web({ leafless: true }),
+    };
+    for (const text of [editContext.name, 'ello world', ''])
+        assert.deepEqual(await verdict({ ...editContext, text }), { unreadable: true, empty: true, singleLine: false });
     // An empty <input> reads its placeholder as an embedded object.
     assert.deepEqual(
         await verdict({

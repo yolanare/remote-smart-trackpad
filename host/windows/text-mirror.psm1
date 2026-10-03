@@ -39,7 +39,7 @@ function Get-FieldFacts($element, [string]$text, [int]$caret) {
     }
     $box = $current.BoundingRectangle
     return @{
-        framework=$current.FrameworkId; name=$current.Name; text=$text; caret=$caret
+        framework=$current.FrameworkId; className=$current.ClassName; name=$current.Name; text=$text; caret=$caret
         boxWidth=$box.Width; boxHeight=$box.Height
         win32SingleLine=[FieldContent]::Win32SingleLine([IntPtr]$current.NativeWindowHandle, $current.ClassName)
         content=if ($null -eq $content) { $null } else {
@@ -120,11 +120,16 @@ function Read-MirrorOnce {
     $resolved = Resolve-FieldText $element $text $start
     if ($resolved.unreadable) {
         $script:mirror = $null
+        $unread = @{ field=$field; readable=$false; text=''; selectionStart=0; selectionEnd=0; reason='Text not readable here' }
         # What it reports anyway, around its caret (a code editor's hidden input holds the line being edited): the
-        # phone finds where a click put the caret in the text it typed blind.
-        $from = [Math]::Max(0, $start - 2000)
-        $around = $text.Substring($from, [Math]::Min($text.Length - $from, 4000))
-        return @{ field=$field; readable=$false; text=''; selectionStart=0; selectionEnd=0; reason='Text not readable here'; around=$around; caret=($start - $from) }
+        # phone finds where a click put the caret in the text it typed blind. Not its accessible name, which is no
+        # text of the field (VS Code's EditContext editor reads only that).
+        if ($text -cne $element.Current.Name) {
+            $from = [Math]::Max(0, $start - 2000)
+            $unread.around = $text.Substring($from, [Math]::Min($text.Length - $from, 4000))
+            $unread.caret = $start - $from
+        }
+        return $unread
     }
     if ($resolved.empty) { $text = ''; $start = 0; $end = 0 }
     $framework = $element.Current.FrameworkId

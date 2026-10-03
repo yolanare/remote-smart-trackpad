@@ -18,7 +18,8 @@
 // that found bugs, in Chrome and WinForms: enough after changes that do not touch typing itself. Run the full one
 // after changes to the typing session, the mirror or the bridge. --target, --case and --mode still narrow it.
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -38,10 +39,12 @@ const quick = process.argv.includes('--quick');
 const quickCases = {
     chrome: ['input', 'editable', 'phone', 'complete', 'delayed', 'code-line', 'proxy', 'otp', 'address'],
     winforms: ['textbox', 'multiline', 'masked'],
+    vscode: ['editor'],
 };
 const quickModes = ['keys', 'ime', 'typo', 'move', 'click', 'lines', 'unicode'];
 const targets =
-    option('target') ?? (quick ? Object.keys(quickCases) : ['chrome', 'firefox', 'winforms', 'wpf', 'notepad']);
+    option('target')
+    ?? (quick ? Object.keys(quickCases) : ['chrome', 'firefox', 'winforms', 'wpf', 'notepad', 'vscode']);
 const onlyCases = option('case');
 const modes = option('mode')
     ?? (quick ? quickModes : null) ?? [
@@ -58,6 +61,7 @@ const modes = option('mode')
         'lines',
         'paste',
         'click',
+        'linger',
     ];
 const marker = `rst${Math.random().toString(36).slice(2, 8)}`;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -511,6 +515,16 @@ const scenarios = {
         steps: [['type', 'hello world'], ['pcCaret', 5], ['click'], ['type', ',']],
         expected: 'hello, world',
     },
+    // Typed blind, the text stays on the phone as long as the PC's focus and caret stay with it, polls going on.
+    linger: {
+        needs: 'caret',
+        steps: [
+            ['type', 'hello world'],
+            ['idle', 5000],
+        ],
+        expected: 'hello world',
+        whole: true,
+    },
     swipe: {
         needs: 'caret',
         steps: [
@@ -597,6 +611,7 @@ async function runCase({
             else if (step === 'move') await phone.moveCaret(value);
             else if (step === 'select') await phone.selectBack(value);
             else if (step === 'key') await phone.press(value);
+            else if (step === 'idle') await wait(value);
             else if (step === 'reopen') {
                 await phone.settle();
                 await phone.close();
@@ -620,9 +635,9 @@ async function runCase({
         // The phone shows the PC's text, or what was typed blind: all of it, or its end once the focus moved on.
         // Moving the caret or deleting leaves only part of the text on the phone: any part of the final text.
         echo:
-            scenario ?
-                entry.expected.includes(phoneState.text)
-            :   (phoneState.blind ? entry.typed : got).endsWith(phoneState.text),
+            scenario?.whole && phoneState.blind ? phoneState.text === entry.expected
+            : scenario ? entry.expected.includes(phoneState.text)
+            : (phoneState.blind ? entry.typed : got).endsWith(phoneState.text),
         pass: (entry.check ? entry.check(got) : got === entry.expected) && !problem,
         problem,
         got,
@@ -707,6 +722,98 @@ try {
                     await wait(200);
                     await rm(file, { force: true });
                 }
+            }
+            continue;
+        }
+        // VS Code: its editor takes typing through a hidden input the phone cannot read (typing blind). A fresh
+        // instance with a profile of its own, no extensions or suggestions, on a test file named with the marker
+        // (its title) that saves itself: the file holds what was typed. Emptied on disk before each run.
+        if (target === 'vscode') {
+            const code = path.join(process.env.LOCALAPPDATA ?? '', 'Programs/Microsoft VS Code/Code.exe');
+            if (!existsSync(code)) {
+                console.log('vscode: not installed, skipped');
+                continue;
+            }
+            const entry = { id: 'editor', typed: 'hello world', expected: 'hello world', caret: true, lines: true };
+            if (!selected([entry], target).length) continue;
+            const profile = await temp('vscode');
+            const file = path.join(profile, `${marker}-vscode.txt`);
+            await mkdir(path.join(profile, 'data', 'User'), { recursive: true });
+            await writeFile(
+                path.join(profile, 'data', 'User', 'settings.json'),
+                JSON.stringify({
+                    'files.autoSave': 'afterDelay',
+                    'files.autoSaveDelay': 50,
+                    'editor.quickSuggestions': { other: 'off', comments: 'off', strings: 'off' },
+                    'editor.suggestOnTriggerCharacters': false,
+                    'editor.wordBasedSuggestions': 'off',
+                    'editor.autoClosingBrackets': 'never',
+                    'editor.autoClosingQuotes': 'never',
+                    'workbench.startupEditor': 'none',
+                    'workbench.tips.enabled': false,
+                    'window.restoreWindows': 'none',
+                    'security.workspace.trust.enabled': false,
+                    'update.mode': 'none',
+                    'telemetry.telemetryLevel': 'off',
+                    'chat.disableAIFeatures': true,
+                })
+            );
+            await writeFile(file, '');
+            const vscode = spawn(
+                code,
+                [
+                    '--user-data-dir',
+                    path.join(profile, 'data'),
+                    '--extensions-dir',
+                    path.join(profile, 'extensions'),
+                    '--disable-extensions',
+                    '--new-window',
+                    '--skip-welcome',
+                    '--skip-release-notes',
+                    file,
+                ],
+                {
+                    stdio: 'ignore',
+                    // Run from VS Code's own terminal, its variables would make Code.exe run as Node or hand the
+                    // file to that window.
+                    env: Object.fromEntries(
+                        Object.entries(process.env).filter(([name]) => !/^(VSCODE_|ELECTRON_)/i.test(name))
+                    ),
+                }
+            );
+            const title = `${marker}-vscode`;
+            try {
+                for (const mode of modes)
+                    await runCase({
+                        target,
+                        entry,
+                        mode,
+                        phone,
+                        windows,
+                        title,
+                        focus: async () => {
+                            await writeFile(file, '');
+                            // The first time, VS Code takes a few seconds to show its window.
+                            for (let attempt = 0; ; attempt++)
+                                try {
+                                    await windows.ask({ do: 'bring', title });
+                                    break;
+                                } catch (error) {
+                                    if (attempt >= 15) throw error;
+                                }
+                            // Long enough for VS Code to load the emptied file.
+                            await wait(1200);
+                        },
+                        // VS Code saves Windows line breaks.
+                        value: async () => {
+                            await wait(500);
+                            return (await readFile(file, 'utf8')).replaceAll('\r\n', '\n');
+                        },
+                    });
+            } finally {
+                spawn('taskkill', ['/PID', String(vscode.pid), '/T', '/F'], { stdio: 'ignore' });
+                await wait(1000);
+                await rm(profile, { recursive: true, force: true }).catch(() => {});
             }
             continue;
         }

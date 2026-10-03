@@ -37,6 +37,10 @@ function Get-FieldVerdict($facts) {
         # classic Windows edit box tells single-line from multi-line by its window style.
         return @{ unreadable=($facts.text.Length -and $facts.text -ceq $facts.name); empty=$false; singleLine=($facts.win32SingleLine -eq $true) }
     }
+    # An editor built on the EditContext API (VS Code's, Monaco's) draws its document itself: the element holds its
+    # accessible name ("The editor is not accessible at this time"), or for a moment the few characters the editor
+    # hands the keyboard, never the document. Mirroring that would show the phone an empty field: it types blind.
+    if ($facts.framework -eq 'Chrome' -and $facts.className -ceq 'native-edit-context') { return @{ unreadable=$true; empty=$true } }
     # Chrome's own text fields (its address bar): their text is the user's, except that empty they read as their name.
     if (-not $content.dom -and $facts.framework -eq 'Chrome') {
         return @{ unreadable=$false; empty=($facts.text -ceq $facts.name); singleLine=($content.singleLine -eq $true) }
