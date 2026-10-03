@@ -1,8 +1,13 @@
 import { nextReplacementStep, replacementFor } from '../text-operations.js';
 
-export function createMirror(send, render) {
+/**
+ * The mirror (CONTEXT.md) of a readable PC field: the phone's edits go to the PC, the PC's changes come back.
+ * send(action, data) → Promise; render(state) on every change. now() and typingMovesFocus (ms): a focus change this
+ * soon after the PC took typing comes from that typing (see the typing session).
+ */
+export function createMirror(send, render, { now = () => performance.now(), typingMovesFocus = 1500 } = {}) {
     // reading: open, the PC's field not read yet (nothing is known about it, so nothing is reported missing either).
-    let state = { open: false, reading: false, available: false, text: '', selectionStart: 0, selectionEnd: 0 };
+    let state = { open: false, reading: false, readable: false, text: '', selectionStart: 0, selectionEnd: 0 };
     let confirmed = null,
         busy = false,
         composing = false,
@@ -11,11 +16,10 @@ export function createMirror(send, render) {
         generation = 0,
         // When the PC last took typing: a focus change soon after comes from that typing (a code's next box).
         typedAt = -Infinity;
-    const typingMovesFocus = 1500;
     /** A replay without key presses: the typing only (see replay). */
-    const typingOnly = (before, now, target) => {
-        const { backspaces, ...typed } = replay(before, now, target) || {};
-        return 'text' in typed ? typed : null;
+    const typingOnly = (before, typed, target) => {
+        const { backspaces, ...rest } = replay(before, typed, target) || {};
+        return 'text' in rest ? rest : null;
     };
     const publish = () => render({ ...state });
     // Nothing is known of the field: no text from an earlier one may show (typing blind would add to it).
@@ -38,15 +42,15 @@ export function createMirror(send, render) {
         publish();
     }
     /**
-     * The typing that turned `before` into `now` (text and caret), replayed at the caret of `target`, as the keyboard
+     * The typing that turned `before` into `typed` (text and caret), replayed at the caret of `target`, as the keyboard
      * would have typed it there: the characters removed before the caret and those inserted. Null when there is none,
      * or the change is not typing that ends at the caret (an autocorrection of an earlier word). `backspaces`: how many
      * of the removed characters reach past the start of the field (Backspace in an empty field).
      */
-    function replay(before, now, target) {
-        if (!target.available || now.text === before) return null;
-        const change = replacementFor(before, now.text, now.selectionStart);
-        if (change.start + change.text.length !== now.selectionStart) return null;
+    function replay(before, typed, target) {
+        if (!target.readable || typed.text === before) return null;
+        const change = replacementFor(before, typed.text, typed.selectionStart);
+        if (change.start + change.text.length !== typed.selectionStart) return null;
         const removed = change.end - change.start;
         // A selection on the PC (a completion) goes first, like typing over it.
         const selected = target.selectionEnd > target.selectionStart;
@@ -76,7 +80,7 @@ export function createMirror(send, render) {
         return { start, end, text: typed, position: typedEnd, resultText: local.text };
     }
     async function flush() {
-        if (!state.open || !state.available || busy || composing || !dirty) return;
+        if (!state.open || !state.readable || busy || composing || !dirty) return;
         const current = generation;
         const local = { ...state };
         const step =
@@ -99,9 +103,9 @@ export function createMirror(send, render) {
             if (current !== generation) return;
             const movedOn = result.snapshot.session !== confirmed.session;
             const moved = movedOn || result.snapshot.text !== confirmed.text;
-            const followsTyping = performance.now() - typedAt < typingMovesFocus;
+            const followsTyping = now() - typedAt < typingMovesFocus;
             if (result.typed || (result.accepted && step.text !== confirmed.text.slice(step.start, step.end)))
-                typedAt = performance.now();
+                typedAt = now();
             if (!result.accepted && !result.typed && !moved && !retried) {
                 // Rejected for a newer revision only (the PC moved its caret, the text is as it was): the typing
                 // still applies, so it is sent again against that revision instead of being dropped.
@@ -129,7 +133,7 @@ export function createMirror(send, render) {
                     const before = state.text;
                     for (let count = 0; count < backspaces; count++)
                         await send('shortcut', { key: 'Backspace', modifiers: [] });
-                    typedAt = performance.now();
+                    typedAt = now();
                     const snapshot = await send('mirror-read', {});
                     if (current !== generation) return;
                     // What was typed meanwhile follows in the field the keys led to.
@@ -147,7 +151,7 @@ export function createMirror(send, render) {
             }
         } catch (error) {
             if (current !== generation) return;
-            state = { ...state, ...unknown, available: false, error: error.message };
+            state = { ...state, ...unknown, readable: false, error: error.message };
             dirty = false;
             // Forget the confirmed snapshot so the next poll rereads the PC instead of hearing "unchanged".
             confirmed = null;
@@ -172,13 +176,13 @@ export function createMirror(send, render) {
                 !confirmed
                 || snapshot.session !== confirmed.session
                 || snapshot.revision !== confirmed.revision
-                || snapshot.available !== confirmed.available
+                || snapshot.readable !== confirmed.readable
                 || snapshot.field !== confirmed.field
             )
                 adopt(snapshot);
         } catch (error) {
             if (current === generation) {
-                state = { ...state, ...unknown, available: false, reading: false, error: error.message };
+                state = { ...state, ...unknown, readable: false, reading: false, error: error.message };
                 confirmed = null;
                 publish();
             }
@@ -207,7 +211,7 @@ export function createMirror(send, render) {
             composing = false;
             state.open = false;
             state.reading = false;
-            state.available = false;
+            state.readable = false;
             publish();
             send('mirror-close').catch(() => {});
         },
@@ -217,7 +221,7 @@ export function createMirror(send, render) {
          * applies, at the PC's caret: the phone's stale text never overwrites the PC's.
          */
         input(text, selectionStart, selectionEnd, previous = state.text) {
-            if (!state.available) return;
+            if (!state.readable) return;
             // Nothing new (the caret reported where it already is): nothing to send.
             const same =
                 previous === state.text
@@ -242,7 +246,7 @@ export function createMirror(send, render) {
             busy = false;
             dirty = false;
             confirmed = null;
-            state = { ...state, ...unknown, available: false, reading: false, error: 'PC disconnected' };
+            state = { ...state, ...unknown, readable: false, reading: false, error: 'PC disconnected' };
             publish();
         },
     };

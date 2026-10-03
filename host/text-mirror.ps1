@@ -98,15 +98,15 @@ function Read-MirrorOnce {
     if ($null -eq $element -or $element.Current.IsPassword -or
         -not $element.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern, [ref]$pattern)) {
         $script:mirror = $null
-        return @{ field=$field; available=$false; text=''; selectionStart=0; selectionEnd=0 }
+        return @{ field=$field; readable=$false; text=''; selectionStart=0; selectionEnd=0 }
     }
     if ($element.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$valuePattern) -and $valuePattern.Current.IsReadOnly) {
         $script:mirror = $null
-        return @{ field=$field; available=$false; text=''; selectionStart=0; selectionEnd=0 }
+        return @{ field=$field; readable=$false; text=''; selectionStart=0; selectionEnd=0 }
     }
     # Some providers refuse to report it at times (WPF's RichTextBox): the field cannot be followed, type blind.
     $ranges = try { $pattern.GetSelection() } catch { $null }
-    if ($null -eq $ranges -or $ranges.Count -ne 1) { $script:mirror = $null; return @{ field=$field; available=$false; text='' } }
+    if ($null -eq $ranges -or $ranges.Count -ne 1) { $script:mirror = $null; return @{ field=$field; readable=$false; text='' } }
     $document = $pattern.DocumentRange
     # Read-only text (a web page rather than a field). The selection is the cheap hint; a caret next to a
     # non-editable part (a placeholder, a mention) reads read-only too, so the whole document confirms it. That scan
@@ -119,11 +119,11 @@ function Read-MirrorOnce {
         }
         if ($known.readOnly) {
             $script:mirror = $null
-            return @{ field=$field; available=$false; text='' }
+            return @{ field=$field; readable=$false; text='' }
         }
     }
     $raw = $document.GetText(262145)
-    if ($raw.Length -gt 262144) { $script:mirror = $null; return @{ field=$field; available=$false; text=''; reason='This field exceeds the 256 Ki character mirror limit.' } }
+    if ($raw.Length -gt 262144) { $script:mirror = $null; return @{ field=$field; readable=$false; text=''; reason='This field exceeds the 256 Ki character mirror limit.' } }
     $text = Normalize-MirrorText $raw
     $prefix = $document.Clone()
     $prefix.MoveEndpointByRange([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, $ranges[0], [System.Windows.Automation.Text.TextPatternRangeEndpoint]::Start)
@@ -133,7 +133,7 @@ function Read-MirrorOnce {
     $resolved = Resolve-FieldText $element $text $start
     if ($resolved.unreadable) {
         $script:mirror = $null
-        return @{ field=$field; available=$false; text=''; selectionStart=0; selectionEnd=0; reason='Text not readable here' }
+        return @{ field=$field; readable=$false; text=''; selectionStart=0; selectionEnd=0; reason='Text not readable here' }
     }
     if ($resolved.empty) { $text = ''; $start = 0; $end = 0 }
     $framework = $element.Current.FrameworkId
@@ -167,7 +167,7 @@ function Read-MirrorOnce {
     }
     # singleLine: the field cannot hold a line break (an <input>, a one-line edit box): the phone's Enter key sends
     # Enter there instead of a new line.
-    return @{ field=$field; available=$true; session=$script:mirror.id; revision=$script:mirror.revision; text=$text; selectionStart=$start; selectionEnd=$end; singleLine=($resolved.singleLine -eq $true) }
+    return @{ field=$field; readable=$true; session=$script:mirror.id; revision=$script:mirror.revision; text=$text; selectionStart=$start; selectionEnd=$end; singleLine=($resolved.singleLine -eq $true) }
 }
 
 function Select-MirrorRange([int]$start, [int]$end, [string]$text) {
@@ -199,14 +199,14 @@ function Select-MirrorRange([int]$start, [int]$end, [string]$text) {
 # selected, so typing on replaces it. That is the typing applied, not a different text.
 function Test-InlineCompletion($updated, [string]$next, [int]$landed) {
     $added = $updated.text.Length - $next.Length
-    return $updated.available -and $added -gt 0 -and $updated.selectionStart -eq $landed -and
+    return $updated.readable -and $added -gt 0 -and $updated.selectionStart -eq $landed -and
         $updated.selectionEnd -eq $landed + $added -and $updated.text.StartsWith($next.Substring(0, $landed), [StringComparison]::Ordinal) -and
         $updated.text.EndsWith($next.Substring($landed), [StringComparison]::Ordinal)
 }
 
 function Edit-Mirror($data) {
     $snapshot = Read-Mirror
-    if (-not $snapshot.available -or $snapshot.session -cne [string]$data.session -or $snapshot.revision -ne [int]$data.revision) {
+    if (-not $snapshot.readable -or $snapshot.session -cne [string]$data.session -or $snapshot.revision -ne [int]$data.revision) {
         return @{ accepted=$false; snapshot=$snapshot }
     }
     if ([string]::IsNullOrWhiteSpace([string]$data.operationId)) { throw 'Missing operation identifier' }

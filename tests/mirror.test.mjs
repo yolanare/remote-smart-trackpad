@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createMirror } from '../web/logic/mirror.js';
 
 const snapshot = (text, session = 'field-a', revision = 0) => ({
-    available: true,
+    readable: true,
     session,
     revision,
     text,
@@ -104,10 +104,10 @@ test('unavailable fields clear the mirror but keep the editor open', async () =>
     h.mirror.open();
     await h.reply(snapshot('Private text'));
     h.mirror.poll();
-    await h.reply({ available: false, text: '' });
+    await h.reply({ readable: false, text: '' });
     assert.equal(h.changes.at(-1).text, '');
     assert.equal(h.changes.at(-1).open, true);
-    assert.equal(h.changes.at(-1).available, false);
+    assert.equal(h.changes.at(-1).readable, false);
 });
 test('a failed edit rereads the PC so typing resumes without refocusing', async () => {
     const h = harness();
@@ -116,11 +116,11 @@ test('a failed edit rereads the PC so typing resumes without refocusing', async 
     h.mirror.input('ab\n\n', 4, 4);
     h.requests.shift().reject(new Error('PC text range differs'));
     await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(h.changes.at(-1).available, false);
+    assert.equal(h.changes.at(-1).readable, false);
     h.mirror.poll();
     assert.equal(h.requests[0].data.session, undefined, 'the poll must not ask for "unchanged"');
     await h.reply(snapshot('ab\n\nc'));
-    assert.equal(h.changes.at(-1).available, true);
+    assert.equal(h.changes.at(-1).readable, true);
 });
 test('typing the PC took is never sent again, even when the field shows something else', async () => {
     const h = harness();

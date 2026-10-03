@@ -107,7 +107,7 @@ while ($null -ne ($line = [Console]::ReadLine())) {
             }
             'mirror-read' {
                 $result = Read-Mirror
-                if ($result.available -and $result.session -ceq [string]$data.session -and $result.revision -eq $data.revision) { $result = @{ unchanged=$true } }
+                if ($result.readable -and $result.session -ceq [string]$data.session -and $result.revision -eq $data.revision) { $result = @{ unchanged=$true } }
             }
             'mirror-edit' { $result = Edit-Mirror $data }
             'mirror-close' { $script:mirror = $null }

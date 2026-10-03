@@ -5,7 +5,7 @@ import './ui/text-editor.js';
 import { addIcons } from './ui/icons.js';
 import { attachHaptics, setHaptics, tick } from './ui/haptics.js';
 import { createConnection } from './logic/connection.js';
-import { createMirror } from './logic/mirror.js';
+import { createTypingSession } from './logic/typing-session.js';
 import { createMotion, pointerGain } from './logic/motion.js';
 
 const $ = (selector) => document.querySelector(selector);
@@ -64,7 +64,8 @@ const labels = {
 let connectionState = 'connecting',
     connected = false,
     namingOnly = false,
-    mirrorState = { open: false },
+    // The typing session's latest view (logic/typing-session.js).
+    typing = { open: false },
     notice = '',
     noticeTimer;
 function refreshStatus() {
@@ -73,9 +74,9 @@ function refreshStatus() {
     if (state === 'ready') {
         state = 'warning';
         if (notice) message = notice;
-        else if (mirrorState.open && mirrorState.error) message = mirrorState.error;
-        else if (mirrorState.open && !mirrorState.reading && !mirrorState.available)
-            message = mirrorState.reason || 'No text field · typing to PC';
+        else if (typing.open && typing.error) message = typing.error;
+        else if (typing.open && !typing.reading && !typing.readable)
+            message = typing.reason || 'No text field · typing to PC';
         else state = 'ready';
     }
     $('#connection').dataset.state = state;
@@ -233,7 +234,7 @@ function mirrorDelay() {
 function pollMirrorLater(delay = mirrorDelay()) {
     clearTimeout(mirrorTimer);
     mirrorTimer = setTimeout(async () => {
-        await mirror.poll();
+        await session.poll();
         if (mirrorPolling) pollMirrorLater();
     }, delay);
 }
@@ -242,11 +243,11 @@ function mirrorActivity() {
     mirrorActiveAt = performance.now();
     if (mirrorPolling && wasQuiet) pollMirrorLater(200);
 }
-for (const type of ['command', 'text-input', 'text-key', 'text-move', 'text-passthrough', 'text-composition'])
+for (const type of ['command', 'text-edit', 'text-caret', 'text-key', 'text-composition'])
     document.addEventListener(type, mirrorActivity, { capture: true });
 function schedulePolling() {
     const active = connected && !document.hidden;
-    const wantMirror = active && mirrorState.open;
+    const wantMirror = active && typing.open;
     if (wantMirror && !mirrorPolling) {
         mirrorPolling = true;
         mirrorActivity();
@@ -256,7 +257,7 @@ function schedulePolling() {
         mirrorPolling = false;
         clearTimeout(mirrorTimer);
     }
-    const wantMedia = active && settings.media && !mirrorState.open;
+    const wantMedia = active && settings.media && !typing.open;
     if (wantMedia && !mediaTimer) mediaTimer = setInterval(refreshMedia, 5000);
     if (!wantMedia && mediaTimer) {
         clearInterval(mediaTimer);
@@ -281,11 +282,11 @@ const connection = createConnection(({ state }) => {
     $('#pair-code').required = !namingOnly;
     if (!connected) {
         pad.cancelGesture();
-        mirror.disconnected();
+        session.disconnected();
         motion.reset();
         rows.reset({ force: true });
     } else {
-        mirror.poll();
+        session.connected();
         refreshMedia();
         // A build may have landed while disconnected (the server restarts with the watcher's changes).
         if (__DEV_RELOAD__) document.dispatchEvent(new CustomEvent('dev-build'));
@@ -295,35 +296,22 @@ const connection = createConnection(({ state }) => {
 });
 const send = (action, data) => connection.send(action, data);
 const motion = createMotion(send, showNotice);
-// The PC element last typed into blind, while the focus stays on it (see the editor's passthrough below), and when.
-let blindField = null,
-    blindTypedAt = 0;
-// A focus change this soon after typing blind comes from the typing itself (a suggestion list opening, the field
-// rebuilt), not from the user moving elsewhere.
-const typingMovesFocus = 1500;
-const mirror = createMirror(send, (state) => {
-    mirrorState = state;
-    // Called when the PC's text, caret or field changed: keep reading closely while it does.
-    mirrorActivity();
-    editing = state.open;
-    layout();
-    // Typing blind (no readable PC field). An element typed into blind stays so until the focus leaves it: such an
-    // element can read as text for a moment (the character just typed), and switching would wipe the phone's text,
-    // which its keyboard then types again.
-    if (!state.open) blindField = null;
-    else if (blindField !== null && state.field !== blindField)
-        blindField = performance.now() - blindTypedAt < typingMovesFocus ? state.field : null;
-    const blind = !state.available || (blindField !== null && state.field === blindField);
-    // keepEcho: the phone's text still matches where the PC's caret is, so it stays (clearing it would make the
-    // keyboard commit its word again: the typing sent twice).
-    editor.render({
-        ...state,
-        passthrough: connected && state.open && !state.reading && blind,
-        keepEcho: blindField !== null && state.field === blindField,
-    });
-    refreshStatus();
-    schedulePolling();
+const session = createTypingSession({
+    send,
+    show(view) {
+        typing = view;
+        // Called when the PC's text, caret or field changed: keep reading closely while it does.
+        mirrorActivity();
+        editing = view.open;
+        layout();
+        editor.render(view);
+        refreshStatus();
+        schedulePolling();
+    },
+    modifiers: () => [...rows.held],
+    notice: (error) => showNotice(error.message),
 });
+editor.heldModifiers = () => [...rows.held];
 
 // No zoom, whatever the browser allows (Firefox's "zoom on all websites" ignores user-scalable=no): the remote
 // never uses two-finger gestures, so a second finger never reaches the browser's pinch handling.
@@ -442,7 +430,6 @@ document.addEventListener('pointerup', unpress, { capture: true });
 document.addEventListener('pointercancel', unpress, { capture: true });
 
 const mediaKeys = new Set(['PlayPause', 'VolumeMute']);
-const navigationKeys = new Set(['Left', 'Right', 'Up', 'Down', 'Home', 'End', 'PageUp', 'PageDown']);
 document.addEventListener('command', async (event) => {
     const { action, data } = event.detail;
     try {
@@ -450,9 +437,9 @@ document.addEventListener('command', async (event) => {
         if (!rows.sticky && (action === 'click' || (action === 'button' && !data.down))) rows.reset();
         // Playback state changes asynchronously in the media app; confirm the optimistic toggle shortly after.
         if (action === 'shortcut' && mediaKeys.has(data.key)) setTimeout(refreshMedia, 400);
-        // The arrow keys move the PC's caret away from what was typed blind.
-        if (action === 'shortcut' && navigationKeys.has(data.key)) editor.clearEcho();
-        mirror.poll();
+        // A key the PC took can move its caret away from what was typed blind.
+        if (action === 'shortcut') session.pressed(data.key);
+        else session.poll();
     } catch (error) {
         showNotice(error.message);
     }
@@ -486,48 +473,18 @@ document.addEventListener('edge-glide', (event) => {
         vy: vy * gain * (settings.invertMouseY ? -1 : 1),
     }).catch(() => {});
 });
-document.addEventListener('text-input', (event) =>
-    mirror.input(event.detail.text, event.detail.start, event.detail.end, event.detail.previous)
+// The phone's text field reports to the typing session.
+document.addEventListener('text-edit', (event) =>
+    session.edit(event.detail.text, event.detail.start, event.detail.end)
 );
-document.addEventListener('text-composition', (event) => mirror.compose(event.detail));
+document.addEventListener('text-caret', (event) => session.caret(event.detail.position, event.detail.selected));
+document.addEventListener('text-composition', (event) => {
+    const { composing, text, start, end } = event.detail;
+    if (composing) session.compositionStart();
+    else session.compositionEnd(text, start, end);
+});
 document.addEventListener('text-key', (event) => {
-    send('shortcut', { key: event.detail.key, modifiers: [...rows.held] })
-        .then(() => mirror.poll())
-        .catch((error) => showNotice(error.message));
-    if (!rows.sticky) rows.reset();
-});
-// The keyboard moved its cursor over text typed blind (Gboard's space bar): the PC's caret moves as many steps, one
-// arrow key each, in order; held modifiers apply (Shift selects).
-document.addEventListener('text-move', (event) => {
-    const { key, count } = event.detail;
-    const modifiers = [...rows.held];
-    // Sent at once, in order: typing that follows goes after them.
-    Promise.all(Array.from({ length: count }, () => send('shortcut', { key, modifiers })))
-        .then(() => mirror.poll())
-        .catch((error) => showNotice(error.message));
-});
-document.addEventListener('text-passthrough', (event) => {
-    blindField = mirrorState.field ?? null;
-    blindTypedAt = performance.now();
-    send('text', event.detail).catch((error) => showNotice(error.message));
-});
-editor.firstElementChild.addEventListener('beforeinput', (event) => {
-    if (event.isComposing || ![...rows.held].some((key) => ['Control', 'Alt', 'Win'].includes(key))) return;
-    const key =
-        {
-            deleteContentBackward: 'Backspace',
-            deleteContentForward: 'Delete',
-            insertLineBreak: 'Enter',
-            insertParagraph: 'Enter',
-        }[event.inputType]
-        || (event.data === ' ' ? 'Space'
-        : /^[a-z]$/i.test(event.data || '') ? event.data.toUpperCase()
-        : null);
-    if (!key) return;
-    event.preventDefault();
-    send('shortcut', { key, modifiers: [...rows.held] })
-        .then(() => mirror.poll())
-        .catch((error) => showNotice(error.message));
+    session.key(event.detail.key);
     if (!rows.sticky) rows.reset();
 });
 // Editing follows the text field's focus. The text button opens it; it ends when a tap lands on the background
@@ -538,19 +495,19 @@ const actionable =
     'button, a[href], label, input, select, summary, dialog, .options, pointer-pad, .key-rows, text-editor, #connection';
 let backgroundTap = false;
 function openEditor() {
-    mirror.open();
+    session.open();
     editor.focus();
 }
 function closeEditor() {
-    if (!mirrorState.open) return;
+    if (!typing.open) return;
     editor.blur();
-    mirror.close();
+    session.close();
     rows.reset();
 }
 document.addEventListener(
     'pointerdown',
     (event) => {
-        if (!mirrorState.open) return;
+        if (!typing.open) return;
         backgroundTap = !event.target.closest?.(actionable);
         // Sliders need their own pointer handling; the field gets the focus back once one is set (see below).
         if (!backgroundTap && !editor.contains(event.target) && event.target.type !== 'range') event.preventDefault();
@@ -561,7 +518,7 @@ document.addEventListener(
 document.addEventListener(
     'click',
     (event) => {
-        if (!mirrorState.open) return;
+        if (!typing.open) return;
         const control = event.target.closest?.('label')?.control;
         if (!control || control === event.target || !['checkbox', 'radio'].includes(control.type)) return;
         event.preventDefault();
@@ -571,7 +528,7 @@ document.addEventListener(
 );
 editor.addEventListener('focusout', () =>
     setTimeout(() => {
-        if (!mirrorState.open || editor.contains(document.activeElement)) return;
+        if (!typing.open || editor.contains(document.activeElement)) return;
         if (backgroundTap) return closeEditor();
         // Anything else that took the focus hands it back, except a slider being moved (or another app: the page
         // itself lost the focus).
@@ -579,7 +536,7 @@ editor.addEventListener('focusout', () =>
     })
 );
 menu.addEventListener('change', (event) => {
-    if (mirrorState.open && event.target.type === 'range') editor.focus();
+    if (typing.open && event.target.type === 'range') editor.focus();
 });
 // The phone keyboard is up while the visual viewport is notably shorter than the screen (a quarter of it: browser
 // bars take less, a keyboard much more). Desktop browsers never see it, so only the background closes editing there.
@@ -587,7 +544,7 @@ menu.addEventListener('change', (event) => {
 let keyboardSeen = false;
 function keyboardClosed() {
     const visible = window.visualViewport;
-    if (!mirrorState.open || !visible) return (keyboardSeen = false);
+    if (!typing.open || !visible) return (keyboardSeen = false);
     const portrait = screen.orientation?.type.startsWith('portrait') ?? innerHeight > innerWidth;
     const screenHeight = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
     const keyboardUp = (screenHeight - visible.height * visible.scale) / screenHeight > 0.25;
@@ -871,7 +828,7 @@ document.addEventListener('visibilitychange', () => {
     if (document.hidden) release();
     else if (connectionState === 'disconnected' || connectionState === 'unavailable') connection.wake();
     else {
-        mirror.poll();
+        session.poll();
         refreshMedia();
     }
     schedulePolling();

@@ -102,11 +102,11 @@ function startProbe() {
 
 function verdict(browser, entry, result) {
     if (!result.ok) return 'error';
-    const { available, text } = result.read;
+    const { readable, text } = result.read;
     const singleLineRight =
         entry.singleLine === undefined || String(result.read.singleLine === true) === entry.singleLine;
     const status =
-        !available ? 'blind'
+        !readable ? 'blind'
         : text === entry.expected && singleLineRight ? 'pass'
         : 'fail';
     return status !== 'pass' && entry.known?.startsWith(`${browser}:`) ? 'known' : status;

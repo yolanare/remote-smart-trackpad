@@ -305,19 +305,19 @@ async function startPhone(host) {
                 editor.__traced = true;
                 const render = editor.render;
                 editor.render = function (state) {
-                    const { available, passthrough, keepEcho, field, text } = state;
-                    window.__renders.push({ at: performance.now(), available, passthrough, keepEcho, field, text, composing: this.composing });
+                    const { readable, blind, keep, field, text } = state;
+                    window.__renders.push({ at: performance.now(), readable, blind, keep, field, text, composing: this.composing });
                     return render.call(this, state);
                 };
             })()`);
             await evaluate("document.querySelector('#editor-open').click()");
-            await until(`${editor}.state?.open && !${editor}.state.reading`);
+            await until(`${editor}.view.open && !${editor}.view.reading`);
         },
         async close() {
             await evaluate(
                 `document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); document.querySelector('#editor-text').blur();`
             );
-            await until(`!${editor}.state?.open`);
+            await until(`!${editor}.view.open`);
         },
         /** keys: a hardware keyboard. ime: Gboard, composing each word and committing it, digits and spaces as is. */
         /**
@@ -408,7 +408,7 @@ async function startPhone(host) {
         },
         state: () =>
             evaluate(
-                `({ text: document.querySelector('#editor-text').value.replaceAll(${JSON.stringify(anchor)}, ''), passthrough: ${editor}.passthrough, available: ${editor}.state?.available, log: window.__log, renders: window.__renders, now: performance.now() })`
+                `({ text: document.querySelector('#editor-text').value.replaceAll(${JSON.stringify(anchor)}, ''), blind: ${editor}.view.blind, readable: ${editor}.view.readable, log: window.__log, renders: window.__renders, now: performance.now() })`
             ),
         async stop() {
             socket.close();
@@ -576,13 +576,13 @@ async function runCase({ target, entry, mode, focus, value, phone, windows, titl
         echo:
             scenario ?
                 entry.expected.includes(phoneState.text)
-            :   (phoneState.passthrough ? entry.typed : got).endsWith(phoneState.text),
+            :   (phoneState.blind ? entry.typed : got).endsWith(phoneState.text),
         pass: (entry.check ? entry.check(got) : got === entry.expected) && !problem,
         problem,
         got,
         expected: entry.expected,
         phone: phoneState.text,
-        blind: phoneState.passthrough,
+        blind: phoneState.blind,
         sent: summarize(phoneState.log),
         latency: latencies(phoneState.log),
         errors: [...new Set(phoneState.log.filter((entry) => entry.error).map((entry) => entry.error))],

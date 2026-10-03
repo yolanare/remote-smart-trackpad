@@ -374,7 +374,7 @@ try {
     // reload after these tests restores the real reads.
     await evaluate(`(() => {
         const send = WebSocket.prototype.send;
-        const empty = { available: true, session: 'check', revision: 0, text: '', selectionStart: 0, selectionEnd: 0 };
+        const empty = { readable: true, session: 'check', revision: 0, text: '', selectionStart: 0, selectionEnd: 0 };
         WebSocket.prototype.send = function (raw) {
             const message = JSON.parse(raw);
             if (message.action !== 'mirror-read') return send.call(this, raw);
@@ -431,7 +431,7 @@ try {
     assert.ok(bounds.field < 45, 'An empty field shows one line: ' + bounds.field);
     // A long text grows the field while room is left, and shrinks it back to one line before the pad gets smaller.
     await evaluate(
-        "document.querySelector('text-editor').render({ available: true, text: 'line\\n'.repeat(12), selectionStart: 0, selectionEnd: 0 })"
+        "document.querySelector('text-editor').render({ readable: true, text: 'line\\n'.repeat(12), selectionStart: 0, selectionEnd: 0 })"
     );
     await settled();
     const tall = await evaluate(editingLayout);
@@ -444,7 +444,7 @@ try {
     assert.ok(squeezed.field < 45, 'The field gives way first, down to one line: ' + JSON.stringify(squeezed));
     await resizeTo(375, 405);
     await evaluate(
-        "document.querySelector('text-editor').render({ available: true, text: '', selectionStart: 0, selectionEnd: 0 })"
+        "document.querySelector('text-editor').render({ readable: true, text: '', selectionStart: 0, selectionEnd: 0 })"
     );
     const modifier = await evaluate(`(() => {
     const rows = document.querySelector('key-rows'), commands = [];
@@ -498,7 +498,7 @@ try {
         { key: 'Z', modifiers: [] },
     ]);
     await evaluate(
-        "document.querySelector('text-editor').render({ available: true, text: 'Ceci est un texte écrit ou récupéré depuis l’ordinateur. '.repeat(16), selectionStart: 0, selectionEnd: 0 }); document.querySelector('#connection-label').textContent = ''; document.querySelector('#connection').dataset.state = 'ready';"
+        "document.querySelector('text-editor').render({ readable: true, text: 'Ceci est un texte écrit ou récupéré depuis l’ordinateur. '.repeat(16), selectionStart: 0, selectionEnd: 0 }); document.querySelector('#connection-label').textContent = ''; document.querySelector('#connection').dataset.state = 'ready';"
     );
     await writeFile(
         path.join(output, 'browser-editor.png'),
@@ -552,14 +552,14 @@ try {
             field.dispatchEvent(lineBreak);
             return { keydown: keydown.defaultPrevented, lineBreak: lineBreak.defaultPrevented, hint: field.enterKeyHint };
         };
-        editor.render({ available: true, singleLine: true, text: 'search', selectionStart: 6, selectionEnd: 6 });
+        editor.render({ readable: true, singleLine: true, text: 'search', selectionStart: 6, selectionEnd: 6 });
         const single = press();
-        editor.render({ available: true, singleLine: false, text: 'notes', selectionStart: 5, selectionEnd: 5 });
+        editor.render({ readable: true, singleLine: false, text: 'notes', selectionStart: 5, selectionEnd: 5 });
         const multi = press();
-        editor.render({ available: false, passthrough: true, field: 'blind', text: '' });
+        editor.render({ readable: false, blind: true, text: '', selectionStart: 0, selectionEnd: 0 });
         const blind = press();
         document.removeEventListener('text-key', capture, { capture: true });
-        editor.render({ available: true, text: '', selectionStart: 0, selectionEnd: 0 });
+        editor.render({ readable: true, text: '', selectionStart: 0, selectionEnd: 0 });
         return { single, multi, blind, keys };
     })()`);
     assert.deepEqual(enterKey, {
@@ -568,34 +568,39 @@ try {
         blind: { keydown: true, lineBreak: true, hint: 'go' },
         keys: ['Enter', 'Enter', 'Enter', 'Enter'],
     });
-    // A PC state arriving during an IME composition is not written into the field (the keyboard would commit its
-    // word again); at the composition's end the typing stays, unless the PC's focus moved to another field.
-    const composition = await evaluate(`(() => {
+    // The text field as the typing session's adapter (its rules have unit tests): it reports edits and compositions
+    // without anchors, writes nothing during an IME composition (the keyboard would commit its word again), lays
+    // anchors around the echo when typing blind, and leaves the field alone when a view keeps the echo.
+    const adapter = await evaluate(`(() => {
         const editor = document.querySelector('text-editor'), field = editor.querySelector('textarea');
         const value = () => field.value.replaceAll(String.fromCharCode(0x200b), '');
-        const typed = [];
-        const capture = (event) => { event.stopImmediatePropagation(); typed.push(event.detail.text); };
-        document.addEventListener('text-input', capture, { capture: true });
-        editor.render({ available: true, field: 'a', session: 's', revision: 1, text: 'hi', selectionStart: 2, selectionEnd: 2 });
+        const events = [], types = ['text-edit', 'text-composition', 'text-key', 'text-caret'];
+        const capture = (event) => { event.stopImmediatePropagation(); events.push(event.type + ' ' + JSON.stringify(event.detail)); };
+        for (const type of types) document.addEventListener(type, capture, { capture: true });
+        editor.render({ readable: true, text: 'hi', selectionStart: 2, selectionEnd: 2 });
         field.dispatchEvent(new CompositionEvent('compositionstart'));
-        editor.write('hi wor', 6, 6);
-        editor.render({ available: true, field: 'a', session: 's', revision: 2, text: 'hi ', selectionStart: 3, selectionEnd: 3 });
+        field.setRangeText(' wor', field.selectionStart, field.selectionEnd, 'end');
+        field.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertCompositionText', data: ' wor' }));
+        editor.render({ readable: true, text: 'HI', selectionStart: 2, selectionEnd: 2 });
         const during = value();
         field.dispatchEvent(new CompositionEvent('compositionend'));
-        const sameField = { value: value(), sent: typed.at(-1) };
-        field.dispatchEvent(new CompositionEvent('compositionstart'));
-        editor.write('hi world', 8, 8);
-        editor.render({ available: true, field: 'b', session: 't', revision: 0, text: 'other', selectionStart: 5, selectionEnd: 5 });
-        field.dispatchEvent(new CompositionEvent('compositionend'));
-        const otherField = value();
-        document.removeEventListener('text-input', capture, { capture: true });
-        editor.render({ available: true, text: '', selectionStart: 0, selectionEnd: 0 });
-        return { during, sameField, otherField };
+        editor.render({ readable: false, blind: true, text: 'hello', selectionStart: 5, selectionEnd: 5 });
+        const echo = { start: field.value.indexOf('h'), length: field.value.length };
+        editor.render({ readable: false, blind: true, text: '', selectionStart: 0, selectionEnd: 0, keep: true });
+        const kept = value();
+        for (const type of types) document.removeEventListener(type, capture, { capture: true });
+        editor.render({ readable: true, text: '', selectionStart: 0, selectionEnd: 0 });
+        return { during, events, echo, kept };
     })()`);
-    assert.deepEqual(composition, {
+    assert.deepEqual(adapter, {
         during: 'hi wor',
-        sameField: { value: 'hi wor', sent: 'hi wor' },
-        otherField: 'other',
+        events: [
+            'text-composition {"composing":true}',
+            'text-edit {"text":"hi wor","start":6,"end":6}',
+            'text-composition {"composing":false,"text":"hi wor","start":6,"end":6}',
+        ],
+        echo: { start: 32, length: 69 },
+        kept: 'hello',
     });
     // Editing follows the field's focus: controls keep it, a tap on the background lets it go and ends editing.
     const focusRules = await evaluate(`(async () => {
@@ -672,44 +677,24 @@ try {
             { dx: 0, dy: -120 },
         ],
     });
-    // Text typed blind stays while the PC's focus stays on the same element, even when it reads for a moment;
-    // another element, or moving the caret, starts afresh.
-    const echo = await evaluate(`(() => {
-        const editor = document.querySelector('text-editor'), field = editor.querySelector('textarea');
-        const value = () => field.value.replaceAll(String.fromCharCode(0x200b), '');
-        editor.render({ open: true, available: false, passthrough: true, field: 'a', text: '' });
-        editor.text = 'hello';
-        editor.write('hello', 5, 5);
-        editor.render({ open: true, available: false, passthrough: true, field: 'a', text: '' });
-        const kept = value();
-        editor.render({ open: true, available: false, passthrough: true, field: 'b', text: '' });
-        const otherField = value();
-        editor.text = 'again';
-        editor.write('again', 5, 5);
-        field.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
-        const afterArrow = value();
-        editor.render({ open: true, available: true, text: '', selectionStart: 0, selectionEnd: 0 });
-        return { kept, otherField, afterArrow };
-    })()`);
-    assert.deepEqual(echo, { kept: 'hello', otherField: '', afterArrow: '' });
     // Through the app: typing blind can itself move the PC's focus (a suggestion list opening); the text stays and
     // is sent once. A focus change later on starts afresh.
     const typingMoves = await evaluate(`(async () => {
         const field = document.querySelector('textarea');
         const value = () => field.value.replaceAll(String.fromCharCode(0x200b), '');
         const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-        const blind = () => document.querySelector('text-editor').passthrough;
+        const blind = () => document.querySelector('text-editor').view.blind;
         window.__blocked = [];
-        window.__readAnswer = { available: false, text: '', field: 'zone-a' };
+        window.__readAnswer = { readable: false, text: '', field: 'zone-a' };
         for (let attempt = 0; attempt < 40 && !blind(); attempt++) await wait(50);
         field.focus();
         field.setRangeText('h', field.selectionStart, field.selectionEnd, 'end');
         field.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: 'h' }));
-        window.__readAnswer = { available: false, text: '', field: 'zone-a-suggestions' };
+        window.__readAnswer = { readable: false, text: '', field: 'zone-a-suggestions' };
         await wait(600);
         const kept = value();
         await wait(1200);
-        window.__readAnswer = { available: false, text: '', field: 'zone-b' };
+        window.__readAnswer = { readable: false, text: '', field: 'zone-b' };
         await wait(800);
         const later = value();
         window.__readAnswer = null;

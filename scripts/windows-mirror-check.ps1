@@ -31,7 +31,7 @@ try {
     [MirrorFixture]::Start()
     Start-Sleep -Milliseconds 200
     $first = Read-Mirror
-    Assert ($first.available -and $first.text -eq 'Existing full field') 'Opening must read the complete field, not only the selection'
+    Assert ($first.readable -and $first.text -eq 'Existing full field') 'Opening must read the complete field, not only the selection'
     Assert ($first.selectionStart -eq 3 -and $first.selectionEnd -eq 3) 'PC caret must be mirrored'
     $edit = Edit-Mirror @{ session=$first.session; revision=$first.revision; operationId='first'; start=0; end=8; text='Updated'; selectionStart=7; selectionEnd=7 }
     Assert ($edit.accepted -and $edit.snapshot.text -eq 'Updated full field') 'Mobile replacement was not applied and confirmed'
