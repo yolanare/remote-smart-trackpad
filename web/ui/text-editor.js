@@ -97,6 +97,8 @@ class TextEditor extends HTMLElement {
             event.preventDefault();
             event.stopImmediatePropagation();
             emit('text-key', { key: 'Enter' });
+            // Typed blind, Enter leaves the line (or sends it): the echoed text no longer borders the PC's caret.
+            if (this.passthrough) this.clearEcho();
         });
         textarea.addEventListener('input', input);
         textarea.addEventListener('select', () => {
@@ -139,7 +141,7 @@ class TextEditor extends HTMLElement {
             event.preventDefault();
             emit('text-key', { key });
             // Moving the PC's caret blind leaves the echoed text behind: it no longer matches what follows the caret.
-            if (this.passthrough && navigationKeys.has(key)) this.clearEcho();
+            if (this.passthrough && (navigationKeys.has(key) || key === 'Enter')) this.clearEcho();
         });
         document.addEventListener('selectionchange', () => {
             if (document.activeElement !== textarea || this.composing) return;
