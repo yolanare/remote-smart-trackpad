@@ -543,9 +543,7 @@ function keyboardClosed() {
     const screenHeight = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
     const keyboardUp = (screenHeight - visible.height * visible.scale) / screenHeight > 0.25;
     if (keyboardUp) keyboardSeen = true;
-    // A system dialog over the page (Gboard's keyboard picker, from a long press on the space bar) takes the focus
-    // and the keyboard away for a moment: not a close (see followViewport).
-    return !keyboardUp && keyboardSeen && document.hasFocus();
+    return !keyboardUp && keyboardSeen;
 }
 $('#editor-open').addEventListener('click', openEditor);
 $('#pair-form').addEventListener('submit', async (event) => {
@@ -721,9 +719,6 @@ function viewport() {
 // frozen first (mid-morph if one runs), then morphs to the new one; when the keyboard closed, the editor closes in the
 // same move, its own morph starting from that frozen geometry. A pinch zoom just follows.
 function resizeViewport() {
-    // While a system dialog has the focus (Gboard's keyboard picker), the layout stays: the keyboard comes back with
-    // the focus, when this runs again.
-    if (typing.open && !document.hasFocus()) return;
     const visible = window.visualViewport;
     const closed = keyboardClosed();
     const resized = Math.abs((visible?.height ?? innerHeight) - shownHeight) > 1;
@@ -738,25 +733,9 @@ new ResizeObserver(([entry]) => {
     const unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
     document.documentElement.style.setProperty('--topbar-height', `${entry.target.offsetHeight / unit}rem`);
 }).observe($('.topbar'));
-/**
- * The keyboard going down while editing is followed a moment later: Gboard's keyboard picker hides it too, and only
- * then takes the page's focus. By that time the page knows, and the layout, editing and the keyboard behind the
- * picker stay as they are (blurring the field would close the keyboard for good). Its own close button or the back
- * gesture leave the page its focus: editing closes.
- */
-let keyboardWait = 0;
-function followViewport() {
-    clearTimeout(keyboardWait);
-    if (typing.open && !document.hasFocus()) return;
-    if (keyboardClosed()) keyboardWait = setTimeout(resizeViewport, 350);
-    else resizeViewport();
-}
-window.visualViewport?.addEventListener('resize', followViewport);
+window.visualViewport?.addEventListener('resize', resizeViewport);
 window.visualViewport?.addEventListener('scroll', viewport);
-window.addEventListener('resize', followViewport);
-window.addEventListener('focus', followViewport);
-// The picker taking the focus while the decision waits: it is not a close.
-window.addEventListener('blur', () => clearTimeout(keyboardWait));
+window.addEventListener('resize', resizeViewport);
 const release = () => {
     pad.cancelGesture();
     motion.reset();
