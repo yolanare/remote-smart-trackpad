@@ -69,6 +69,141 @@
             <button id="options-dismiss" aria-label="Close options" tabindex="-1" hidden></button>
             <!-- Option defaults live in these attributes; values stored on the phone override them. -->
             <div id="options" class="options" role="region" aria-label="Options" hidden>
+                <div class="choice-setting">
+                    <span id="color-scheme-label">Color scheme</span>
+                    <div class="segmented" role="radiogroup" aria-labelledby="color-scheme-label">
+                        <label
+                            ><input type="radio" name="colorScheme" value="auto" checked /><span data-icon="auto"></span
+                            >Auto</label
+                        >
+                        <label
+                            ><input type="radio" name="colorScheme" value="dark" /><span data-icon="dark"></span
+                            >Dark</label
+                        >
+                        <label
+                            ><input type="radio" name="colorScheme" value="light" /><span data-icon="light"></span
+                            >Light</label
+                        >
+                    </div>
+                </div>
+                <div class="stepper-setting">
+                    <span id="ui-scale-label">Interface scale</span>
+                    <div
+                        class="stepper"
+                        role="group"
+                        aria-labelledby="ui-scale-label"
+                        data-option="uiScale"
+                        data-steps="0.25 0.33 0.5 0.67 0.75 0.8 0.9 1 1.1 1.25 1.5 1.75 2 2.5 3 4 5 6 8"
+                    >
+                        <button
+                            type="button"
+                            aria-label="Decrease interface scale"
+                            data-step="-1"
+                            data-icon="minus"
+                        ></button>
+                        <output id="ui-scale-value" aria-live="polite"></output>
+                        <button
+                            type="button"
+                            aria-label="Increase interface scale"
+                            data-step="1"
+                            data-icon="plus"
+                        ></button>
+                    </div>
+                    <input id="ui-scale" name="uiScale" type="hidden" min="0.25" max="8" value="1" />
+                </div>
+                <div class="axis-setting" role="group" aria-label="Haptics">
+                    <span>Haptics</span>
+                    <label
+                        ><input type="checkbox" name="buttonHaptics" aria-label="Buttons haptics" checked /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >Buttons</label
+                    >
+                    <label
+                        ><input type="checkbox" name="scrollHaptics" aria-label="Scroll haptics" checked /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >Scroll</label
+                    >
+                </div>
+                <div class="option-separator">
+                    <span>Keys</span>
+                    <hr />
+                </div>
+                <label
+                    ><input type="checkbox" name="navButtons" checked /><span class="checkbox" data-icon="check"></span
+                    >Show back and forward buttons</label
+                >
+                <label
+                    ><input type="checkbox" name="sticky" /><span class="checkbox" data-icon="check"></span>Sticky
+                    modifier keys</label
+                >
+                <div class="stepper-setting">
+                    <span id="function-keys-label">Function keys displayed</span>
+                    <div
+                        class="stepper"
+                        role="group"
+                        aria-labelledby="function-keys-label"
+                        data-option="functionKeys"
+                        data-steps="4 8 12 16 18 24"
+                    >
+                        <button
+                            type="button"
+                            aria-label="Fewer function keys"
+                            data-step="-1"
+                            data-icon="minus"
+                        ></button>
+                        <output id="function-keys-value" aria-live="polite"></output>
+                        <button type="button" aria-label="More function keys" data-step="1" data-icon="plus"></button>
+                    </div>
+                    <input
+                        id="function-keys"
+                        name="functionKeys"
+                        type="hidden"
+                        min="4"
+                        max="24"
+                        value="12"
+                        data-unit=""
+                    />
+                </div>
+                <div class="option-separator">
+                    <span>Keys above</span>
+                    <hr />
+                </div>
+                <label
+                    ><input type="checkbox" name="functions" /><span class="checkbox" data-icon="check"></span>Show
+                    function keys rows</label
+                >
+                <label
+                    ><input type="checkbox" name="media" /><span class="checkbox" data-icon="check"></span>Show media
+                    keys row</label
+                >
+                <label
+                    ><input type="checkbox" name="edit" /><span class="checkbox" data-icon="check"></span>Show edit keys
+                    row</label
+                >
+                <div class="option-separator">
+                    <span>Keys below</span>
+                    <hr />
+                </div>
+                <label
+                    ><input type="checkbox" name="characters" /><span class="checkbox" data-icon="check"></span>Show
+                    common characters row</label
+                >
+                <label
+                    ><input type="checkbox" name="arrows" /><span class="checkbox" data-icon="check"></span>Show arrow
+                    keys row</label
+                >
+                <label
+                    ><input type="checkbox" name="modifiers" /><span class="checkbox" data-icon="check"></span>Show
+                    modifier keys row</label
+                >
+                <div class="option-separator">
+                    <span>Mouse</span>
+                    <hr />
+                </div>
                 <div class="speed-setting">
                     <label for="mouse-acceleration"
                         >Mouse acceleration
@@ -90,8 +225,28 @@
                     >
                     <input id="mouse-speed" name="mouseSpeed" type="range" min="0.25" max="16" step="0.25" value="2.25" />
                 </div>
+                <div class="axis-setting" role="group" aria-label="Invert mouse">
+                    <span>Invert mouse</span>
+                    <label
+                        ><input type="checkbox" name="invertMouseX" aria-label="Invert mouse X" /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >X</label
+                    >
+                    <label
+                        ><input type="checkbox" name="invertMouseY" aria-label="Invert mouse Y" /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >Y</label
+                    >
+                </div>
+                <label
+                    ><input type="checkbox" name="edgeMotion" checked /><span class="checkbox" data-icon="check"></span
+                    >Keep moving at screen edges</label
+                >
                 <div class="option-separator">
-                    <hr />
                     <span>Scroll</span>
                     <hr />
                 </div>
@@ -124,28 +279,6 @@
                         value="3"
                     />
                 </div>
-                <div class="option-separator">
-                    <hr />
-                    <span>Motion</span>
-                    <hr />
-                </div>
-                <div class="axis-setting" role="group" aria-label="Invert mouse">
-                    <span>Invert mouse</span>
-                    <label
-                        ><input type="checkbox" name="invertMouseX" aria-label="Invert mouse X" /><span
-                            class="checkbox"
-                            data-icon="check"
-                        ></span
-                        >X</label
-                    >
-                    <label
-                        ><input type="checkbox" name="invertMouseY" aria-label="Invert mouse Y" /><span
-                            class="checkbox"
-                            data-icon="check"
-                        ></span
-                        >Y</label
-                    >
-                </div>
                 <div class="axis-setting" role="group" aria-label="Invert scroll">
                     <span>Invert scroll</span>
                     <label
@@ -161,23 +294,6 @@
                             data-icon="check"
                         ></span
                         >Y</label
-                    >
-                </div>
-                <div class="axis-setting" role="group" aria-label="Sliding">
-                    <span>Sliding</span>
-                    <label
-                        ><input type="checkbox" name="mouseSliding" aria-label="Mouse sliding" /><span
-                            class="checkbox"
-                            data-icon="check"
-                        ></span
-                        >Mouse</label
-                    >
-                    <label
-                        ><input type="checkbox" name="scrollSliding" aria-label="Scroll sliding" checked /><span
-                            class="checkbox"
-                            data-icon="check"
-                        ></span
-                        >Scroll</label
                     >
                 </div>
                 <div class="axis-setting" role="group" aria-label="Double tap to scroll once">
@@ -199,151 +315,24 @@
                         /><span class="checkbox" data-icon="check"></span>Y</label
                     >
                 </div>
-                <label
-                    ><input type="checkbox" name="edgeMotion" checked /><span class="checkbox" data-icon="check"></span
-                    >Keep moving at screen edges</label
-                >
-                <div class="option-separator">
-                    <hr />
-                    <span>Keys above</span>
-                    <hr />
-                </div>
-                <label
-                    ><input type="checkbox" name="functions" /><span class="checkbox" data-icon="check"></span>Show
-                    function keys rows</label
-                >
-                <label
-                    ><input type="checkbox" name="media" /><span class="checkbox" data-icon="check"></span>Show media
-                    keys row</label
-                >
-                <label
-                    ><input type="checkbox" name="edit" /><span class="checkbox" data-icon="check"></span>Show edit keys
-                    row</label
-                >
-                <div class="option-separator">
-                    <hr />
-                    <span>Keys below</span>
-                    <hr />
-                </div>
-                <label
-                    ><input type="checkbox" name="characters" /><span class="checkbox" data-icon="check"></span>Show
-                    common characters row</label
-                >
-                <label
-                    ><input type="checkbox" name="arrows" /><span class="checkbox" data-icon="check"></span>Show arrow
-                    keys row</label
-                >
-                <label
-                    ><input type="checkbox" name="modifiers" /><span class="checkbox" data-icon="check"></span>Show
-                    modifier keys row</label
-                >
-                <div class="option-separator">
-                    <hr />
-                    <span>Keys</span>
-                    <hr />
-                </div>
-                <div class="stepper-setting">
-                    <span id="function-keys-label">Function keys displayed</span>
-                    <div
-                        class="stepper"
-                        role="group"
-                        aria-labelledby="function-keys-label"
-                        data-option="functionKeys"
-                        data-steps="4 8 12 16 18 24"
-                    >
-                        <button
-                            type="button"
-                            aria-label="Fewer function keys"
-                            data-step="-1"
-                            data-icon="minus"
-                        ></button>
-                        <output id="function-keys-value" aria-live="polite"></output>
-                        <button type="button" aria-label="More function keys" data-step="1" data-icon="plus"></button>
-                    </div>
-                    <input
-                        id="function-keys"
-                        name="functionKeys"
-                        type="hidden"
-                        min="4"
-                        max="24"
-                        value="12"
-                        data-unit=""
-                    />
-                </div>
-                <label
-                    ><input type="checkbox" name="sticky" /><span class="checkbox" data-icon="check"></span>Sticky
-                    modifier keys</label
-                >
-                <div class="option-separator">
-                    <hr />
-                    <span>Display</span>
-                    <hr />
-                </div>
-                <div class="choice-setting">
-                    <span id="color-scheme-label">Color scheme</span>
-                    <div class="segmented" role="radiogroup" aria-labelledby="color-scheme-label">
-                        <label
-                            ><input type="radio" name="colorScheme" value="auto" checked /><span data-icon="auto"></span
-                            >Auto</label
-                        >
-                        <label
-                            ><input type="radio" name="colorScheme" value="dark" /><span data-icon="dark"></span
-                            >Dark</label
-                        >
-                        <label
-                            ><input type="radio" name="colorScheme" value="light" /><span data-icon="light"></span
-                            >Light</label
-                        >
-                    </div>
-                </div>
-                <div class="axis-setting" role="group" aria-label="Haptics">
-                    <span>Haptics</span>
+                <div class="axis-setting" role="group" aria-label="Sliding">
+                    <span>Sliding</span>
                     <label
-                        ><input type="checkbox" name="buttonHaptics" aria-label="Buttons haptics" checked /><span
+                        ><input type="checkbox" name="mouseSliding" aria-label="Mouse sliding" /><span
                             class="checkbox"
                             data-icon="check"
                         ></span
-                        >Buttons</label
+                        >Mouse</label
                     >
                     <label
-                        ><input type="checkbox" name="scrollHaptics" aria-label="Scroll haptics" checked /><span
+                        ><input type="checkbox" name="scrollSliding" aria-label="Scroll sliding" checked /><span
                             class="checkbox"
                             data-icon="check"
                         ></span
                         >Scroll</label
                     >
                 </div>
-                <label
-                    ><input type="checkbox" name="navButtons" checked /><span class="checkbox" data-icon="check"></span
-                    >Show back and forward buttons</label
-                >
-                <div class="stepper-setting">
-                    <span id="ui-scale-label">Interface scale</span>
-                    <div
-                        class="stepper"
-                        role="group"
-                        aria-labelledby="ui-scale-label"
-                        data-option="uiScale"
-                        data-steps="0.25 0.33 0.5 0.67 0.75 0.8 0.9 1 1.1 1.25 1.5 1.75 2 2.5 3 4 5 6 8"
-                    >
-                        <button
-                            type="button"
-                            aria-label="Decrease interface scale"
-                            data-step="-1"
-                            data-icon="minus"
-                        ></button>
-                        <output id="ui-scale-value" aria-live="polite"></output>
-                        <button
-                            type="button"
-                            aria-label="Increase interface scale"
-                            data-step="1"
-                            data-icon="plus"
-                        ></button>
-                    </div>
-                    <input id="ui-scale" name="uiScale" type="hidden" min="0.25" max="8" value="1" />
-                </div>
                 <div class="option-separator">
-                    <hr />
                     <span>App</span>
                     <hr />
                 </div>
