@@ -10,6 +10,7 @@ const rows = {
     functions: { enabled: false, compact: true, above: true, keys: [] },
     media: {
         enabled: true,
+        compact: true,
         above: true,
         keys: [
             { key: 'PlayPause', label: 'Play / pause', icon: 'play' },
