@@ -266,10 +266,27 @@ class KeyRows extends HTMLElement {
         if (this.sticky && !force) return;
         for (const key of [...this.held]) this.press(key, false);
     }
+    /** Presses the modifiers shown held again on the PC (it lets go of every key when the connection drops). */
+    restore() {
+        for (const key of this.held)
+            this.dispatchEvent(
+                new CustomEvent('command', { bubbles: true, detail: { action: 'key', data: { key, down: true } } })
+            );
+    }
     configure(options) {
         this.sticky = options.sticky;
         this.renderFunctions(options.functionKeys);
         for (const row of this.rowElements) row.hidden = !options[row.dataset.row];
+        this.countShown();
+    }
+    /** The lines and rows each container shows, for its minimum height (style.css: .key-rows). */
+    countShown() {
+        for (const container of new Set(this.rowElements.map((row) => row.parentElement))) {
+            const shown = [...container.children].filter((row) => !row.hidden);
+            const lines = shown.reduce((sum, row) => sum + Number(row.style.getPropertyValue('--lines') || 1), 0);
+            container.style.setProperty('--shown-lines', lines);
+            container.style.setProperty('--shown-rows', shown.length);
+        }
     }
 }
 customElements.define('key-rows', KeyRows);

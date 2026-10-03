@@ -263,12 +263,14 @@ const connection = createConnection(({ state }) => {
     $('#controls').hidden = pairing;
     $('#pair-code-label').hidden = namingOnly;
     $('#pair-code').required = !namingOnly;
+    // A lost connection keeps the interface as it is (editing, the menu, modifiers shown held): only gestures in
+    // progress end. The PC let go of every key meanwhile; the held modifiers are pressed again once back.
     if (!connected) {
         pad.cancelGesture();
         session.disconnected();
         motion.reset();
-        rows.reset({ force: true });
     } else {
+        rows.restore();
         session.connected();
         refreshMedia();
         // A build may have landed while disconnected (the server restarts with the watcher's changes).
@@ -532,7 +534,9 @@ function keyboardClosed() {
     const screenHeight = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
     const keyboardUp = (screenHeight - visible.height * visible.scale) / screenHeight > 0.25;
     if (keyboardUp) keyboardSeen = true;
-    return !keyboardUp && keyboardSeen && editor.contains(document.activeElement);
+    // A system dialog over the page (Gboard's keyboard picker, from a long press on the space bar) takes the focus
+    // and the keyboard away for a moment: not a close.
+    return !keyboardUp && keyboardSeen && document.hasFocus() && editor.contains(document.activeElement);
 }
 $('#editor-open').addEventListener('click', openEditor);
 $('#pair-form').addEventListener('submit', async (event) => {
@@ -703,6 +707,9 @@ function viewport() {
 // frozen first (mid-morph if one runs), then morphs to the new one; when the keyboard closed, the editor closes in the
 // same move, its own morph starting from that frozen geometry. A pinch zoom just follows.
 function resizeViewport() {
+    // While a system dialog has the focus (Gboard's keyboard picker), the layout stays: the keyboard comes back with
+    // the focus, when this runs again.
+    if (typing.open && !document.hasFocus()) return;
     const visible = window.visualViewport;
     const closed = keyboardClosed();
     const resized = Math.abs((visible?.height ?? innerHeight) - shownHeight) > 1;
@@ -720,6 +727,7 @@ new ResizeObserver(([entry]) => {
 window.visualViewport?.addEventListener('resize', resizeViewport);
 window.visualViewport?.addEventListener('scroll', viewport);
 window.addEventListener('resize', resizeViewport);
+window.addEventListener('focus', resizeViewport);
 const release = () => {
     pad.cancelGesture();
     motion.reset();

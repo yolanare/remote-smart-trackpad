@@ -208,8 +208,6 @@ class TextEditor extends HTMLElement {
         this.view = view;
         // The keyboard's Enter key shows what it does: an action where it presses Enter, a new line elsewhere.
         this.firstElementChild.enterKeyHint = this.submits() ? 'go' : 'enter';
-        // Never read-only while the first read is on its way: the phone would not show its keyboard on the focus.
-        this.firstElementChild.readOnly = !view.readable && !view.blind && !view.reading;
         if (!this.composing && !view.keep) this.write(view.text, view.selectionStart, view.selectionEnd);
         this.resize();
         this.updateHint();
