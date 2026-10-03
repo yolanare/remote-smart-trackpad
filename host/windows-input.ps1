@@ -286,6 +286,22 @@ function Insert-Text([string]$text) {
         }
         return
     }
+    # Classic Windows edit boxes paste only once after UI Automation read them (WinForms), so no clipboard there: an
+    # Edit takes a typed carriage return as its line break (not the Enter key, which a dialog would take for its
+    # default button), a RichEdit only the Enter key.
+    $class = if ($null -ne $element) { $element.Current.ClassName } else { '' }
+    if ($class -match '(^|\.)RichEdit\w*(\.|$)') {
+        $lines = $text.Split("`n")
+        for ($index = 0; $index -lt $lines.Count; $index++) {
+            if ($index) { Tap-Key 'Enter' }
+            if ($lines[$index].Length -and -not [NativeInput]::Text($lines[$index])) { throw 'Windows rejected text input' }
+        }
+        return
+    }
+    if ($class -match '(^|\.)Edit(\.|$)') {
+        if (-not [NativeInput]::Text($text.Replace("`n", "`r"))) { throw 'Windows rejected text input' }
+        return
+    }
     if (-not [ClipboardText]::Set($text)) { throw 'Clipboard unavailable' }
     $script:pasted = $true
     $control = -not $held.Contains('Control')

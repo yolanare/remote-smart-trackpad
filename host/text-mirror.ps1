@@ -229,8 +229,26 @@ function Edit-Mirror($data) {
         if (-not ([System.Windows.Automation.AutomationElement]::FocusedElement).Equals($script:mirror.element)) { return @{ accepted=$false; snapshot=(Read-Mirror) } }
         try {
             if ($atCaret) {
-                $removed = (New-Object System.Globalization.StringInfo $old.Substring($start, $end - $start)).LengthInTextElements
-                for ($index = 0; $index -lt $removed; $index++) { Tap-Key 'Backspace' }
+                $erased = $old.Substring($start, $end - $start)
+                if ($erased -match '[\uD800-\uDFFF‍︎️⃣]') {
+                    # An emoji sequence (surrogates, skin tones, joiners): apps erase one character or a part of it
+                    # per Backspace, and .NET counts its parts apart. Backspace until exactly the erased text is gone.
+                    $remaining = $old.Substring(0, $start) + $old.Substring($end)
+                    $current = $old
+                    for ($press = 0; $press -lt $erased.Length -and $current -cne $remaining -and $current.Length -gt $remaining.Length; $press++) {
+                        Tap-Key 'Backspace'
+                        for ($attempt = 0; $attempt -lt 30; $attempt++) {
+                            $read = Read-Mirror
+                            if ($read.session -cne $snapshot.session -or $read.text -cne $current) { break }
+                            Start-Sleep -Milliseconds 10
+                        }
+                        if ($read.session -cne $snapshot.session) { break }
+                        $current = $read.text
+                    }
+                } else {
+                    $removed = (New-Object System.Globalization.StringInfo $erased).LengthInTextElements
+                    for ($index = 0; $index -lt $removed; $index++) { Tap-Key 'Backspace' }
+                }
                 if ($insert.Length) { Insert-Text $insert }
             } elseif ($insert.Length) { Insert-Text $insert }
             elseif ($overSelection) { Tap-Key 'Backspace' }
