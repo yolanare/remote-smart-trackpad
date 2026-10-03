@@ -35,3 +35,17 @@ const pulse = 1;
 export function tick(kind = 'button') {
     if (enabled[kind]) navigator.vibrate?.(pulse);
 }
+
+/**
+ * Stops the context menu of a right click on element, but leaves a touch's long press alone: Chrome on Android
+ * vibrates whenever a page claims a long press, cancelling its contextmenu included, so a finger resting or sliding
+ * slowly on a control buzzed. Unclaimed, that long press shows nothing on these controls (no link, image or
+ * selectable text) and stays silent.
+ */
+export function blockMenu(element) {
+    let touch = false;
+    element.addEventListener('pointerdown', (event) => (touch = event.pointerType === 'touch'), { capture: true });
+    element.addEventListener('contextmenu', (event) => {
+        if (!touch) event.preventDefault();
+    });
+}

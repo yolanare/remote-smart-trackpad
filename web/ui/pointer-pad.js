@@ -1,7 +1,7 @@
 import './scroll-rail.js';
 import { icon } from './icons.js';
 import { createEdgeMotion } from './edge-motion.js';
-import { tick } from './haptics.js';
+import { blockMenu, tick } from './haptics.js';
 
 class PointerPad extends HTMLElement {
     holding = false;
@@ -264,7 +264,7 @@ class PointerPad extends HTMLElement {
                 else command({ action: 'click', data: { button: button.dataset.button } });
             });
         });
-        this.addEventListener('contextmenu', (event) => event.preventDefault());
+        blockMenu(this);
     }
 }
 customElements.define('pointer-pad', PointerPad);

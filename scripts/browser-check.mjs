@@ -308,6 +308,25 @@ try {
         scrolledOver.value,
         'A scroll starting on a slider must not change it'
     );
+    // A long touch leaves its contextmenu alone (Chrome on Android vibrates when a page claims a long press); a right
+    // click's menu stays blocked.
+    assert.deepEqual(
+        await evaluate(`['pointer-pad', '.mouse-left'].map((selector) => {
+            const target = document.querySelector(selector);
+            return ['touch', 'mouse'].map((pointerType) => {
+                target.dispatchEvent(new PointerEvent('pointerdown', { pointerType, bubbles: true, composed: true }));
+                target.dispatchEvent(new PointerEvent('pointerup', { pointerType, bubbles: true, composed: true }));
+                const menu = new PointerEvent('contextmenu', { pointerType, bubbles: true, cancelable: true });
+                target.dispatchEvent(menu);
+                return menu.defaultPrevented;
+            });
+        })`),
+        [
+            [false, true],
+            [false, true],
+        ],
+        'A long touch must not be claimed; a right click must not open a menu'
+    );
     await evaluate("document.querySelector('.options').scrollTop = 0");
     await evaluate("document.querySelector('.options').scrollTop = 0");
     const slider = await evaluate(`(() => {

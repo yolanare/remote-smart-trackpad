@@ -1,5 +1,5 @@
 import { icon } from './icons.js';
-import { tick } from './haptics.js';
+import { blockMenu, tick } from './haptics.js';
 // Rows, in display order. enabled: shown by default (the option menu's "Show … row" switches it per phone). compact:
 // lower keys, for dense rows of short labels. above: placed above the trackpad (the less used rows), so the trackpad
 // and the rows used most sit lower, under the thumb; the others go below it. Each key: key (what is sent, or a name in controlShortcuts), label (the
@@ -232,8 +232,8 @@ class KeyRows extends HTMLElement {
             timer = setTimeout(again, repeatDelay);
         });
         for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(type, stop);
-        // A long press must not open anything (context menu, selection) while the key repeats.
-        button.addEventListener('contextmenu', (event) => event.preventDefault());
+        // Nothing opens while the key repeats: no right-click menu, and a long touch shows nothing (user-select: none).
+        blockMenu(button);
     }
     press(key, down) {
         if (down) this.held.add(key);
