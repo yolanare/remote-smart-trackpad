@@ -230,7 +230,7 @@ function Edit-Mirror($data) {
         try {
             if ($atCaret) {
                 $erased = $old.Substring($start, $end - $start)
-                if ($erased -match '[\uD800-\uDFFF‍︎️⃣]') {
+                if ($erased -match '[\uD800-\uDFFF\u200D\uFE0E\uFE0F\u20E3]') {
                     # An emoji sequence (surrogates, skin tones, joiners): apps erase one character or a part of it
                     # per Backspace, and .NET counts its parts apart. Backspace until exactly the erased text is gone.
                     $remaining = $old.Substring(0, $start) + $old.Substring($end)
