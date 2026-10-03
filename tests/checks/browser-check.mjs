@@ -223,15 +223,39 @@ try {
         path.join(output, 'browser-menu.png'),
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
-    await evaluate("document.querySelector('.options').scrollTop = 1e6");
+    // The menu's edges fade with the scroll: the top fade grows with the distance scrolled, the bottom one shrinks with
+    // the distance left, each up to 2rem (32px).
+    const fades = await evaluate(`(async () => {
+        const menu = document.querySelector('#options'), frame = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const read = () => [menu.style.getPropertyValue('--fade-above'), menu.style.getPropertyValue('--fade-below')];
+        menu.scrollTop = 0;
+        await frame();
+        const top = read();
+        menu.scrollTop = 10;
+        await frame();
+        const near = read();
+        menu.scrollTop = menu.scrollHeight - menu.clientHeight - 12;
+        await frame();
+        const almost = read();
+        menu.scrollTop = 1e6;
+        await frame();
+        return { top, near, almost, end: read() };
+    })()`);
+    assert.deepEqual(fades, {
+        top: ['0px', '32px'],
+        near: ['10px', '32px'],
+        almost: ['32px', '12px'],
+        end: ['32px', '0px'],
+    });
+    await evaluate("document.querySelector('#options').scrollTop = 1e6");
     await writeFile(
         path.join(output, 'browser-menu-end.png'),
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
-    await evaluate("document.querySelector('.options').scrollTop = 0");
+    await evaluate("document.querySelector('#options').scrollTop = 0");
     // Longer text (larger type, or translations later) wraps inside the menu instead of overflowing it.
     const overflowing = await evaluate(`(() => {
-        const menu = document.querySelector('.options');
+        const menu = document.querySelector('#options');
         menu.style.fontSize = '1.2rem';
         const rows = [...menu.querySelectorAll('label, .axis-setting, .stepper-setting, .choice-setting, .speed-setting, .options-action')];
         const wide = rows.filter((row) => row.getClientRects().length && row.getBoundingClientRect().right > menu.getBoundingClientRect().right + 1).map((row) => row.textContent.trim().slice(0, 30));
@@ -244,7 +268,7 @@ try {
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
     await evaluate(
-        "document.querySelector('.options').style.fontSize = ''; document.querySelector('.options').scrollTop = 0"
+        "document.querySelector('#options').style.fontSize = ''; document.querySelector('#options').scrollTop = 0"
     );
     assert.deepEqual(overflowing, { wide: [], scrolls: false }, 'Options must wrap long text');
     // Interface scale: the stepper stays at the same height in the menu, ready for the next tap.
@@ -287,7 +311,7 @@ try {
         "document.querySelectorAll('#options input').forEach(input => { if (['functions','media','characters'].includes(input.name) && input.checked) { input.checked = false; input.dispatchEvent(new Event('change')); } });"
     );
     // Starting a scroll of the menu on a slider scrolls the menu and leaves the slider's value alone.
-    await evaluate("document.querySelector('.options').scrollTop = 0");
+    await evaluate("document.querySelector('#options').scrollTop = 0");
     const scrolledOver = await evaluate(`(() => {
         const input = document.querySelector('#mouse-speed'), rect = input.getBoundingClientRect();
         return { x: rect.x + rect.width * 0.2, y: rect.y + rect.height / 2, value: input.valueAsNumber };
@@ -327,8 +351,8 @@ try {
         ],
         'A long touch must not be claimed; a right click must not open a menu'
     );
-    await evaluate("document.querySelector('.options').scrollTop = 0");
-    await evaluate("document.querySelector('.options').scrollTop = 0");
+    await evaluate("document.querySelector('#options').scrollTop = 0");
+    await evaluate("document.querySelector('#options').scrollTop = 0");
     const slider = await evaluate(`(() => {
         const input = document.querySelector('#mouse-speed'), rect = input.getBoundingClientRect();
         return { x: rect.x, y: rect.y + rect.height / 2, width: rect.width, height: rect.height, fraction: (input.valueAsNumber - Number(input.min)) / (Number(input.max) - Number(input.min)) };
@@ -844,11 +868,186 @@ try {
         scrolled.moves === 0 && Math.sign(scrolled.dy) === (scrolled.inverted ? 1 : -1) && scrolled.dx === 0,
         'Free scroll must scroll, not move: ' + JSON.stringify(scrolled)
     );
+    // The MODE button opens the modes menu from its bottom-right corner, where the menu stays anchored, inside the
+    // screen; hold clicks lights the button's badge; Escape closes it and releases hold; a tap beside it only closes
+    // it (the tap does not reach the trackpad). Screenshots in portrait and landscape.
+    const modeState = `(() => {
+        const menu = document.querySelector('#mode-menu'), button = document.querySelector('.mouse-mode');
+        const box = menu.getBoundingClientRect(), anchor = button.getBoundingClientRect();
+        return {
+            open: !menu.hidden && button.getAttribute('aria-expanded') === 'true',
+            // Above the MODE button's tap area (4px into it), its right edge on the button's, no closer to the screen's edge
+            // than the options menu (16px).
+            anchored:
+                Math.abs(box.right - Math.min(anchor.right, innerWidth - 16)) <= 1
+                && Math.abs(box.bottom - (anchor.top + 4)) <= 1,
+            inside: box.top >= 0 && box.left >= 0,
+            holding: document.querySelector('pointer-pad').holding,
+            badge: button.hasAttribute('data-active'),
+        };
+    })()`;
+    const modeShots = {};
+    for (const [name, width, height] of [
+        ['portrait', 375, 711],
+        ['landscape', 844, 390],
+    ]) {
+        await resizeTo(width, height);
+        await evaluate("document.querySelector('.mouse-mode').click()");
+        await evaluate('new Promise(resolve => setTimeout(resolve, 450))');
+        modeShots[name] = await evaluate(modeState);
+        await writeFile(
+            path.join(output, `browser-mode-menu-${name}.png`),
+            Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
+        );
+        await evaluate("document.querySelector('#mode-dismiss').click()");
+        await evaluate('new Promise(resolve => setTimeout(resolve, 400))');
+    }
+    await resizeTo(375, 405);
+    await evaluate("document.querySelector('.mouse-mode').click()");
+    await evaluate("document.querySelector('#hold-clicks').closest('label').click()");
+    // Once the menu has morphed open.
+    await evaluate('new Promise(resolve => setTimeout(resolve, 450))');
+    const holding = await evaluate(modeState);
+    await evaluate("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))");
+    await evaluate('new Promise(resolve => setTimeout(resolve, 400))');
+    const escaped = await evaluate(
+        `(() => ({ ...${modeState}, hidden: document.querySelector('#mode-menu').hidden, box: document.querySelector('#hold-clicks').checked }))()`
+    );
+    await evaluate("document.querySelector('.mouse-mode').click()");
+    await evaluate('window.__blocked = []');
+    const beside = await evaluate(
+        "(() => { const box = document.querySelector('.trackpad').getBoundingClientRect(); return { x: box.left + 20, y: box.top + 20 }; })()"
+    );
+    for (const type of ['mousePressed', 'mouseReleased'])
+        await page('Input.dispatchMouseEvent', { type, x: beside.x, y: beside.y, button: 'left', clickCount: 1 });
+    await evaluate('new Promise(resolve => setTimeout(resolve, 400))');
+    const dismissed = await evaluate(
+        `(() => ({ open: ${modeState}.open, clicks: window.__blocked.filter((message) => message.action === 'click').length }))()`
+    );
+    assert.deepEqual(
+        { modeShots, holding, escaped, dismissed },
+        {
+            modeShots: {
+                portrait: { open: true, anchored: true, inside: true, holding: false, badge: false },
+                landscape: { open: true, anchored: true, inside: true, holding: false, badge: false },
+            },
+            holding: { open: true, anchored: true, inside: true, holding: true, badge: true },
+            escaped: {
+                open: false,
+                anchored: escaped.anchored,
+                inside: escaped.inside,
+                holding: false,
+                badge: false,
+                hidden: true,
+                box: false,
+            },
+            dismissed: { open: false, clicks: 0 },
+        }
+    );
+    // The MODE button: MODE with no mode on; one mode's icon or the number of modes on, in a square box of one size.
+    // Zoomed shots of each state, for review.
+    const modeLooks = {};
+    const modeCorner = async (name) => {
+        const box = await evaluate(
+            "(() => { const r = document.querySelector('.mouse-mode').getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; })()"
+        );
+        await writeFile(
+            path.join(output, `browser-mode-button-${name}.png`),
+            Buffer.from(
+                (await page('Page.captureScreenshot', { format: 'png', clip: { ...box, scale: 4 } })).data,
+                'base64'
+            )
+        );
+        modeLooks[name] = await evaluate(
+            "(() => { const r = document.querySelector('.mode-box').getBoundingClientRect(); return { size: [Math.round(r.width), Math.round(r.height)], count: document.querySelector('.mode-count').textContent }; })()"
+        );
+    };
+    await modeCorner('none');
+    await evaluate("document.querySelector('pointer-pad').setHolding(true)");
+    await modeCorner('hold');
+    await freeScroll(true);
+    await modeCorner('several');
+    await evaluate("document.querySelector('pointer-pad').setHolding(false)");
+    await modeCorner('scroll');
+    await freeScroll(false);
+    const square = modeLooks.hold.size;
+    assert.ok(
+        square[0] === square[1]
+            && JSON.stringify(modeLooks.scroll.size) === JSON.stringify(square)
+            && JSON.stringify(modeLooks.several.size) === JSON.stringify(square)
+            && modeLooks.several.count === '2'
+            && modeLooks.none.size[0] > modeLooks.none.size[1],
+        'Mode box: ' + JSON.stringify(modeLooks)
+    );
+    // The options menu opens right under its button's round fill (2px), whatever the top bar's height.
+    await evaluate("document.querySelector('#options-toggle').click()");
+    await evaluate('new Promise(resolve => setTimeout(resolve, 450))');
+    assert.ok(
+        await evaluate(
+            "Math.abs(document.querySelector('#options').getBoundingClientRect().top - (document.querySelector('#options-toggle .fill').getBoundingClientRect().bottom + 2)) <= 1"
+        ),
+        'The options menu must open right under its button'
+    );
+    await evaluate("document.querySelector('#options-dismiss').click()");
+    await evaluate('new Promise(resolve => setTimeout(resolve, 400))');
+    // Both menus morph out of their button: frames of the opening, paused at a few moments, for review.
+    for (const [name, opener, dismiss] of [
+        ['mode', '.mouse-mode', '#mode-dismiss'],
+        ['options', '#options-toggle', '#options-dismiss'],
+    ]) {
+        await evaluate(
+            `document.querySelector('${opener}').dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }))`
+        );
+        for (const at of [40, 110, 200, 400]) {
+            await evaluate(
+                `document.getAnimations().forEach((animation) => { animation.pause(); animation.currentTime = ${at}; })`
+            );
+            await writeFile(
+                path.join(output, `browser-morph-${name}-${at}ms.png`),
+                Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
+            );
+        }
+        await evaluate('document.getAnimations().forEach((animation) => animation.finish())');
+        // Open and at rest, the container is fully shown and blurs what is behind it (from the start, never animated).
+        await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
+        assert.deepEqual(
+            await evaluate(
+                `(() => { const surface = document.querySelector('.morph-surface'); return { opacity: surface && getComputedStyle(surface).opacity, blur: surface && getComputedStyle(surface).backdropFilter }; })()`
+            ),
+            { opacity: '1', blur: 'blur(8px)' }
+        );
+        await evaluate(`document.querySelector('${dismiss}').click()`);
+        await evaluate('new Promise(resolve => setTimeout(resolve, 400))');
+        assert.equal(
+            await evaluate(`document.querySelectorAll('.morph-surface').length`),
+            0,
+            'The morph surface goes once the menu closed'
+        );
+    }
     await evaluate("document.querySelector('#editor-open').click()");
     await waitFor("document.querySelector('.app').classList.contains('editing')");
     await settled();
+    // While editing, a row of the modes menu toggles without taking the focus from the text field.
+    const editingModes = await evaluate(`(async () => {
+        document.querySelector('textarea').focus();
+        const before = document.activeElement === document.querySelector('textarea');
+        // A tap (detail 1), not a keyboard activation.
+        document.querySelector('.mouse-mode').dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+        const label = document.querySelector('#mode-menu [name=freeScroll]').closest('label');
+        label.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+        label.click();
+        const result = {
+            toggled: document.querySelector('[name=freeScroll]').checked,
+            focused: document.activeElement === document.querySelector('textarea'),
+        };
+        label.click();
+        document.querySelector('#mode-dismiss').click();
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        return { before, ...result, editing: document.querySelector('.app').classList.contains('editing') };
+    })()`);
+    assert.deepEqual(editingModes, { before: true, toggled: true, focused: true, editing: true });
     // No dead zone: every point of the pointer pad (past its left margin) lands on something that acts: the
-    // trackpad, a rail, a click or the hold toggle.
+    // trackpad, a rail, a click or the MODE button.
     const deadZones = await evaluate(`(() => {
         const pad = document.querySelector('pointer-pad'), box = pad.getBoundingClientRect();
         const live = '.trackpad, .rail-viewport, button';

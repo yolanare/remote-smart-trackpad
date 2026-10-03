@@ -67,6 +67,36 @@
                 </div>
             </div>
             <button id="options-dismiss" aria-label="Close options" tabindex="-1" hidden></button>
+            <!-- The modes menu, opened by the MODE button in the pointer pad's corner (remote.js places it there). -->
+            <button id="mode-dismiss" aria-label="Close modes" tabindex="-1" hidden></button>
+            <div id="mode-menu" class="options mode-menu" role="group" aria-label="Modes" hidden>
+                <label
+                    ><input type="checkbox" id="hold-clicks" /><span class="checkbox" data-icon="check"></span>Hold
+                    clicks</label
+                >
+                <label
+                    ><input type="checkbox" name="freeScroll" /><span class="checkbox" data-icon="check"></span>Free
+                    scroll with trackpad</label
+                >
+                <hr />
+                <div class="axis-setting" role="group" aria-label="Sliding">
+                    <span>Sliding</span>
+                    <label
+                        ><input type="checkbox" name="mouseSliding" aria-label="Mouse sliding" /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >Mouse</label
+                    >
+                    <label
+                        ><input type="checkbox" name="scrollSliding" aria-label="Scroll sliding" checked /><span
+                            class="checkbox"
+                            data-icon="check"
+                        ></span
+                        >Scroll</label
+                    >
+                </div>
+            </div>
             <!-- Option defaults live in these attributes; values stored on the phone override them. -->
             <div id="options" class="options" role="region" aria-label="Options" hidden>
                 <div class="choice-setting">
@@ -258,10 +288,6 @@
                     <span>Scroll</span>
                     <hr />
                 </div>
-                <label
-                    ><input type="checkbox" name="freeScroll" /><span class="checkbox" data-icon="check"></span>Free
-                    scroll: the trackpad scrolls</label
-                >
                 <div class="speed-setting">
                     <label for="scroll-acceleration"
                         >Scroll acceleration
@@ -325,23 +351,6 @@
                             aria-label="Double tap to scroll once Y"
                             checked
                         /><span class="checkbox" data-icon="check"></span>Y</label
-                    >
-                </div>
-                <div class="axis-setting" role="group" aria-label="Sliding">
-                    <span>Sliding</span>
-                    <label
-                        ><input type="checkbox" name="mouseSliding" aria-label="Mouse sliding" /><span
-                            class="checkbox"
-                            data-icon="check"
-                        ></span
-                        >Mouse</label
-                    >
-                    <label
-                        ><input type="checkbox" name="scrollSliding" aria-label="Scroll sliding" checked /><span
-                            class="checkbox"
-                            data-icon="check"
-                        ></span
-                        >Scroll</label
                     >
                 </div>
                 <div class="option-separator">

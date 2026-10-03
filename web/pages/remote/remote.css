@@ -104,7 +104,7 @@ button.is-held {
         opacity: 0.7;
         transition-duration: 0ms, 70ms;
     }
-    button:active:not([aria-pressed='true'], .mouse-hold, .fill-button) {
+    button:active:not([aria-pressed='true'], .mouse-mode, .fill-button) {
         background: var(--surface);
         color: var(--text);
     }
@@ -367,74 +367,83 @@ scroll-rail {
     border-radius: calc(0.5rem * var(--corner)) calc(0.5rem * var(--corner)) calc(1.5rem * var(--corner))
         calc(0.5rem * var(--corner));
 }
-/* Hold toggle in the corner between the scroll rails: the whole cell is the tap area, the drawn box is small. */
-.mouse-hold {
+/* MODE button in the corner between the scroll rails, opening the modes menu: the whole cell is the tap area, the
+   drawn box is small. */
+.mouse-mode {
+    display: grid;
     position: relative;
+    place-items: center;
     width: 100%;
     height: 100%;
     border: none;
     border-radius: 0;
     color: var(--text);
 }
-.mouse-hold,
-.mouse-hold:active,
-.mouse-hold.is-pressed,
-.mouse-hold[aria-pressed='true'] {
+.mouse-mode,
+.mouse-mode:active,
+.mouse-mode.is-pressed {
     background: transparent;
 }
-/* Unchecked: an empty square. Checked: the box hugs a tiny "HOLD" label. */
-.hold-box {
-    display: flex;
+/* No mode on: MODE, quiet. One on: its icon; several: how many. Either in a square box of the same size. */
+.mode-box {
+    display: grid;
     position: relative;
-    align-items: center;
-    justify-content: center;
-    min-width: 1.125rem;
-    max-width: 1.125rem;
-    min-height: 1.125rem;
-    max-height: 1.125rem;
-    padding: 0;
+    place-items: center;
+    padding: 0.25rem 0.4375rem;
     border: var(--stroke) solid var(--border);
     border-radius: var(--radius-small);
-    isolation: isolate;
-    color: transparent;
+    color: var(--border);
     font-weight: 600;
     font-size: 0.5rem;
     line-height: 1.15;
     letter-spacing: 0.08em;
-    text-align: center;
-    white-space: nowrap;
     transition:
-        max-width 160ms ease-out,
-        max-height 160ms ease-out,
-        padding 160ms ease-out,
+        border-color 160ms ease-out,
         color 160ms ease-out,
-        border-color 160ms ease-out;
+        transform 220ms cubic-bezier(0.2, 0, 0, 1);
 }
-.mouse-hold[aria-pressed='true'] .hold-box {
-    max-width: 3.5rem;
-    max-height: 2rem;
-    padding: 0.1875rem 0.3125rem;
-    border-color: var(--border);
+/* Pressed, the box pushes in; open, it lights up like the options toggle. */
+.mouse-mode.is-pressed .mode-box {
+    transform: scale(0.88);
+    transition-duration: 160ms, 160ms, 70ms;
+}
+.mouse-mode[aria-expanded='true'] .mode-box {
+    border-color: var(--muted);
+    color: var(--text);
+}
+.mode-icon,
+.mode-count {
+    display: none;
+}
+/* Room around the icon (or the count) so it reads at a glance. */
+.mouse-mode[data-active] .mode-box {
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
     color: var(--muted);
 }
-/* The label clips itself so the box can collapse to a square; the check badge can then overflow the corner. */
-.hold-label {
-    display: flex;
-    z-index: 1;
-    position: relative;
-    justify-content: center;
-    min-width: 0;
-    overflow: hidden;
+.mouse-mode[aria-expanded='true'][data-active] .mode-box {
+    color: var(--text);
 }
-/* Always at its full width and centered (overflowing both sides equally), so the text stays still while the box
-   grows or shrinks around it: only the clipping changes. */
-.hold-text {
-    flex: none;
+.mouse-mode[data-active] .mode-text {
+    display: none;
 }
-/* Active marker: a check on a black disc that cuts the border at the top-right corner, drawn under the label. */
-.hold-check {
+.mouse-mode[data-active='hold'] .mode-icon[data-mode='hold'],
+.mouse-mode[data-active='scroll'] .mode-icon[data-mode='scroll'] {
     display: grid;
-    z-index: 0;
+}
+.mode-icon svg {
+    width: 0.875rem;
+    height: 0.875rem;
+}
+.mouse-mode[data-active='several'] .mode-count {
+    display: block;
+    font-size: 0.6875rem;
+    letter-spacing: 0;
+}
+/* A mode is on (hold clicks, free scroll): a check on a disc that cuts the border at the top-right corner. */
+.mode-badge {
+    display: grid;
     position: absolute;
     top: -0.3125rem;
     right: -0.3125rem;
@@ -448,12 +457,12 @@ scroll-rail {
     opacity: 0;
     transition: opacity 160ms ease-out;
 }
-.hold-check svg {
+.mode-badge svg {
     width: 0.65rem;
     height: 0.65rem;
     stroke-width: 3;
 }
-.mouse-hold[aria-pressed='true'] .hold-check {
+.mouse-mode[data-active] .mode-badge {
     opacity: 1;
 }
 /* Kept down until released: a mouse button in hold mode, an active modifier (until the next key, or sticky). */
@@ -813,15 +822,16 @@ textarea {
 .options {
     z-index: 5;
     position: absolute;
-    /* Just under the top bar, whose height follows the status (remote.js keeps --topbar-height current). */
-    top: calc(var(--topbar-height, 2.25rem) + 0.25rem + env(safe-area-inset-top));
+    /* Right under the options button (remote.js sets --options-top when it opens); before that, under the top bar. */
+    --options-top-fallback: calc(var(--topbar-height, 2.25rem) + 0.25rem + env(safe-area-inset-top));
+    top: var(--options-top, var(--options-top-fallback));
     right: var(--space-4);
     /* Every option on one line at 1× scale with room to spare; longer text wraps (see the option rows below). */
     width: 19rem;
     max-width: calc(100% - 2 * var(--space-4));
     max-height: calc(
-        var(--viewport-height, 100dvh) - var(--topbar-height, 2.25rem) - 0.25rem - env(safe-area-inset-top) -
-            env(safe-area-inset-bottom) - var(--space-4)
+        var(--viewport-height, 100dvh) - var(--options-top, var(--options-top-fallback)) - env(safe-area-inset-bottom) -
+            var(--space-4)
     );
     padding: var(--space-3) 0;
     /* optical alignement, same empty space as the very bottom buttons that have vertical padding */
@@ -1041,6 +1051,88 @@ a.options-action.is-pressed {
     border: 0;
     border-radius: 0;
     background: var(--overlay);
+    opacity: 1;
+}
+/*
+ * The modes menu: the options menu's rows in a small panel whose bottom-right corner sits on the MODE button's
+ * (remote.js sets right and bottom), so it grows up and to the left from the button and opens from that corner. A
+ * clear layer under it closes it on a tap anywhere else, the tap going no further.
+ */
+.options.mode-menu {
+    top: auto;
+    width: max-content;
+    min-width: 12rem;
+    max-height: none;
+    padding: var(--space-2) 0;
+    /* Clipped to its rounded corners, as the options menu (which clips by scrolling). */
+    overflow: clip;
+    transform-origin: bottom right;
+}
+.mode-menu .axis-setting {
+    margin-bottom: 0;
+}
+/*
+ * A menu's container (morph-panel.js): a box of its own beside the menu, which only holds the content, so scrolling
+ * repaints no blur and the content's edges fade without the container's. Empty and of explicit size, resizing it
+ * every frame lays out and paints nothing else. Its blur is there from the start and never animates: the container
+ * fades in and out with its opacity.
+ */
+.morph-surface {
+    contain: strict;
+    position: absolute;
+    -webkit-backdrop-filter: blur(0.5rem);
+    backdrop-filter: blur(0.5rem);
+    background: var(--panel-glass);
+    box-shadow: var(--panel-shadow);
+    pointer-events: none;
+}
+.options.is-glass {
+    background: transparent;
+    box-shadow: none;
+}
+.options.is-morphing {
+    /* Scaling and fading in, the panel is laid out and painted on its own (its size stays its content's). */
+    contain: layout paint;
+}
+/* Where a menu hides more content above or below, its content fades out at that edge, the fade following the scroll
+   (overflow-fade.js sets its sizes). The very edge keeps 8% of the content, so what is cut off still shows; from
+   there the fade follows a smootherstep, flat at both ends: no line where it begins, none where it meets the content
+   at full opacity. */
+.options {
+    --fade-above: 0px;
+    --fade-below: 0px;
+    --menu-mask: linear-gradient(
+        to bottom,
+        rgb(0 0 0 / 8%) 0,
+        rgb(0 0 0 / 9%) calc(var(--fade-above) * 0.125),
+        rgb(0 0 0 / 18%) calc(var(--fade-above) * 0.25),
+        rgb(0 0 0 / 33%) calc(var(--fade-above) * 0.375),
+        rgb(0 0 0 / 54%) calc(var(--fade-above) * 0.5),
+        rgb(0 0 0 / 75%) calc(var(--fade-above) * 0.625),
+        rgb(0 0 0 / 90%) calc(var(--fade-above) * 0.75),
+        rgb(0 0 0 / 99%) calc(var(--fade-above) * 0.875),
+        #000 var(--fade-above),
+        #000 calc(100% - var(--fade-below)),
+        rgb(0 0 0 / 99%) calc(100% - var(--fade-below) * 0.875),
+        rgb(0 0 0 / 90%) calc(100% - var(--fade-below) * 0.75),
+        rgb(0 0 0 / 75%) calc(100% - var(--fade-below) * 0.625),
+        rgb(0 0 0 / 54%) calc(100% - var(--fade-below) * 0.5),
+        rgb(0 0 0 / 33%) calc(100% - var(--fade-below) * 0.375),
+        rgb(0 0 0 / 18%) calc(100% - var(--fade-below) * 0.25),
+        rgb(0 0 0 / 9%) calc(100% - var(--fade-below) * 0.125),
+        rgb(0 0 0 / 8%) 100%
+    );
+    -webkit-mask-image: var(--menu-mask);
+    mask-image: var(--menu-mask);
+}
+#mode-dismiss {
+    z-index: 4;
+    position: absolute;
+    inset: 0;
+    transform: none;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     opacity: 1;
 }
 /* Stepper setting: label on the left, a compact [−] value [+] pill on the right. */

@@ -34,6 +34,8 @@ import {
     Redo2,
     ChevronLeft,
     ChevronRight,
+    ArrowDownToDot,
+    Hand,
 } from 'lucide';
 const icons = {
     more: EllipsisVertical,
@@ -70,6 +72,8 @@ const icons = {
     windows: Grid2X2,
     enter: CornerDownLeft,
     text: TextCursor,
+    hold: ArrowDownToDot,
+    'free-scroll': Hand,
 };
 // Sized in CSS (rem), not with width/height attributes in pixels, so icons follow the interface scale.
 export function icon(name) {

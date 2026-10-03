@@ -51,7 +51,7 @@ class PointerPad extends HTMLElement {
     }
     connectedCallback() {
         if (this.firstChild) return;
-        this.innerHTML = `<div class="mouse"><div class="trackpad" role="application" aria-label="Move PC pointer"><div class="dots"></div></div><button class="mouse-left" aria-label="Left click" data-button="left"></button><button class="mouse-middle fill-button" aria-label="Middle click" data-button="middle"><span class="fill"><span class="middle-dot"></span></span></button><button class="mouse-right" aria-label="Right click" data-button="right"></button></div><scroll-rail axis="y"></scroll-rail><scroll-rail axis="x"></scroll-rail><button class="mouse-hold" aria-label="Hold mouse buttons" aria-pressed="false"><span class="hold-box"><span class="hold-label"><span class="hold-text">HOLD<br />CLICKS</span></span><span class="hold-check"></span></span></button>`;
+        this.innerHTML = `<div class="mouse"><div class="trackpad" role="application" aria-label="Move PC pointer"><div class="dots"></div></div><button class="mouse-left" aria-label="Left click" data-button="left"></button><button class="mouse-middle fill-button" aria-label="Middle click" data-button="middle"><span class="fill"><span class="middle-dot"></span></span></button><button class="mouse-right" aria-label="Right click" data-button="right"></button></div><scroll-rail axis="y"></scroll-rail><scroll-rail axis="x"></scroll-rail><button class="mouse-mode" aria-label="Modes" aria-haspopup="true" aria-expanded="false" aria-controls="mode-menu"><span class="mode-box"><span class="mode-text">MODE</span><span class="mode-icon" data-mode="hold"></span><span class="mode-icon" data-mode="scroll"></span><span class="mode-count"></span><span class="mode-badge"></span></span></button>`;
         const pad = this.querySelector('.trackpad');
         // Gestures: one finger moves, a tap clicks (two quick taps double-click), and tap-then-touch-and-move drags
         // with the left button held until the finger lifts. A single tap's click waits one double-tap window so a
@@ -234,9 +234,13 @@ class PointerPad extends HTMLElement {
         pad.addEventListener('lostpointercapture', () => {
             if (pointer !== null) this.cancelGesture();
         });
+        // The corner's MODE button opens the modes menu (remote.js); its badge shows a mode is on.
+        const mode = this.querySelector('.mouse-mode');
+        mode.querySelector('.mode-badge').append(icon('check'));
+        mode.querySelector('[data-mode=hold]').append(icon('hold'));
+        mode.querySelector('[data-mode=scroll]').append(icon('free-scroll'));
+        mode.addEventListener('pointerdown', (event) => event.preventDefault());
         // Hold mode: a tap presses a mouse button and keeps it down until the next tap on it (one finger at a time).
-        const hold = this.querySelector('.mouse-hold');
-        hold.querySelector('.hold-check').append(icon('check'));
         const latched = new Set();
         const setLatched = (button, down) => {
             if (down) latched.add(button);
@@ -247,16 +251,13 @@ class PointerPad extends HTMLElement {
         this.releaseButtons = () => {
             for (const button of [...latched]) setLatched(button, false);
         };
-        hold.addEventListener('pointerdown', (event) => event.preventDefault());
+        /** Turns hold mode on or off (the modes menu, Escape); `holding-change` tells who shows it. */
         this.setHolding = (value) => {
-            this.holding = value;
-            hold.setAttribute('aria-pressed', String(value));
             if (!value) this.releaseButtons();
+            if (this.holding === value) return;
+            this.holding = value;
+            this.dispatchEvent(new CustomEvent('holding-change', { bubbles: true, detail: { holding: value } }));
         };
-        hold.addEventListener('click', () => {
-            this.setHolding(!this.holding);
-            tick();
-        });
         this.querySelectorAll('[data-button]').forEach((button) => {
             // held: the finger holds the button down (outside hold mode). last: the finger is down and followed, in
             // both modes, so a press can drag the pointer (in hold mode the button then stays latched after lifting).

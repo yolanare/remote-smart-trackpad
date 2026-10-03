@@ -9,6 +9,8 @@ import { createOptions } from '../../logic/options.js';
 import { bindOptionsMenu, readSchema } from '../../ui/options-menu.js';
 import { createTypingSession } from '../../logic/typing-session.js';
 import { createMotion, pointerGain } from '../../logic/motion.js';
+import { followPanel, morphPanel } from '../../ui/morph-panel.js';
+import { fadeOverflow } from '../../ui/overflow-fade.js';
 
 const $ = (selector) => document.querySelector(selector);
 const storageKey = 'remote-smart-trackpad-layout';
@@ -23,7 +25,11 @@ const app = $('.app'),
     editor = $('text-editor'),
     menu = $('#options'),
     backdrop = $('#options-dismiss'),
-    toggle = $('#options-toggle');
+    toggle = $('#options-toggle'),
+    modeMenu = $('#mode-menu'),
+    modeDismiss = $('#mode-dismiss'),
+    modeButton = $('pointer-pad .mouse-mode'),
+    holdClicks = $('#hold-clicks');
 // Back and forward, in the top bar: the history shortcuts (Alt+Left, Alt+Right) of browsers, Explorer and most
 // apps. Not the mouse's side buttons, which some apps take for something else (Zen browser switches spaces).
 const navButtons = [...document.querySelectorAll('.topbar [data-nav]')];
@@ -42,12 +48,16 @@ for (const button of navButtons)
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const rem = (pixels) => `${pixels / parseFloat(getComputedStyle(document.documentElement).fontSize)}rem`;
 
-// The options (CONTEXT.md): defaults from the menu's markup, remembered on this phone.
-const options = createOptions(readSchema(menu, rowDefaults), {
-    load: () => JSON.parse(localStorage.getItem(storageKey) || 'null') ?? undefined,
-    save: (values) => localStorage.setItem(storageKey, JSON.stringify(values)),
-    clear: () => localStorage.removeItem(storageKey),
-});
+// The options (CONTEXT.md): defaults from the menus' markup (the options menu, and the modes menu's options),
+// remembered on this phone.
+const options = createOptions(
+    { ...readSchema(menu, rowDefaults), ...readSchema(modeMenu, {}) },
+    {
+        load: () => JSON.parse(localStorage.getItem(storageKey) || 'null') ?? undefined,
+        save: (values) => localStorage.setItem(storageKey, JSON.stringify(values)),
+        clear: () => localStorage.removeItem(storageKey),
+    }
+);
 // The current values, read where they apply.
 const option = options.values;
 
@@ -111,6 +121,7 @@ function applyLayout() {
     pad.edgeMotion = option.edgeMotion === true;
     pad.scrollSliding = option.scrollSliding !== false;
     pad.freeScroll = option.freeScroll === true;
+    showModes();
     pad.tapScroll = { x: option.doubleTapScrollX === true, y: option.doubleTapScrollY === true };
     for (const button of navButtons) button.hidden = option.navButtons === false;
     applyHaptics();
@@ -363,7 +374,7 @@ document.addEventListener('pointerdown', () => pad.stopSliding(), { capture: tru
 // buttons on touch down, the stepper only when the value changes, the options toggle only when it opens), and the
 // backdrop stays silent, like dismissing a native sheet.
 const ticksItself =
-    '.key-row button, .mouse-left, .mouse-right, .mouse-middle, .mouse-hold, .stepper button, #options-toggle, #options-dismiss';
+    '.key-row button, .mouse-left, .mouse-right, .mouse-middle, .mouse-mode, .stepper button, #options-toggle, #options-dismiss, #mode-dismiss';
 document.addEventListener('click', (event) => {
     const target = event.target.closest?.('button, a[href], summary');
     if (target && !target.matches(ticksItself)) tick();
@@ -557,38 +568,35 @@ $('#pair-form').addEventListener('submit', async (event) => {
     }
 });
 
-let menuAnimations = [];
+let backdropAnimation = null;
 function setMenu(open) {
     if (open) {
+        setModeMenu(false);
         pad.cancelGesture();
         // The menu makes the field inert, which takes the keyboard away: editing ends with it.
         closeEditor();
     }
-    const current =
-        !menu.hidden ? { opacity: getComputedStyle(menu).opacity, transform: getComputedStyle(menu).transform } : null;
     const shade = backdrop.hidden ? 0 : getComputedStyle(backdrop).opacity;
-    menuAnimations.forEach((animation) => animation.cancel());
+    backdropAnimation?.cancel();
     if (!open && menu.contains(document.activeElement)) toggle.focus({ preventScroll: true });
     toggle.setAttribute('aria-expanded', String(open));
     $('#controls').inert = open;
     $('#pairing').inert = open;
     menu.inert = !open;
-    if (open) menu.hidden = backdrop.hidden = false;
-    if (reducedMotion()) {
-        menu.hidden = backdrop.hidden = !open;
-        return;
+    if (open) {
+        menu.hidden = false;
+        placeOptionsMenu();
     }
-    const frames = [
-        { opacity: 0, transform: 'translateY(-0.25rem)' },
-        { opacity: 1, transform: 'translateY(0)' },
-    ];
-    const timing = { duration: open ? 160 : 100, easing: 'ease-out' };
-    menuAnimations = [
-        menu.animate([current ?? frames[0], frames[open ? 1 : 0]], timing),
-        backdrop.animate([{ opacity: shade }, { opacity: open ? 1 : 0 }], timing),
-    ];
-    menuAnimations[0].onfinish = () => {
-        menu.hidden = backdrop.hidden = !open;
+    // The menu morphs out of the options button (its round fill) and back into it.
+    morphPanel(menu, toggle.querySelector('.fill') ?? toggle, open, { reduced: reducedMotion() });
+    if (open) backdrop.hidden = false;
+    if (reducedMotion()) return void (backdrop.hidden = !open);
+    backdropAnimation = backdrop.animate([{ opacity: shade }, { opacity: open ? 1 : 0 }], {
+        duration: open ? 200 : 150,
+        easing: 'ease-out',
+    });
+    backdropAnimation.onfinish = () => {
+        backdrop.hidden = !open;
     };
 }
 toggle.addEventListener('click', () => {
@@ -608,7 +616,87 @@ document.addEventListener('keydown', (event) => {
     }
     if (event.key === 'Escape' && !$('#reset-confirm').open && toggle.getAttribute('aria-expanded') === 'true')
         setMenu(false);
+    if (event.key === 'Escape') setModeMenu(false);
 });
+
+// The modes menu, from the MODE button in the pointer pad's corner: hold clicks, free scroll and sliding. Anchored
+// on the button's bottom-right corner, it morphs out of the button's box (see morph-panel.js). A tap anywhere else
+// closes it without acting.
+const modeOpen = () => modeButton.getAttribute('aria-expanded') === 'true';
+/**
+ * Above the MODE button's tap area, 4px into its top (not on its box, which changes size with the modes), so the
+ * button stays in sight; its right edge on the button's, but no closer to the screen's edge than the options menu
+ * (the button's cell reaches the edge).
+ */
+function placeModeMenu() {
+    const area = modeMenu.offsetParent.getBoundingClientRect(),
+        cell = modeButton.getBoundingClientRect(),
+        unit = parseFloat(getComputedStyle(document.documentElement).fontSize),
+        edge = parseFloat(getComputedStyle(menu).right) / unit;
+    modeMenu.style.right = `${Math.max((area.right - cell.right) / unit, edge)}rem`;
+    modeMenu.style.bottom = `${(area.bottom - cell.top - 4) / unit}rem`;
+}
+/** 2px under the options button's round fill, whatever the top bar's height (a long status grows it). */
+function placeOptionsMenu() {
+    const area = menu.offsetParent.getBoundingClientRect(),
+        fill = (toggle.querySelector('.fill') ?? toggle).getBoundingClientRect(),
+        unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    menu.style.setProperty('--options-top', `${(fill.bottom + 2 - area.top) / unit}rem`);
+}
+function setModeMenu(open, { fromKeyboard = false } = {}) {
+    if (open === modeOpen()) return;
+    if (open) {
+        pad.cancelGesture();
+        modeMenu.hidden = false;
+        placeModeMenu();
+    }
+    if (!open && modeMenu.contains(document.activeElement)) modeButton.focus({ preventScroll: true });
+    modeButton.setAttribute('aria-expanded', String(open));
+    modeDismiss.hidden = !open;
+    // From the keyboard, the focus moves into the menu; not while editing, where the text field keeps it.
+    if (open && fromKeyboard && !typing.open) modeMenu.querySelector('input').focus({ preventScroll: true });
+    morphPanel(modeMenu, modeButton.querySelector('.mode-box'), open, { reduced: reducedMotion() });
+}
+/**
+ * The hold box and the MODE button follow the modes that are on: none shows MODE, quietly; one shows its icon (hold
+ * clicks, free scroll); several show how many. The check badge marks any.
+ */
+function showModes() {
+    holdClicks.checked = pad.holding;
+    const active = [pad.holding && 'hold', option.freeScroll === true && 'scroll'].filter(Boolean);
+    if (active.length) modeButton.dataset.active = active.length > 1 ? 'several' : active[0];
+    else delete modeButton.dataset.active;
+    modeButton.querySelector('.mode-count').textContent = active.length > 1 ? String(active.length) : '';
+    const names = { hold: 'Hold clicks', scroll: 'Free scroll' };
+    modeButton.setAttribute(
+        'aria-label',
+        active.length ? `Modes: ${active.map((mode) => names[mode]).join(', ')}` : 'Modes'
+    );
+}
+modeButton.addEventListener('click', (event) => {
+    const open = !modeOpen();
+    // Opening ticks, closing stays silent (as the options toggle).
+    if (open) tick();
+    setModeMenu(open, { fromKeyboard: event.detail === 0 });
+});
+modeDismiss.addEventListener('click', () => setModeMenu(false));
+holdClicks.addEventListener('change', () => {
+    pad.setHolding(holdClicks.checked);
+    tick();
+});
+pad.addEventListener('holding-change', showModes);
+// While editing, a tap on a row toggles its box without the label taking the focus from the text field.
+modeMenu.addEventListener(
+    'click',
+    (event) => {
+        if (!typing.open) return;
+        const control = event.target.closest('label')?.control;
+        if (!control || control === event.target) return;
+        event.preventDefault();
+        control.click();
+    },
+    { capture: true }
+);
 
 // Color scheme: Auto follows the device; Dark and Light force it (tokens.css reads data-theme).
 const themeColor = $('meta[name="theme-color"]');
@@ -626,6 +714,7 @@ function applyScale() {
     viewport();
 }
 bindOptionsMenu(menu, options);
+bindOptionsMenu(modeMenu, options);
 // Each part of the app follows the options it reads.
 const layoutOptions = new Set([
     ...Object.keys(rowDefaults),
@@ -724,6 +813,8 @@ function resizeViewport() {
     const visible = window.visualViewport;
     const closed = keyboardClosed();
     const resized = Math.abs((visible?.height ?? innerHeight) - shownHeight) > 1;
+    // The layout moves (the keyboard, a rotation): the modes menu would no longer sit on its button.
+    if (resized) setModeMenu(false);
     const start = resized && !switching && !reducedMotion() && (visible?.scale ?? 1) === 1 ? pinGeometry() : null;
     viewport();
     const token = morphs;
@@ -734,7 +825,14 @@ function resizeViewport() {
 new ResizeObserver(([entry]) => {
     const unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
     document.documentElement.style.setProperty('--topbar-height', `${entry.target.offsetHeight / unit}rem`);
+    // The open options menu stays under its button (the interface scale moves it): its container follows.
+    if (toggle.getAttribute('aria-expanded') === 'true') {
+        placeOptionsMenu();
+        followPanel(menu);
+    }
 }).observe($('.topbar'));
+// The options menu's edges fade where it scrolls on.
+fadeOverflow(menu);
 window.visualViewport?.addEventListener('resize', resizeViewport);
 window.visualViewport?.addEventListener('scroll', viewport);
 window.addEventListener('resize', resizeViewport);
