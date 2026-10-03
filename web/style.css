@@ -170,12 +170,14 @@ svg.icon-large {
     align-items: flex-start;
     /* Grows with a long status (up to 30vh); the controls below take what is left, so the page never overflows. */
     min-height: 2.25rem;
-    /* Only the space the buttons' round press fills need (their 2.25rem centered on the status line): the phone's
-       status bar, in the page's color, already sets the bar off the screen's edge. */
-    padding: calc(1.125rem - var(--status-middle)) 0.875rem 0 calc(var(--space-4) + var(--stroke) * 2);
+    /* Only the space the buttons' round press fills need (centered on the status line): the phone's status bar, in
+       the page's color, already sets the bar off the screen's edge. */
+    padding: calc(var(--action-size) / 2 - var(--status-middle)) 0.875rem 0 calc(var(--space-4) + var(--stroke) * 2);
     gap: 0.625rem;
     /* The middle of the status's first line: the dot and the options button center on it. */
     --status-middle: calc(0.25rem + 0.75rem * 1.35 / 2);
+    /* Back, forward and options: each button's tap area and round press fill. */
+    --action-size: 2.75rem;
 }
 #connection {
     display: flex;
@@ -208,22 +210,21 @@ svg.icon-large {
     overflow-wrap: anywhere;
     touch-action: pan-y;
 }
-/* Back, forward and the options button: small icons centered on the status dot's line, side by side; their tap
-   areas stay full size, reaching above the bar. */
+/* Back, forward and the options button: icons centered on the status dot's line, side by side. */
 .topbar-actions {
     display: flex;
     flex: none;
-    margin-top: calc(var(--status-middle) - 1.125rem);
+    margin-top: calc(var(--status-middle) - var(--action-size) / 2);
 }
 .topbar-actions button {
-    --fill-inset: 0.125rem;
-    width: 2.25rem;
-    height: 2.25rem;
+    --fill-inset: 0.25rem;
+    width: var(--action-size);
+    height: var(--action-size);
     color: var(--border);
 }
 .topbar-actions svg {
-    width: 1rem;
-    height: 1rem;
+    width: 1.25rem;
+    height: 1.25rem;
 }
 #controls {
     display: flex;
