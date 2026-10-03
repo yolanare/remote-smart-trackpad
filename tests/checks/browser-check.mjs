@@ -779,6 +779,49 @@ try {
     );
     await evaluate("document.querySelector('#options-toggle').click(); document.querySelector('#editor-open').click()");
     await waitFor("document.querySelector('.app').classList.contains('editing')");
+    // Editing resizes the pad: the dots and the vertical rail's ticks keep where they stand from the top-left corner
+    // (moved by a finger, a scroll), instead of jumping back to their rest position.
+    const pad = await evaluate(
+        "(() => { const box = document.querySelector('.trackpad').getBoundingClientRect(); return { x: box.x + box.width / 2, y: box.y + box.height / 2 }; })()"
+    );
+    for (const [type, shift] of [
+        ['touchStart', 0],
+        ['touchMove', 7],
+        ['touchMove', 13],
+    ])
+        await page('Input.dispatchTouchEvent', { type, touchPoints: [{ x: pad.x + shift, y: pad.y + shift }] });
+    await page('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await evaluate("document.querySelector('scroll-rail[axis=y] .rail-viewport').scrollTop += 9");
+    await evaluate('new Promise(resolve => setTimeout(resolve, 100))');
+    const standing = `(() => {
+        const unit = parseFloat(getComputedStyle(document.documentElement).fontSize), tile = 1.5 * unit;
+        const dots = document.querySelector('.dots');
+        const [x, y] = [...dots.style.backgroundPosition.matchAll(/([+-]) ([0-9.e]+)rem/g)].map(([, sign, value]) => Number(sign + value) * unit);
+        const within = (value, period) => Math.round((((value % period) + period) % period) * 10) / 10;
+        const rail = document.querySelector('scroll-rail[axis=y] .rail-viewport');
+        const ticks = parseFloat(rail.firstElementChild.style.backgroundPosition.split(' ')[1]);
+        return {
+            dots: [within((dots.clientWidth - tile) / 2 + x, tile), within((dots.clientHeight - tile) / 2 + y, tile)],
+            ticks: within(ticks - rail.scrollTop, 1.875 * unit),
+        };
+    })()`;
+    const whileEditing = await evaluate(standing);
+    await evaluate("document.querySelector('#options-toggle').click()");
+    await waitFor("!document.querySelector('.app').classList.contains('editing')");
+    await evaluate("document.querySelector('#options-toggle').click()");
+    await settled();
+    const afterEditing = await evaluate(standing);
+    const close = (a, b) => Math.abs(a - b) <= 1 || Math.abs(Math.abs(a - b) - 1.5 * 16) <= 1;
+    assert.ok(
+        close(whileEditing.dots[0], afterEditing.dots[0])
+            && close(whileEditing.dots[1], afterEditing.dots[1])
+            && Math.abs(whileEditing.ticks - afterEditing.ticks) <= 1
+            && (whileEditing.dots.some(Boolean) || whileEditing.ticks),
+        'Dots and ticks must keep their place: ' + JSON.stringify({ whileEditing, afterEditing })
+    );
+    await evaluate("document.querySelector('#editor-open').click()");
+    await waitFor("document.querySelector('.app').classList.contains('editing')");
+    await settled();
     // No dead zone: every point of the pointer pad (past its left margin) lands on something that acts: the
     // trackpad, a rail, a click or the hold toggle.
     const deadZones = await evaluate(`(() => {

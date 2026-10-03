@@ -78,13 +78,20 @@ export class ScrollRail extends HTMLElement {
             return { period: 1.875 * unit, tick: 1.84375 * unit };
         };
         const content = viewport.firstElementChild;
-        // At rest (scrolled to `center`) a tick sits in the middle of the rail, whatever its size.
+        // At rest (scrolled to `center`) a tick sits in the middle of the rail, whatever its size. offset: where the
+        // ticks start in the content.
+        let offset = 0;
         const align = () => {
             const { period, tick } = ticks();
             const size = horizontal ? viewport.clientWidth : viewport.clientHeight;
             // Whole pixels: a 1px tick on a half pixel blurs away.
-            const offset = Math.round((((center() + size / 2 - tick) % period) + period) % period);
+            offset = Math.round((((center() + size / 2 - tick) % period) + period) % period);
             content.style.backgroundPosition = horizontal ? `${offset}px 0` : `0 ${offset}px`;
+        };
+        /** Where the ticks stand from the rail's start edge (top or left), within one period. */
+        const phase = () => {
+            const { period } = ticks();
+            return (((offset - viewport[property]) % period) + period) % period;
         };
         const recenter = () => {
             // Jump back by whole tick periods only, so the visible ticks do not shift when the rail recenters.
@@ -122,16 +129,28 @@ export class ScrollRail extends HTMLElement {
                 if (Math.abs(previous - center()) > 16384) recenter();
             }, 250);
         };
-        // Exactly to the rest position (first layout, or a resize such as an interface scale change moved it).
+        // Exactly to the rest position: the first layout puts a tick in the middle.
+        let placed = false;
         const reset = () => {
             previous = center();
             recenter();
+            placed = true;
         };
         requestAnimationFrame(reset);
-        // A resize (layout, keyboard, interface scale) happens at rest: re-center exactly so a tick stays in the middle.
+        /** Back near the middle of the scroll range with the ticks where they stood from the rail's start edge. */
+        const keep = (standing) => {
+            const { period } = ticks();
+            previous = center() + ((((offset - standing - center()) % period) + period) % period);
+            recenter();
+        };
+        // A resize (the editor opening, the keyboard, the interface scale) happens at rest: the ticks stay where they
+        // are from the rail's start edge instead of jumping back to the middle.
         this.observer = new ResizeObserver(() => {
+            const standing = placed ? phase() : null;
             align();
-            if (viewport.clientWidth && viewport.clientHeight && !drag) reset();
+            if (!viewport.clientWidth || !viewport.clientHeight || drag) return;
+            if (standing === null) reset();
+            else keep(standing);
         });
         this.observer.observe(viewport);
 

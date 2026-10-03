@@ -70,6 +70,17 @@ class PointerPad extends HTMLElement {
             this.querySelector('.dots').style.backgroundPosition =
                 `calc(50% + ${patternX / unit}rem) calc(50% + ${patternY / unit}rem)`;
         };
+        // A resize (the editor opening, the keyboard) keeps the dots where they stand from the pad's top-left corner:
+        // the pattern is anchored at the center, which moves by half the change.
+        const dots = this.querySelector('.dots');
+        let dotsSize = null;
+        new ResizeObserver(() => {
+            const width = dots.clientWidth,
+                height = dots.clientHeight;
+            if (!width || !height) return;
+            if (dotsSize) shiftPattern(-(width - dotsSize.width) / 2, -(height - dotsSize.height) / 2);
+            dotsSize = { width, height };
+        }).observe(dots);
         const move = (dx, dy, speed) => {
             shiftPattern(dx, dy);
             this.dispatchEvent(new CustomEvent('motion', { bubbles: true, detail: { action: 'move', dx, dy, speed } }));
