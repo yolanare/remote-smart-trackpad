@@ -42,6 +42,7 @@ const rows = {
     },
     arrows: {
         enabled: true,
+        compact: true,
         keys: [
             { key: 'Home', label: 'Home', icon: 'home', group: 'line' },
             { key: 'End', label: 'End', icon: 'end', group: 'line' },
