@@ -211,12 +211,33 @@ export class ScrollRail extends HTMLElement {
         // A glide (the fling after the finger lifts) ends with one last tick, like a wheel settling; a drag released
         // without momentum has no glide, so no tick.
         let glided = 0;
+        // A finger landing on the rail's very edge gets the touch events (the ticks brighten) but no native scroll:
+        // the browser's own scroll area is a pixel smaller (rounding, the fade mask). When the finger has moved along
+        // the rail without a scroll starting, the rail follows it by hand until it lifts.
+        const byHand = 10;
+        let finger = null;
+        const along = (touch) => (horizontal ? touch.clientX : touch.clientY);
         viewport.addEventListener(
             'touchstart',
-            () => {
+            (event) => {
                 flinging = false;
                 glided = 0;
                 this.classList.add('is-touched');
+                finger = this.#sliding ? { start: along(event.touches[0]), last: null, native: false } : null;
+            },
+            { passive: true }
+        );
+        viewport.addEventListener(
+            'touchmove',
+            (event) => {
+                if (!finger || finger.native) return;
+                // While the browser scrolls, its touch moves can no longer be cancelled: then it is scrolling itself.
+                if (!event.cancelable && finger.last === null) return void (finger.native = true);
+                const position = along(event.touches[0]);
+                if (finger.last === null && Math.abs(position - finger.start) < byHand) return;
+                // Moved by code: the scroll listener emits it like a native scroll.
+                viewport[property] += (finger.last ?? finger.start) - position;
+                finger.last = position;
             },
             { passive: true }
         );
@@ -224,7 +245,9 @@ export class ScrollRail extends HTMLElement {
         viewport.addEventListener(
             'touchend',
             (event) => {
-                flinging = true;
+                // No fling after a scroll by hand.
+                flinging = finger?.last === null || finger?.native === true;
+                finger = null;
                 if (!event.touches.length) untouch();
             },
             { passive: true }
@@ -234,6 +257,8 @@ export class ScrollRail extends HTMLElement {
         viewport.addEventListener(
             'scroll',
             () => {
+                // The browser scrolls this touch itself: no scrolling by hand.
+                if (finger && finger.last === null) finger.native = true;
                 const position = viewport[property],
                     delta = position - previous;
                 previous = position;
