@@ -110,6 +110,7 @@ function applyLayout() {
     pad.sliding = option.mouseSliding === true;
     pad.edgeMotion = option.edgeMotion === true;
     pad.scrollSliding = option.scrollSliding !== false;
+    pad.freeScroll = option.freeScroll === true;
     pad.tapScroll = { x: option.doubleTapScrollX === true, y: option.doubleTapScrollY === true };
     for (const button of navButtons) button.hidden = option.navButtons === false;
     applyHaptics();
@@ -633,6 +634,7 @@ const layoutOptions = new Set([
     'mouseSliding',
     'edgeMotion',
     'scrollSliding',
+    'freeScroll',
     'doubleTapScrollX',
     'doubleTapScrollY',
     'navButtons',

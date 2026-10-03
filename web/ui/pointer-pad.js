@@ -17,8 +17,24 @@ class PointerPad extends HTMLElement {
         if (this.slidingEnabled && !value) this.stopSliding();
         this.slidingEnabled = value;
     }
+    #scrollSliding = true;
     set scrollSliding(value) {
+        this.#scrollSliding = value;
         for (const rail of this.querySelectorAll('scroll-rail')) rail.sliding = value;
+    }
+    #freeScroll = false;
+    get freeScroll() {
+        return this.#freeScroll;
+    }
+    /**
+     * Free scroll: the trackpad scrolls the PC instead of moving its pointer, the content following the finger like
+     * on the rails (with the scroll options: speed, acceleration, inversion, sliding). Taps still click.
+     */
+    set freeScroll(value) {
+        if (this.#freeScroll === value) return;
+        this.cancelGesture?.();
+        this.#freeScroll = value;
+        this.querySelector('.trackpad')?.setAttribute('aria-label', value ? 'Scroll PC' : 'Move PC pointer');
     }
     /** Which rails scroll one step on a double tap: { x, y }. */
     set tapScroll({ x, y }) {
@@ -83,14 +99,16 @@ class PointerPad extends HTMLElement {
         }).observe(dots);
         const move = (dx, dy, speed) => {
             shiftPattern(dx, dy);
-            this.dispatchEvent(new CustomEvent('motion', { bubbles: true, detail: { action: 'move', dx, dy, speed } }));
+            const detail =
+                this.#freeScroll ? { action: 'scroll', dx: -dx, dy: -dy, speed } : { action: 'move', dx, dy, speed };
+            this.dispatchEvent(new CustomEvent('motion', { bubbles: true, detail }));
         };
         const edges = (this.edges = createEdgeMotion({
             glide: (vx, vy, speed) =>
                 this.dispatchEvent(new CustomEvent('edge-glide', { bubbles: true, detail: { vx, vy, speed } })),
             animate: shiftPattern,
         }));
-        const dragAt = (event) => this.#edgeMotion && edges.update(event.clientX, event.clientY);
+        const dragAt = (event) => this.#edgeMotion && !this.#freeScroll && edges.update(event.clientX, event.clientY);
         const flushTap = () => {
             if (!pendingTap) return;
             clearTimeout(pendingTap.timer);
@@ -167,6 +185,13 @@ class PointerPad extends HTMLElement {
                 // Hold the first pixels back so the button goes down where the second touch landed.
                 buffered.push([dx, dy, speed]);
                 if (!moved) return;
+                // Scrolling drags nothing: the first tap was a click, this touch scrolls.
+                if (this.#freeScroll) {
+                    secondTouch = false;
+                    click();
+                    for (const delta of buffered.splice(0)) move(...delta);
+                    return;
+                }
                 setDragging(true);
                 for (const delta of buffered.splice(0)) move(...delta);
                 dragAt(event);
@@ -196,7 +221,11 @@ class PointerPad extends HTMLElement {
                     click();
                 }, doubleTapWindow);
                 pendingTap = { x: startX, y: startY, timer };
-            } else if (this.slidingEnabled && performance.now() - lastMove < 100 && !this.querySelector('.is-held'))
+            } else if (
+                (this.#freeScroll ? this.#scrollSliding : this.slidingEnabled)
+                && performance.now() - lastMove < 100
+                && !this.querySelector('.is-held')
+            )
                 glide();
             secondTouch = false;
             buffered = [];

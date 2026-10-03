@@ -819,6 +819,31 @@ try {
             && (whileEditing.dots.some(Boolean) || whileEditing.ticks),
         'Dots and ticks must keep their place: ' + JSON.stringify({ whileEditing, afterEditing })
     );
+    // Free scroll: the trackpad scrolls instead of moving the pointer, the content following the finger like on the
+    // rails (a drag down scrolls up, a negative dy, unless the scroll Y inversion is on).
+    const freeScroll = (on) =>
+        evaluate(
+            `(() => { const input = document.querySelector('[name=freeScroll]'); input.checked = ${on}; input.dispatchEvent(new Event('change')); })()`
+        );
+    await freeScroll(true);
+    await evaluate('window.__blocked = []');
+    for (const [type, shift] of [
+        ['touchStart', 0],
+        ['touchMove', 20],
+        ['touchMove', 40],
+        ['touchMove', 60],
+    ])
+        await page('Input.dispatchTouchEvent', { type, touchPoints: [{ x: pad.x, y: pad.y - 30 + shift }] });
+    await page('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
+    const scrolled = await evaluate(
+        "(() => { const sent = window.__blocked.filter((message) => ['move', 'scroll'].includes(message.action)); return { inverted: document.querySelector('[name=invertScrollY]').checked, moves: sent.filter((message) => message.action === 'move').length, dy: sent.filter((message) => message.action === 'scroll').reduce((sum, message) => sum + message.data.dy, 0), dx: sent.filter((message) => message.action === 'scroll').reduce((sum, message) => sum + message.data.dx, 0) }; })()"
+    );
+    await freeScroll(false);
+    assert.ok(
+        scrolled.moves === 0 && Math.sign(scrolled.dy) === (scrolled.inverted ? 1 : -1) && scrolled.dx === 0,
+        'Free scroll must scroll, not move: ' + JSON.stringify(scrolled)
+    );
     await evaluate("document.querySelector('#editor-open').click()");
     await waitFor("document.querySelector('.app').classList.contains('editing')");
     await settled();
