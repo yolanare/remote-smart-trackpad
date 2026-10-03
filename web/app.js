@@ -24,6 +24,17 @@ const app = $('.app'),
     menu = $('#options'),
     backdrop = $('#options-dismiss'),
     toggle = $('#options-toggle');
+// Back and forward, in the top bar: the mouse's side buttons on the PC.
+const navButtons = [...document.querySelectorAll('.topbar [data-nav]')];
+for (const button of navButtons)
+    button.addEventListener('click', () =>
+        button.dispatchEvent(
+            new CustomEvent('command', {
+                bubbles: true,
+                detail: { action: 'click', data: { button: button.dataset.nav } },
+            })
+        )
+    );
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const rem = (pixels) => `${pixels / parseFloat(getComputedStyle(document.documentElement).fontSize)}rem`;
 
@@ -92,7 +103,7 @@ function applyLayout() {
     pad.edgeMotion = option.edgeMotion === true;
     pad.scrollSliding = option.scrollSliding !== false;
     pad.tapScroll = { x: option.doubleTapScrollX === true, y: option.doubleTapScrollY === true };
-    pad.navButtons = option.navButtons !== false;
+    for (const button of navButtons) button.hidden = option.navButtons === false;
     applyHaptics();
     app.classList.toggle('editing', shownEditing);
     $('#editor-open').hidden = shownEditing;

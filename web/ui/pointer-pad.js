@@ -20,10 +20,6 @@ class PointerPad extends HTMLElement {
     set scrollSliding(value) {
         for (const rail of this.querySelectorAll('scroll-rail')) rail.sliding = value;
     }
-    /** Shows the back and forward buttons, left of the trackpad. */
-    set navButtons(value) {
-        this.classList.toggle('has-nav', value);
-    }
     /** Which rails scroll one step on a double tap: { x, y }. */
     set tapScroll({ x, y }) {
         for (const rail of this.querySelectorAll('scroll-rail'))
@@ -39,21 +35,8 @@ class PointerPad extends HTMLElement {
     }
     connectedCallback() {
         if (this.firstChild) return;
-        this.innerHTML = `<div class="mouse"><div class="mouse-nav"><button class="mouse-forward" aria-label="Forward" data-nav="forward"></button><button class="mouse-back" aria-label="Back" data-nav="back"></button></div><div class="trackpad" role="application" aria-label="Move PC pointer"><div class="dots"></div></div><button class="mouse-left" aria-label="Left click" data-button="left"></button><button class="mouse-middle fill-button" aria-label="Middle click" data-button="middle"><span class="fill"><span class="middle-dot"></span></span></button><button class="mouse-right" aria-label="Right click" data-button="right"></button></div><scroll-rail axis="y"></scroll-rail><scroll-rail axis="x"></scroll-rail><button class="mouse-hold" aria-label="Hold mouse buttons" aria-pressed="false"><span class="hold-box"><span class="hold-label"><span class="hold-text">HOLD<br />CLICKS</span></span><span class="hold-check"></span></span></button>`;
+        this.innerHTML = `<div class="mouse"><div class="trackpad" role="application" aria-label="Move PC pointer"><div class="dots"></div></div><button class="mouse-left" aria-label="Left click" data-button="left"></button><button class="mouse-middle fill-button" aria-label="Middle click" data-button="middle"><span class="fill"><span class="middle-dot"></span></span></button><button class="mouse-right" aria-label="Right click" data-button="right"></button></div><scroll-rail axis="y"></scroll-rail><scroll-rail axis="x"></scroll-rail><button class="mouse-hold" aria-label="Hold mouse buttons" aria-pressed="false"><span class="hold-box"><span class="hold-label"><span class="hold-text">HOLD<br />CLICKS</span></span><span class="hold-check"></span></span></button>`;
         const pad = this.querySelector('.trackpad');
-        // Back and forward: the mouse's side buttons, a click each.
-        for (const button of this.querySelectorAll('[data-nav]')) {
-            button.append(icon(button.dataset.nav));
-            button.addEventListener('pointerdown', (event) => event.preventDefault());
-            button.addEventListener('click', () =>
-                this.dispatchEvent(
-                    new CustomEvent('command', {
-                        bubbles: true,
-                        detail: { action: 'click', data: { button: button.dataset.nav } },
-                    })
-                )
-            );
-        }
         // Gestures: one finger moves, a tap clicks (two quick taps double-click), and tap-then-touch-and-move drags
         // with the left button held until the finger lifts. A single tap's click waits one double-tap window so a
         // drag never starts with an extra click (which would open a file or maximize a window).

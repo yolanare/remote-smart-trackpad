@@ -18,15 +18,23 @@
                 <div id="connection" role="status" aria-live="polite">
                     <span class="status-dot"></span><span id="connection-label"></span>
                 </div>
-                <button
-                    id="options-toggle"
-                    class="fill-button"
-                    aria-label="Options"
-                    aria-expanded="false"
-                    aria-controls="options"
-                >
-                    <span class="fill" data-icon="more"></span>
-                </button>
+                <div class="topbar-actions">
+                    <button class="fill-button" aria-label="Back" data-nav="back">
+                        <span class="fill" data-icon="back"></span>
+                    </button>
+                    <button class="fill-button" aria-label="Forward" data-nav="forward">
+                        <span class="fill" data-icon="forward"></span>
+                    </button>
+                    <button
+                        id="options-toggle"
+                        class="fill-button"
+                        aria-label="Options"
+                        aria-expanded="false"
+                        aria-controls="options"
+                    >
+                        <span class="fill" data-icon="more"></span>
+                    </button>
+                </div>
             </header>
             <section id="pairing" class="pairing" hidden>
                 <h1>Connect this device</h1>
