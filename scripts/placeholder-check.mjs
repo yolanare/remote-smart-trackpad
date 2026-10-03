@@ -2,7 +2,9 @@
 // through the host's own mirror code (scripts/placeholder-probe.ps1 → Read-Mirror). Placeholders must read as an
 // empty field; real text must read exactly as is. Read-only: nothing is typed or clicked. The browser window comes
 // to the foreground for each read, so leave the PC alone while it runs (about a minute per browser).
-//   node scripts/placeholder-check.mjs [--browser=chrome,edge,firefox] [--case=id,id]
+//   node scripts/placeholder-check.mjs [--browser=chrome,edge,firefox] [--case=id,id] [--record]
+//   --record saves the facts each verdict was decided on, and the verdict, to tests/fixtures/field-facts.json: the
+//   unit tests (tests/host-rules.test.mjs) replay them without browsers.
 import { spawn } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -186,6 +188,19 @@ try {
 const failures = results.filter((entry) => !['pass', 'known'].includes(entry.status));
 const report = path.join(tmpdir(), 'remote-smart-trackpad-placeholder-report.json');
 await writeFile(report, JSON.stringify(results, null, 2));
+if (process.argv.includes('--record')) {
+    // Only verdicts the check accepted: the recording pins today's right answers, not its failures.
+    const recorded = results
+        .filter((entry) => ['pass', 'known'].includes(entry.status) && entry.result.facts)
+        .map((entry) => ({
+            browser: entry.browser,
+            id: entry.id,
+            facts: entry.result.facts,
+            verdict: entry.result.verdict,
+        }));
+    await writeFile(path.join(root, 'tests/fixtures/field-facts.json'), JSON.stringify(recorded, null, 2) + '\n');
+    console.log(`Recorded ${recorded.length} field verdicts to tests/fixtures/field-facts.json`);
+}
 console.log();
 for (const name of new Set(results.map((entry) => entry.browser))) {
     const own = results.filter((entry) => entry.browser === name);

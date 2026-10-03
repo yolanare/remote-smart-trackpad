@@ -1,10 +1,16 @@
-$script:mirror = $null
-. (Join-Path $PSScriptRoot 'field-content.ps1')
+# The mirror (CONTEXT.md) on the PC side: reads the focused field through UI Automation and applies the phone's edits
+# to it. What the facts mean is decided by mirror-rules.psm1; this module gathers them and acts.
+$ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'native.psm1') -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'input.psm1') -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'mirror-rules.psm1') -DisableNameChecking
 
-# The text as the phone gets it: one kind of line break, and plain spaces. Rich-text fields keep a space typed at the
-# end of a line as a no-break space until more text follows; the user typed a space, and an edit checked against
-# its own text must find one there.
-function Normalize-MirrorText([string]$text) { return (Normalize-LineEndings $text).Replace([string][char]0xA0, ' ') }
+# The field being mirrored: id (the session the phone edits against), revision, element, text, start, end,
+# lastOperation (the phone's last edit, applied once), believed (a caret the PC misreports, see Edit-Mirror).
+$mirror = $null
+# Verdicts cost tens of milliseconds (IAccessible2) and only change with the field, its text or the caret.
+$resolvedField = $null
+$readOnlyField = $null
 
 # Chromium exposes a <br> that ends a line with other content as a final line break the caret can never reach.
 # An empty line (<div><br></div>, <p><br></p>) is real: its break is the only content of its block.
@@ -19,23 +25,8 @@ function Test-PhantomBreak($element) {
     return $null -ne $node -and $node.Current.Name -eq "`n" -and $null -ne $walker.GetPreviousSibling($node)
 }
 
-# Decides what UI Automation's text of the focused field really is. Returns empty when the field only shows a
-# placeholder (or nothing), unreadable when its content lives elsewhere, and neither when the text is the content.
-# $caret is the selection start in that text. The verdict only changes with the field, its text or the caret, and
-# asking IAccessible2 costs tens of milliseconds, so it is kept until one of them changes (polls keep reading the
-# same field while nothing happens).
-$script:resolvedField = $null
-$script:readOnlyField = $null
-function Resolve-FieldText($element, [string]$text, [int]$caret) {
-    $cached = $script:resolvedField
-    if ($null -ne $cached -and $cached.caret -eq $caret -and $cached.text -ceq $text -and $element.Equals($cached.element)) {
-        return $cached.verdict
-    }
-    $verdict = Find-FieldVerdict $element $text $caret
-    $script:resolvedField = @{ element=$element; text=$text; caret=$caret; verdict=$verdict }
-    return $verdict
-}
-function Find-FieldVerdict($element, [string]$text, [int]$caret) {
+# The facts Get-FieldVerdict decides on, for the focused element.
+function Get-FieldFacts($element, [string]$text, [int]$caret) {
     $current = $element.Current
     $content = $null
     if ($current.FrameworkId -in @('Chrome', 'Gecko')) {
@@ -46,35 +37,31 @@ function Find-FieldVerdict($element, [string]$text, [int]$caret) {
             $content = [FieldContent]::Focused($current.Name)
         }
     }
-    if ($null -eq $content) {
-        # Without IAccessible2, an input that hides its content exposes its accessible name as text instead. A
-        # classic Windows edit box tells single-line from multi-line by its window style.
-        $singleLine = [FieldContent]::Win32SingleLine([IntPtr]$current.NativeWindowHandle, $current.ClassName)
-        return @{ unreadable=($text.Length -and $text -ceq $current.Name); empty=$false; singleLine=$singleLine }
+    $box = $current.BoundingRectangle
+    return @{
+        framework=$current.FrameworkId; name=$current.Name; text=$text; caret=$caret
+        boxWidth=$box.Width; boxHeight=$box.Height
+        win32SingleLine=[FieldContent]::Win32SingleLine([IntPtr]$current.NativeWindowHandle, $current.ClassName)
+        content=if ($null -eq $content) { $null } else {
+            @{ dom=$content.Dom; native=$content.Native; valueLength=$content.Value.Length; editableText=$content.EditableText
+               editableObject=$content.EditableObject; leafless=$content.Leafless; singleLine=$content.SingleLine }
+        }
     }
-    # Chrome's own text fields (its address bar): their text is the user's, except that empty they read as their name.
-    if (-not $content.Dom -and $current.FrameworkId -eq 'Chrome') { return @{ unreadable=$false; empty=($text -ceq $current.Name); singleLine=$content.SingleLine } }
-    if ($content.Native) {
-        # A field too small to show any text is the hidden input of an editor drawn elsewhere (VS Code's editor and
-        # terminal): unreadable, the phone types blind. Whatever it holds: such an editor leaves each typed character
-        # in it for a moment, and mirroring that would echo the character back on the phone, typed a second time.
-        $box = $current.BoundingRectangle
-        if ($box.Width -lt 20 -or $box.Height -lt 8) { return @{ unreadable=$true; empty=$true; native=$true } }
-        # <input>/<textarea>: the value is the content. Empty, UI Automation reads the placeholder as an embedded
-        # object (U+FFFC) or the accessible name instead.
-        return @{ unreadable=$false; empty=(-not $content.Value.Length); native=$true; singleLine=$content.SingleLine }
+}
+function Resolve-FieldText($element, [string]$text, [int]$caret) {
+    $cached = $script:resolvedField
+    if ($null -ne $cached -and $cached.caret -eq $caret -and $cached.text -ceq $text -and $element.Equals($cached.element)) {
+        return $cached.verdict
     }
-    # Rich text (contenteditable): without editable content, any visible text is drawn by the page (a placeholder:
-    # CSS generated content, contenteditable=false), and zero-width anchors alone show nothing. Line breaks typed
-    # into an empty field are content and stay.
-    # Rich text always takes new lines (Enter would send a chat message), even where it calls itself single-line:
-    # Firefox does so for a role=textbox without aria-multiline.
-    if ($content.EditableText -or $content.EditableObject) { return @{ unreadable=$false; empty=$false } }
-    # Firefox hides the text nodes of role=textbox fields, so nothing tells their text from a generated placeholder;
-    # its caret follows the document though, and generated text is out of its reach: a caret past the start can
-    # only stand after real text.
-    if ($current.FrameworkId -eq 'Gecko' -and $content.Leafless -and $caret -gt 0) { return @{ unreadable=$false; empty=$false } }
-    return @{ unreadable=$false; empty=([FieldContent]::HasVisibleCharacter($text) -or [FieldContent]::HasOnlyAnchors($text)) }
+    $facts = Get-FieldFacts $element $text $caret
+    $verdict = Get-FieldVerdict $facts
+    $script:resolvedField = @{ element=$element; text=$text; caret=$caret; facts=$facts; verdict=$verdict }
+    return $verdict
+}
+# The facts and verdict of the last field read (scripts/placeholder-probe.ps1 records them for the rules' tests).
+function Get-LastFieldVerdict {
+    if ($null -eq $script:resolvedField) { return $null }
+    return @{ facts=$script:resolvedField.facts; verdict=$script:resolvedField.verdict }
 }
 
 # UI Automation calls fail for a moment while an app rebuilds the field it reads (Chromium after a Backspace: the
@@ -137,21 +124,9 @@ function Read-MirrorOnce {
     }
     if ($resolved.empty) { $text = ''; $start = 0; $end = 0 }
     $framework = $element.Current.FrameworkId
-    # Rich text only: in an <input>/<textarea> every line break is the user's.
-    $rich = $framework -in @('Chrome', 'Gecko') -and -not $resolved.native
-    # An emptied rich-text field keeps one <br>, displayed as a single empty line.
-    if ($rich -and $text -ceq "`n") { $text = ''; $start = 0; $end = 0 }
-    if ($rich -and $framework -eq 'Chrome') {
-        if ($text.EndsWith("`n") -and (Test-PhantomBreak $element)) {
-            $text = $text.Substring(0, $text.Length - 1)
-            $start = [Math]::Min($start, $text.Length); $end = [Math]::Min($end, $text.Length)
-        }
-    }
-    # A Windows rich edit box (RichEdit, WinForms' RichTextBox) ends with a paragraph mark the caret never passes.
-    if ($framework -in @('Win32', 'WinForm') -and $element.Current.ClassName -like '*RichEdit*' -and $text.EndsWith("`n")) {
-        $text = $text.Substring(0, $text.Length - 1)
-        $start = [Math]::Min($start, $text.Length); $end = [Math]::Min($end, $text.Length)
-    }
+    $phantomBreak = $framework -eq 'Chrome' -and -not $resolved.native -and $text.EndsWith("`n") -and (Test-PhantomBreak $element)
+    $repaired = Repair-MirrorText @{ framework=$framework; className=$element.Current.ClassName; native=$resolved.native; text=$text; start=$start; end=$end; phantomBreak=$phantomBreak }
+    $text = $repaired.text; $start = $repaired.start; $end = $repaired.end
     # Chromium can misreport the caret on an empty line; after our own edit the caret position is known instead.
     $believed = if ($null -ne $script:mirror -and $element.Equals($script:mirror.element)) { $script:mirror.believed } else { $null }
     if ($null -ne $believed) {
@@ -170,22 +145,31 @@ function Read-MirrorOnce {
     return @{ field=$field; readable=$true; session=$script:mirror.id; revision=$script:mirror.revision; text=$text; selectionStart=$start; selectionEnd=$end; singleLine=($resolved.singleLine -eq $true) }
 }
 
+# A read the phone already has (same session and revision) is answered as unchanged.
+function Read-MirrorFor($session, $revision) {
+    $read = Read-Mirror
+    if ($read.readable -and $read.session -ceq [string]$session -and $read.revision -eq $revision) { return @{ unchanged=$true } }
+    return $read
+}
+
+# The phone closed its editor: the next read starts a new session.
+function Close-Mirror { $script:mirror = $null }
+
 function Select-MirrorRange([int]$start, [int]$end, [string]$text) {
     $element = [System.Windows.Automation.AutomationElement]::FocusedElement
     if (-not $element.Equals($script:mirror.element)) { throw 'PC focus changed' }
     $pattern = $element.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern)
     $range = $pattern.DocumentRange.Clone()
     $elements = [System.Globalization.StringInfo]::ParseCombiningCharacters($text)
-    $from = Element-Index $elements $start $text.Length
-    $to = Element-Index $elements $end $text.Length
+    $from = Get-ElementIndex $elements $start $text.Length
+    $to = Get-ElementIndex $elements $end $text.Length
     $range.MoveEndpointByRange([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, $range, [System.Windows.Automation.Text.TextPatternRangeEndpoint]::Start)
     if ($range.MoveEndpointByUnit([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, [System.Windows.Automation.Text.TextUnit]::Character, $to) -ne $to) { throw 'PC text range cannot be selected' }
     if ($range.MoveEndpointByUnit([System.Windows.Automation.Text.TextPatternRangeEndpoint]::Start, [System.Windows.Automation.Text.TextUnit]::Character, $from) -ne $from) { throw 'PC text range cannot be selected' }
     if ((Normalize-MirrorText ($range.GetText(262145))) -cne $text.Substring($start, $end - $start)) { throw 'PC text range differs' }
     # A caret at the start of a line is ambiguous in Chromium: it can resolve to the end of the previous line. Place
     # it instead right after the last real character before the line breaks, then step over them with Right.
-    if ($start -eq $end -and $start -gt 0 -and $text[$start - 1] -eq "`n" -and
-            -not ($held.Contains('Shift') -or $held.Contains('Control') -or $held.Contains('Alt'))) {
+    if ($start -eq $end -and $start -gt 0 -and $text[$start - 1] -eq "`n" -and -not (Test-ModifierHeld)) {
         $anchor = $start
         while ($anchor -gt 0 -and $text[$anchor - 1] -eq "`n") { $anchor-- }
         Select-MirrorRange $anchor $anchor $text
@@ -195,15 +179,44 @@ function Select-MirrorRange([int]$start, [int]$end, [string]$text) {
     $range.Select()
 }
 
-# Inline completion (an address bar, a search box): the field shows what was typed followed by a suggestion it
-# selected, so typing on replaces it. That is the typing applied, not a different text.
-function Test-InlineCompletion($updated, [string]$next, [int]$landed) {
-    $added = $updated.text.Length - $next.Length
-    return $updated.readable -and $added -gt 0 -and $updated.selectionStart -eq $landed -and
-        $updated.selectionEnd -eq $landed + $added -and $updated.text.StartsWith($next.Substring(0, $landed), [StringComparison]::Ordinal) -and
-        $updated.text.EndsWith($next.Substring($landed), [StringComparison]::Ordinal)
+# Backspace until exactly the erased text is gone, reading the field after each: in an emoji sequence (surrogates,
+# skin tones, joiners) apps erase one character or a part of it per Backspace, and .NET counts its parts apart.
+function Remove-BeforeCaret([string]$old, [int]$start, [int]$end, $session) {
+    $erased = $old.Substring($start, $end - $start)
+    if ($erased -notmatch '[\uD800-\uDFFF\u200D\uFE0E\uFE0F\u20E3]') {
+        $removed = (New-Object System.Globalization.StringInfo $erased).LengthInTextElements
+        for ($index = 0; $index -lt $removed; $index++) { Tap-Key 'Backspace' }
+        return
+    }
+    $remaining = $old.Substring(0, $start) + $old.Substring($end)
+    $current = $old
+    for ($press = 0; $press -lt $erased.Length -and $current -cne $remaining -and $current.Length -gt $remaining.Length; $press++) {
+        Tap-Key 'Backspace'
+        for ($attempt = 0; $attempt -lt 30; $attempt++) {
+            $read = Read-Mirror
+            if ($read.session -cne $session -or $read.text -cne $current) { break }
+            Start-Sleep -Milliseconds 10
+        }
+        if ($read.session -cne $session) { return }
+        $current = $read.text
+    }
 }
 
+# Reads the field until the edit settles (Get-EditOutcome), at most about a second: the last read and its outcome.
+function Wait-EditOutcome([string]$old, [string]$next, [int]$landed, $session) {
+    $clock = [System.Diagnostics.Stopwatch]::StartNew()
+    $seen = $null; $seenAt = 0
+    for ($attempt = 0; $attempt -lt 60; $attempt++) {
+        $read = Read-Mirror
+        if ($read.text -cne $seen) { $seen = $read.text; $seenAt = $clock.ElapsedMilliseconds }
+        $outcome = Get-EditOutcome @{ old=$old; next=$next; landed=$landed; session=$session; read=$read; stableMs=($clock.ElapsedMilliseconds - $seenAt) }
+        if ($outcome -ne 'pending') { break }
+        Start-Sleep -Milliseconds 10
+    }
+    return @{ read=$read; outcome=$outcome }
+}
+
+# Applies one phone edit (replace start..end with text, then the selection) to the field it was made against.
 function Edit-Mirror($data) {
     $snapshot = Read-Mirror
     if (-not $snapshot.readable -or $snapshot.session -cne [string]$data.session -or $snapshot.revision -ne [int]$data.revision) {
@@ -227,50 +240,17 @@ function Edit-Mirror($data) {
         $overSelection = $snapshot.selectionStart -eq $start -and $snapshot.selectionEnd -eq $end -and $start -ne $end
         if (-not $atCaret -and -not $overSelection) { Select-MirrorRange $start $end $old }
         if (-not ([System.Windows.Automation.AutomationElement]::FocusedElement).Equals($script:mirror.element)) { return @{ accepted=$false; snapshot=(Read-Mirror) } }
-        try {
-            if ($atCaret) {
-                $erased = $old.Substring($start, $end - $start)
-                if ($erased -match '[\uD800-\uDFFF\u200D\uFE0E\uFE0F\u20E3]') {
-                    # An emoji sequence (surrogates, skin tones, joiners): apps erase one character or a part of it
-                    # per Backspace, and .NET counts its parts apart. Backspace until exactly the erased text is gone.
-                    $remaining = $old.Substring(0, $start) + $old.Substring($end)
-                    $current = $old
-                    for ($press = 0; $press -lt $erased.Length -and $current -cne $remaining -and $current.Length -gt $remaining.Length; $press++) {
-                        Tap-Key 'Backspace'
-                        for ($attempt = 0; $attempt -lt 30; $attempt++) {
-                            $read = Read-Mirror
-                            if ($read.session -cne $snapshot.session -or $read.text -cne $current) { break }
-                            Start-Sleep -Milliseconds 10
-                        }
-                        if ($read.session -cne $snapshot.session) { break }
-                        $current = $read.text
-                    }
-                } else {
-                    $removed = (New-Object System.Globalization.StringInfo $erased).LengthInTextElements
-                    for ($index = 0; $index -lt $removed; $index++) { Tap-Key 'Backspace' }
-                }
-                if ($insert.Length) { Insert-Text $insert }
-            } elseif ($insert.Length) { Insert-Text $insert }
-            elseif ($overSelection) { Tap-Key 'Backspace' }
-            else { Tap-Key 'Delete' }
-            # UI Automation providers can publish text after SendInput returns; a paste lands later still. A field that
-            # reshapes what it is typed (an input mask, a case change, a length limit) never shows the expected text:
-            # once its text has changed and stays so for a moment, that is its answer.
-            $clock = [System.Diagnostics.Stopwatch]::StartNew()
-            $seen = $null; $seenAt = 0
-            for ($attempt=0; $attempt -lt 60; $attempt++) {
-                $updated = Read-Mirror
-                if ($updated.session -cne $snapshot.session -or $updated.text -ceq $next -or (Test-InlineCompletion $updated $next $landed)) { break }
-                if ($updated.text -cne $seen) { $seen = $updated.text; $seenAt = $clock.ElapsedMilliseconds }
-                elseif ($seen -cne $old -and $clock.ElapsedMilliseconds - $seenAt -ge 120) { break }
-                Start-Sleep -Milliseconds 10
-            }
-        } finally { [ClipboardText]::Restore() }
-        $completed = Test-InlineCompletion $updated $next $landed
+        if ($atCaret) {
+            Remove-BeforeCaret $old $start $end $snapshot.session
+            if ($insert.Length) { Insert-Text $insert }
+        } elseif ($insert.Length) { Insert-Text $insert }
+        elseif ($overSelection) { Tap-Key 'Backspace' }
+        else { Tap-Key 'Delete' }
+        $settled = Wait-EditOutcome $old $next $landed $snapshot.session
         # Typed, but the field holds something else: the phone takes the PC's text, never sends the same typing again.
-        if ($updated.session -cne $snapshot.session -or ($updated.text -cne $next -and -not $completed)) { return @{ accepted=$false; typed=$true; snapshot=$updated } }
+        if ($settled.outcome -notin @('applied', 'completed')) { return @{ accepted=$false; typed=$true; snapshot=$settled.read } }
         # The field completed the typing itself and selected the suggestion: the PC's caret and selection stay.
-        if ($completed) {
+        if ($settled.outcome -eq 'completed') {
             $script:mirror.lastOperation=[string]$data.operationId
             $script:mirror.believed = $null
             return @{ accepted=$true; snapshot=(Read-Mirror) }
@@ -291,3 +271,5 @@ function Edit-Mirror($data) {
     }
     return @{ accepted=$true; snapshot=$final }
 }
+
+Export-ModuleMember -Function Read-Mirror, Read-MirrorFor, Edit-Mirror, Close-Mirror, Get-LastFieldVerdict

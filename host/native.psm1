@@ -1,3 +1,6 @@
+# The Windows APIs the bridge calls, as C# types loaded once for the whole process: input (SendInput), the pointer
+# glide, the clipboard, the speaker's mute state, and what a focused web field holds (field-content.ps1). Types only:
+# nothing to export.
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 Add-Type -TypeDefinition @'
@@ -220,119 +223,5 @@ public static class SpeakerVolume {
 }
 '@
 
-$keyCodes = @{
-    Escape=0x1B; Tab=0x09; Control=0x11; Shift=0x10; Alt=0x12; AltGr=0xA5; Win=0x5B
-    Left=0x25; Up=0x26; Right=0x27; Down=0x28; Delete=0x2E; Backspace=0x08
-    Home=0x24; End=0x23; PageUp=0x21; PageDown=0x22; Insert=0x2D; Enter=0x0D
-    Space=0x20; C=0x43; V=0x56; X=0x58; A=0x41; R=0x52
-    F1=0x70; F2=0x71; F3=0x72; F4=0x73; F5=0x74; F6=0x75
-    F7=0x76; F8=0x77; F9=0x78; F10=0x79; F11=0x7A; F12=0x7B
-    F13=0x7C; F14=0x7D; F15=0x7E; F16=0x7F; F17=0x80; F18=0x81
-    F19=0x82; F20=0x83; F21=0x84; F22=0x85; F23=0x86; F24=0x87
-    PrintScreen=0x2C; ScrollLock=0x91; Pause=0x13; ContextMenu=0x5D
-    VolumeUp=0xAF; VolumeDown=0xAE; VolumeMute=0xAD; PlayPause=0xB3
-    B=0x42; D=0x44; E=0x45; F=0x46; G=0x47; H=0x48; I=0x49; J=0x4A
-    K=0x4B; L=0x4C; M=0x4D; N=0x4E; O=0x4F; P=0x50; Q=0x51; S=0x53
-    T=0x54; U=0x55; W=0x57; Y=0x59; Z=0x5A
-}
-# Down and up flags, and the button for the side ones (X1: back, X2: forward, in browsers, Explorer and most apps).
-$buttons = @{ left=@(0x0002,0x0004); right=@(0x0008,0x0010); middle=@(0x0020,0x0040); back=@(0x0080,0x0100,1); forward=@(0x0080,0x0100,2) }
-$held = New-Object 'System.Collections.Generic.HashSet[string]'
-. (Join-Path $PSScriptRoot 'text-mirror.ps1')
-
-function Element-Index([int[]]$starts, [int]$position, [int]$textLength) {
-    if ($position -eq $textLength) { return $starts.Length }
-    $index = [Array]::BinarySearch($starts, $position)
-    if ($index -lt 0) { throw 'Text operation splits a character' }
-    return $index
-}
-function Normalize-LineEndings([string]$text) { return $text.Replace([Environment]::NewLine, [string][char]10).Replace([string][char]13, [string][char]10) }
-
-function Send-Key($name, [bool]$down) {
-    if (-not $keyCodes.ContainsKey($name)) { throw "Unsupported key: $name" }
-    if (-not [NativeInput]::Key($keyCodes[$name], $down)) { throw 'Windows rejected keyboard input' }
-}
-function Tap-Key($name) {
-    [void]$held.Add($name)
-    try { Send-Key $name $true }
-    finally {
-        Send-Key $name $false
-        [void]$held.Remove($name)
-    }
-}
-# A line break must never press plain Enter, which sends the message in chat inputs. Chromium rich-text fields get
-# Shift+Enter: it is their newline and the only break that leaves their caret on the new line. Other fields get a
-# pasted line break, a real paragraph break. The caller restores the clipboard with [ClipboardText]::Restore(), a
-# moment later when $script:pasted says it pasted (the paste lands after the call returns).
-$script:pasted = $false
-function Insert-Text([string]$text) {
-    $script:pasted = $false
-    if (-not $text.Contains("`n")) {
-        if (-not [NativeInput]::Text($text)) { throw 'Windows rejected text input' }
-        return
-    }
-    $element = [System.Windows.Automation.AutomationElement]::FocusedElement
-    $rich = $null -ne $element -and $element.Current.FrameworkId -eq 'Chrome' -and
-        $null -ne [System.Windows.Automation.TreeWalker]::RawViewWalker.GetFirstChild($element)
-    if ($rich) {
-        $lines = $text.Split("`n")
-        for ($index = 0; $index -lt $lines.Count; $index++) {
-            if ($index) {
-                $shift = -not $held.Contains('Shift')
-                if ($shift) { Send-Key 'Shift' $true }
-                try { Tap-Key 'Enter' } finally { if ($shift) { Send-Key 'Shift' $false } }
-            }
-            if ($lines[$index].Length -and -not [NativeInput]::Text($lines[$index])) { throw 'Windows rejected text input' }
-        }
-        return
-    }
-    # Classic Windows edit boxes paste only once after UI Automation read them (WinForms), so no clipboard there: an
-    # Edit takes a typed carriage return as its line break (not the Enter key, which a dialog would take for its
-    # default button), a RichEdit only the Enter key.
-    $class = if ($null -ne $element) { $element.Current.ClassName } else { '' }
-    if ($class -match '(^|\.)RichEdit\w*(\.|$)') {
-        $lines = $text.Split("`n")
-        for ($index = 0; $index -lt $lines.Count; $index++) {
-            if ($index) { Tap-Key 'Enter' }
-            if ($lines[$index].Length -and -not [NativeInput]::Text($lines[$index])) { throw 'Windows rejected text input' }
-        }
-        return
-    }
-    if ($class -match '(^|\.)Edit(\.|$)') {
-        if (-not [NativeInput]::Text($text.Replace("`n", "`r"))) { throw 'Windows rejected text input' }
-        return
-    }
-    if (-not [ClipboardText]::Set($text)) { throw 'Clipboard unavailable' }
-    $script:pasted = $true
-    $control = -not $held.Contains('Control')
-    if ($control) { Send-Key 'Control' $true }
-    try { Tap-Key 'V' } finally { if ($control) { Send-Key 'Control' $false } }
-}
-function Release-All {
-    [Glider]::Stop()
-    foreach ($name in @($held)) {
-        if ($buttons.ContainsKey($name)) { [void][NativeInput]::Mouse($buttons[$name][1], [int]$buttons[$name][2]) }
-        elseif ($keyCodes.ContainsKey($name)) { [void][NativeInput]::Key($keyCodes[$name], $false) }
-        [void]$held.Remove($name)
-    }
-}
-
-$script:mediaSessions = $null
-function Get-MediaState {
-    $muted = $null
-    try { $muted = [SpeakerVolume]::Muted() } catch {}
-    $playing = $null
-    try {
-        if ($null -eq $script:mediaSessions) {
-            Add-Type -AssemblyName System.Runtime.WindowsRuntime
-            $managerType = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType=WindowsRuntime]
-            $asTask = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
-                $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'
-            } | Select-Object -First 1
-            $script:mediaSessions = $asTask.MakeGenericMethod($managerType).Invoke($null, @($managerType::RequestAsync())).Result
-        }
-        $session = $script:mediaSessions.GetCurrentSession()
-        $playing = $null -ne $session -and [string]$session.GetPlaybackInfo().PlaybackStatus -eq 'Playing'
-    } catch {}
-    return @{ muted=$muted; playing=$playing }
-}
+. (Join-Path $PSScriptRoot 'field-content.ps1')
+Export-ModuleMember -Function @()

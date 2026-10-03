@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Stop'
-. (Join-Path (Split-Path -Parent $PSScriptRoot) 'host\windows-input.ps1')
+Import-Module (Join-Path (Split-Path -Parent $PSScriptRoot) 'host\input.psm1') -DisableNameChecking
+Import-Module (Join-Path (Split-Path -Parent $PSScriptRoot) 'host\text-mirror.psm1') -DisableNameChecking
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 Add-Type -ReferencedAssemblies System.Windows.Forms,System.Drawing -TypeDefinition @'
 using System;

@@ -1,0 +1,2594 @@
+[
+  {
+    "browser": "chrome",
+    "id": "input-placeholder",
+    "facts": {
+      "name": "Search everything",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 21,
+      "framework": "Chrome",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "textarea-placeholder",
+    "facts": {
+      "name": "Write a commenton two lines",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 36,
+      "framework": "Chrome",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "input-aria-placeholder",
+    "facts": {
+      "name": "Your name",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 21,
+      "framework": "Chrome",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "css-empty-before",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Write a message…",
+      "caret": 16
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "css-absolute-before",
+    "facts": {
+      "name": "Message input",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Queue another message…",
+      "caret": 22
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "css-block-before",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Add a comment",
+      "caret": 13
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "css-after",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Type here",
+      "caret": 9
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "css-plaintext-only",
+    "facts": {
+      "name": "Ask a question, @ to mention",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Ask a question, @ to mention",
+      "caret": 28
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "prosemirror",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Chrome",
+      "text": "How can I help you today?\n",
+      "caret": 25
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "quill",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Chrome",
+      "text": "Compose an epic...\n",
+      "caret": 18
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "ckeditor",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Chrome",
+      "text": "Type or paste your content here!\n",
+      "caret": 32
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "medium-editor",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Chrome",
+      "text": "\nType your text",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "iframe-body",
+    "facts": {
+      "name": "",
+      "boxWidth": 339,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 19,
+      "framework": "Chrome",
+      "text": "Type your story\n",
+      "caret": 15
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "shadow-input",
+    "facts": {
+      "name": "Search docs",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 21,
+      "framework": "Chrome",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "input-search",
+    "facts": {
+      "name": "Search mail",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 21,
+      "framework": "Chrome",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "slate",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Enter some plain text...\n﻿\n",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "hidden-child",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "lexical",
+    "facts": {
+      "name": "Type a message",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Chrome",
+      "text": "\n",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "draftjs",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "\n",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "input-value-equals-placeholder",
+    "facts": {
+      "name": "Search everything",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 17,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 21,
+      "framework": "Chrome",
+      "text": "Search everything",
+      "caret": 17
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "text-equals-label",
+    "facts": {
+      "name": "Message",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Message",
+      "caret": 7
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "text-equals-data-placeholder",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Write a message…",
+      "caret": 16
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "css-absolute-content",
+    "facts": {
+      "name": "Message input",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Queue another message…",
+      "caret": 22
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "prosemirror-content",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Chrome",
+      "text": "Hello there",
+      "caret": 11
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "quill-content",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 86,
+      "framework": "Chrome",
+      "text": "Line one\nLine two",
+      "caret": 17
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "input-content",
+    "facts": {
+      "name": "Search everything",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 5,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 21,
+      "framework": "Chrome",
+      "text": "hello",
+      "caret": 5
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "textarea-content",
+    "facts": {
+      "name": "Write a comment",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 12,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 36,
+      "framework": "Chrome",
+      "text": "first\nsecond",
+      "caret": 12
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "decorated-content",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "“quoted words”",
+      "caret": 13
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "mention-content",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Chrome",
+      "text": "Hi @Bob, ready?",
+      "caret": 15
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "rtl-content",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "שלום עולם",
+      "caret": 9
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "textarea-labelled-empty",
+    "facts": {
+      "name": "Comment",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 36,
+      "framework": "Chrome",
+      "text": "Comment",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "chrome",
+    "id": "empty-plain",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "input-placeholder",
+    "facts": {
+      "name": "Search everything",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 21,
+      "framework": "Chrome",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "textarea-placeholder",
+    "facts": {
+      "name": "Write a commenton two lines",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 36,
+      "framework": "Chrome",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "input-aria-placeholder",
+    "facts": {
+      "name": "Your name",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 21,
+      "framework": "Chrome",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "css-empty-before",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Write a message…",
+      "caret": 16
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "css-absolute-before",
+    "facts": {
+      "name": "Message input",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Queue another message…",
+      "caret": 22
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "css-block-before",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Add a comment",
+      "caret": 13
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "css-after",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Type here",
+      "caret": 9
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "css-plaintext-only",
+    "facts": {
+      "name": "Ask a question, @ to mention",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Ask a question, @ to mention",
+      "caret": 28
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "prosemirror",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Chrome",
+      "text": "How can I help you today?\n",
+      "caret": 25
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "quill",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Chrome",
+      "text": "Compose an epic...\n",
+      "caret": 18
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "ckeditor",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Chrome",
+      "text": "Type or paste your content here!\n",
+      "caret": 32
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "medium-editor",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Chrome",
+      "text": "\nType your text",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "iframe-body",
+    "facts": {
+      "name": "",
+      "boxWidth": 339,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 19,
+      "framework": "Chrome",
+      "text": "Type your story\n",
+      "caret": 15
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "shadow-input",
+    "facts": {
+      "name": "Search docs",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 21,
+      "framework": "Chrome",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "input-search",
+    "facts": {
+      "name": "Search mail",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 21,
+      "framework": "Chrome",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "slate",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Enter some plain text...\n﻿\n",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "hidden-child",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "lexical",
+    "facts": {
+      "name": "Type a message",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Chrome",
+      "text": "\n",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "draftjs",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "\n",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "input-value-equals-placeholder",
+    "facts": {
+      "name": "Search everything",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 17,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 21,
+      "framework": "Chrome",
+      "text": "Search everything",
+      "caret": 17
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "text-equals-label",
+    "facts": {
+      "name": "Message",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Message",
+      "caret": 7
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "text-equals-data-placeholder",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Write a message…",
+      "caret": 16
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "css-absolute-content",
+    "facts": {
+      "name": "Message input",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "Queue another message…",
+      "caret": 22
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "prosemirror-content",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Chrome",
+      "text": "Hello there",
+      "caret": 11
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "quill-content",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 86,
+      "framework": "Chrome",
+      "text": "Line one\nLine two",
+      "caret": 17
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "input-content",
+    "facts": {
+      "name": "Search everything",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 5,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 21,
+      "framework": "Chrome",
+      "text": "hello",
+      "caret": 5
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "textarea-content",
+    "facts": {
+      "name": "Write a comment",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 12,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 36,
+      "framework": "Chrome",
+      "text": "first\nsecond",
+      "caret": 12
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "decorated-content",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "“quoted words”",
+      "caret": 13
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "mention-content",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Chrome",
+      "text": "Hi @Bob, ready?",
+      "caret": 15
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "rtl-content",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "שלום עולם",
+      "caret": 9
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "textarea-labelled-empty",
+    "facts": {
+      "name": "Comment",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 36,
+      "framework": "Chrome",
+      "text": "Comment",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "edge",
+    "id": "empty-plain",
+    "facts": {
+      "name": "",
+      "boxWidth": 363,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 25,
+      "framework": "Chrome",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "input-placeholder",
+    "facts": {
+      "name": "Search everything",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 22,
+      "framework": "Gecko",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "textarea-placeholder",
+    "facts": {
+      "name": "Write a comment\non two lines",
+      "boxWidth": 393,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 36,
+      "framework": "Gecko",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "input-aria-placeholder",
+    "facts": {
+      "name": "Your name",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 22,
+      "framework": "Gecko",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "css-empty-before",
+    "facts": {
+      "name": "",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Gecko",
+      "text": "Write a message…",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "css-absolute-before",
+    "facts": {
+      "name": "Message input",
+      "boxWidth": 393,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 25,
+      "framework": "Gecko",
+      "text": "Queue another message…",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "css-block-before",
+    "facts": {
+      "name": "",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Gecko",
+      "text": "Add a comment",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "css-after",
+    "facts": {
+      "name": "",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Gecko",
+      "text": "Type here",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "css-plaintext-only",
+    "facts": {
+      "name": "",
+      "boxWidth": 393,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Gecko",
+      "text": "Ask a question, @ to mention",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "prosemirror",
+    "facts": {
+      "name": "",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Gecko",
+      "text": "How can I help you today?\n",
+      "caret": 25
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "quill",
+    "facts": {
+      "name": "",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Gecko",
+      "text": "Compose an epic...\n",
+      "caret": 18
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "ckeditor",
+    "facts": {
+      "name": "",
+      "boxWidth": 393,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Gecko",
+      "text": "Type or paste your content here!\n",
+      "caret": 32
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "medium-editor",
+    "facts": {
+      "name": "",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Gecko",
+      "text": "\nType your text",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "iframe-body",
+    "facts": {
+      "name": "Rich text area",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 40,
+      "framework": "Gecko",
+      "text": "Type your story\n",
+      "caret": 15
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "shadow-input",
+    "facts": {
+      "name": "Search docs",
+      "boxWidth": 393,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 22,
+      "framework": "Gecko",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "input-search",
+    "facts": {
+      "name": "Search mail",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 22,
+      "framework": "Gecko",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "slate",
+    "facts": {
+      "name": "",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Gecko",
+      "text": "Enter some plain text...﻿\n",
+      "caret": 24
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "hidden-child",
+    "facts": {
+      "name": "",
+      "boxWidth": 393,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 25,
+      "framework": "Gecko",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "lexical",
+    "facts": {
+      "name": "",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Gecko",
+      "text": "\n",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "draftjs",
+    "facts": {
+      "name": "",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Gecko",
+      "text": "\n",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "input-value-equals-placeholder",
+    "facts": {
+      "name": "Search everything",
+      "boxWidth": 393,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 17,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 22,
+      "framework": "Gecko",
+      "text": "Search everything",
+      "caret": 17
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "text-equals-label",
+    "facts": {
+      "name": "Message",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 25,
+      "framework": "Gecko",
+      "text": "Message",
+      "caret": 7
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "text-equals-data-placeholder",
+    "facts": {
+      "name": "",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Gecko",
+      "text": "Write a message…",
+      "caret": 16
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "css-absolute-content",
+    "facts": {
+      "name": "Message input",
+      "boxWidth": 393,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 25,
+      "framework": "Gecko",
+      "text": "Queue another message…",
+      "caret": 22
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "prosemirror-content",
+    "facts": {
+      "name": "",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Gecko",
+      "text": "Hello there",
+      "caret": 11
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "quill-content",
+    "facts": {
+      "name": "",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 86,
+      "framework": "Gecko",
+      "text": "Line oneLine two",
+      "caret": 16
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "input-content",
+    "facts": {
+      "name": "Search everything",
+      "boxWidth": 393,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 5,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 22,
+      "framework": "Gecko",
+      "text": "hello",
+      "caret": 5
+    },
+    "verdict": {
+      "singleLine": true,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "textarea-content",
+    "facts": {
+      "name": "Write a comment",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 12,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 36,
+      "framework": "Gecko",
+      "text": "first\nsecond",
+      "caret": 12
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "decorated-content",
+    "facts": {
+      "name": "",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Gecko",
+      "text": "“quoted words”",
+      "caret": 13
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "mention-content",
+    "facts": {
+      "name": "",
+      "boxWidth": 393,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": true,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 53,
+      "framework": "Gecko",
+      "text": "Hi @Bob, ready?",
+      "caret": 15
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "rtl-content",
+    "facts": {
+      "name": "",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": true,
+        "editableObject": false,
+        "leafless": false
+      },
+      "boxHeight": 25,
+      "framework": "Gecko",
+      "text": "שלום עולם",
+      "caret": 9
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": false
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "textarea-labelled-empty",
+    "facts": {
+      "name": "Comment",
+      "boxWidth": 394,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": true,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 36,
+      "framework": "Gecko",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  },
+  {
+    "browser": "firefox",
+    "id": "empty-plain",
+    "facts": {
+      "name": "",
+      "boxWidth": 393,
+      "win32SingleLine": false,
+      "content": {
+        "dom": true,
+        "singleLine": false,
+        "valueLength": 0,
+        "native": false,
+        "editableText": false,
+        "editableObject": false,
+        "leafless": true
+      },
+      "boxHeight": 25,
+      "framework": "Gecko",
+      "text": "￼",
+      "caret": 0
+    },
+    "verdict": {
+      "singleLine": false,
+      "unreadable": false,
+      "empty": true
+    }
+  }
+]

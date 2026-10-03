@@ -4,7 +4,7 @@
 $ErrorActionPreference = 'Stop'
 [Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
-. (Join-Path $PSScriptRoot '..\host\windows-input.ps1')
+Import-Module (Join-Path $PSScriptRoot '..\host\text-mirror.psm1') -DisableNameChecking
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
@@ -64,8 +64,9 @@ while ($null -ne ($line = [Console]::ReadLine())) {
         if ($element.Current.ProcessId -ne [ProbeWindow]::ForegroundProcess()) {
             @{ ok=$false; error='Focus is outside the fixture window' } | ConvertTo-Json -Compress; continue
         }
-        $script:mirror = $null
+        Close-Mirror
         $read = Read-Mirror
+        $last = Get-LastFieldVerdict
         $current = $element.Current
         $pattern = $null; $raw = $null
         if ($element.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern, [ref]$pattern)) { $raw = $pattern.DocumentRange.GetText(2000) }
@@ -80,8 +81,11 @@ while ($null -ne ($line = [Console]::ReadLine())) {
             ok = $true
             read = @{ readable=$read.readable; text=$read.text; selectionStart=$read.selectionStart; selectionEnd=$read.selectionEnd; reason=$read.reason; singleLine=$read.singleLine }
             field = @{ framework=$current.FrameworkId; type=$current.LocalizedControlType; name=$current.Name; className=$current.ClassName; text=$raw }
+            # What the verdict was decided on, recorded by placeholder-check --record for the rules' tests.
+            facts = if ($last) { $last.facts } else { $null }
+            verdict = if ($last) { @{ unreadable=($last.verdict.unreadable -eq $true); empty=($last.verdict.empty -eq $true); singleLine=($last.verdict.singleLine -eq $true) } } else { $null }
             content = if ($content) { @{ native=$content.Native; value=$content.Value; editableText=$content.EditableText; editableObject=$content.EditableObject; otherText=$content.OtherText; leafless=$content.Leafless } } else { $null }
-        } | ConvertTo-Json -Compress -Depth 4
+        } | ConvertTo-Json -Compress -Depth 6
     } catch {
         @{ ok=$false; error=$_.Exception.Message } | ConvertTo-Json -Compress
     }

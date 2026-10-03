@@ -42,7 +42,7 @@ The private network uses HTTPS, which the PWA needs. On first start the host cre
 | `host/access.js`                                 | Token persistence, migration, identity and revocation            |
 | `host/transport.js`                              | WebSocket framing, per-device ordering, held input and heartbeat |
 | `host/bridge.js`                                 | Windows child process and acknowledged commands                  |
-| `host/windows-input.ps1`, `host/text-mirror.ps1` | Native input and authoritative text snapshots/edits              |
+| `host/windows-bridge.ps1`, `host/*.psm1`         | Native input, the mirror and its pure rules (`mirror-rules.psm1`) |
 | `host/TrayHost.cs`                               | Native tray, hidden server, console and startup preference       |
 | `web/logic/`                                     | Connection, motion batching and mirror state                     |
 | `web/ui/`                                        | Pointer, native scroll, keys and text Web Components             |
