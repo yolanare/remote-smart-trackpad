@@ -82,8 +82,12 @@ function refreshStatus() {
     $('#connection').setAttribute('aria-label', message);
     $('#connection-label').textContent = state === 'ready' ? '' : message;
 }
-/** Shows a command error for a few seconds, then returns to the connection state. */
+/**
+ * Shows a command error for a few seconds, then returns to the connection state. Not while disconnected: the
+ * connection state says it already (a command sent as the phone wakes up fails before the connection is back).
+ */
 function showNotice(message) {
+    if (!connected) return;
     notice = message;
     clearTimeout(noticeTimer);
     noticeTimer = setTimeout(() => {
@@ -285,6 +289,9 @@ const connection = createConnection(({ state }) => {
         session.disconnected();
         motion.reset();
     } else {
+        // An error from before the connection came back no longer applies.
+        notice = '';
+        clearTimeout(noticeTimer);
         rows.restore();
         session.connected();
         refreshMedia();
