@@ -22,7 +22,7 @@ export function createTransport({ authorized, hasAccess, command, available }) {
     async function releaseHeld(client) {
         for (const entry of client.held) {
             const [kind, name] = entry.split(':');
-            await command(kind, { data: { [kind]: name, down: false } }).catch(() => {});
+            await command(kind, { [kind]: name, down: false }).catch(() => {});
         }
         client.held.clear();
     }
@@ -149,7 +149,7 @@ export function createTransport({ authorized, hasAccess, command, available }) {
                             return client.send({ type: 'ack', id: message.id, ok: true });
                         }
                         try {
-                            const result = await command(message.action, { data });
+                            const result = await command(message.action, data);
                             if (result.ok) trackHeld(client, message.action, data);
                             client.send({
                                 type: 'ack',
@@ -157,7 +157,6 @@ export function createTransport({ authorized, hasAccess, command, available }) {
                                 ok: result.ok,
                                 result: result.result,
                                 error: result.error,
-                                code: result.code,
                             });
                         } catch (error) {
                             client.send({ type: 'ack', id: message.id, ok: false, error: error.message });

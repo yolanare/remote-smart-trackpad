@@ -56,6 +56,7 @@ function launchBridge() {
     });
 }
 launchBridge();
+// Always the current bridge: a crashed one is replaced (launchBridge).
 const command = (action, data) => bridge.command(action, data);
 
 function authorized(request) {

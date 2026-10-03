@@ -58,7 +58,7 @@ export function startBridge(script, onExit) {
                     resolve: (value) => finish(resolve, value),
                     reject: (error) => finish(reject, error),
                 });
-                process.stdin.write(JSON.stringify({ id, action, ...data }) + '\n');
+                process.stdin.write(JSON.stringify({ id, action, data }) + '\n');
             });
         },
     };
