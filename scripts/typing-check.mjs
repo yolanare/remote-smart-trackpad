@@ -6,7 +6,8 @@
 //   erased by Backspace (typo), like Gboard (ime: each word composed, then committed), slowly (slow: a pause
 //   between keys, where late answers show) or with Gboard's autocorrection fixing each word (correct).
 // - PC: tests/fixtures/typing.html in Chrome and Firefox windows, then their address bars, and native WinForms and
-//   WPF windows (scripts/typing-windows.ps1), each field in turn brought to the foreground and focused.
+//   WPF windows (scripts/typing-windows.ps1) and Windows' Notepad, each field in turn brought to the foreground
+//   and focused.
 // Every test window carries a random marker in its title, and the test host's bridge refuses input unless the
 // foreground window has it (REMOTE_SMART_TRACKPAD_INPUT_GUARD): nothing typed can reach another app. Windows come
 // to the foreground one after the other, so leave the PC alone while it runs.
@@ -28,9 +29,22 @@ const option = (name) =>
         .find((argument) => argument.startsWith(`--${name}=`))
         ?.split('=')[1]
         .split(',');
-const targets = option('target') ?? ['chrome', 'firefox', 'winforms', 'wpf'];
+const targets = option('target') ?? ['chrome', 'firefox', 'winforms', 'wpf', 'notepad'];
 const onlyCases = option('case');
-const modes = option('mode') ?? ['keys', 'ime', 'slow', 'typo', 'correct', 'move', 'reopen', 'swipe'];
+const modes = option('mode') ?? [
+    'keys',
+    'ime',
+    'slow',
+    'typo',
+    'correct',
+    'move',
+    'reopen',
+    'swipe',
+    'unicode',
+    'emoji',
+    'lines',
+    'paste',
+];
 const marker = `rst${Math.random().toString(36).slice(2, 8)}`;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const timeout = (promise, ms, what) => {
@@ -44,19 +58,19 @@ const temp = (name) => mkdtemp(path.join(tmpdir(), `remote-smart-trackpad-${name
 const nativeCases = {
     winforms: [
         { id: 'textbox', typed: 'hello world', expected: 'hello world', caret: true },
-        { id: 'multiline', typed: 'hello world', expected: 'hello world', caret: true },
+        { id: 'multiline', typed: 'hello world', expected: 'hello world', caret: true, lines: true },
         { id: 'upper', typed: 'hello', expected: 'HELLO' },
         { id: 'maxlength', typed: 'hello world', expected: 'hello' },
         { id: 'masked', typed: '02102026', expected: '02/10/2026' },
-        { id: 'rich', typed: 'hello world', expected: 'hello world', caret: true },
+        { id: 'rich', typed: 'hello world', expected: 'hello world', caret: true, lines: true },
         { id: 'combo', typed: 'apple pie', expected: 'apple pie' },
     ],
     wpf: [
         { id: 'textbox', typed: 'hello world', expected: 'hello world', caret: true },
-        { id: 'multiline', typed: 'hello world', expected: 'hello world', caret: true },
+        { id: 'multiline', typed: 'hello world', expected: 'hello world', caret: true, lines: true },
         { id: 'upper', typed: 'hello', expected: 'HELLO' },
         { id: 'maxlength', typed: 'hello world', expected: 'hello' },
-        { id: 'rich', typed: 'hello world', expected: 'hello world', caret: true },
+        { id: 'rich', typed: 'hello world', expected: 'hello world', caret: true, lines: true },
         { id: 'combo', typed: 'apple pie', expected: 'apple pie' },
     ],
 };
@@ -358,11 +372,17 @@ async function startPhone(host) {
                 await wait(gap);
             }
         },
-        /** Presses Backspace (lifting the finger after a Backspace swipe deletes what it selected). */
+        /** Presses Backspace (lifting the finger after a Backspace swipe deletes what it selected) or Enter. */
         async press(name) {
-            const key = { key: name, code: name, windowsVirtualKeyCode: 8 };
+            const key = { key: name, code: name, windowsVirtualKeyCode: name === 'Enter' ? 13 : 8 };
+            if (name === 'Enter') Object.assign(key, { text: '\r', unmodifiedText: '\r' });
             await page('Input.dispatchKeyEvent', { type: 'keyDown', ...key });
             await page('Input.dispatchKeyEvent', { type: 'keyUp', ...key });
+        },
+        /** Commits text at once, as Gboard commits an emoji, a suggestion or its clipboard. */
+        async insert(text) {
+            await page('Input.insertText', { text });
+            await wait(60);
         },
         /** Selects the `count` characters before the cursor, as Gboard's Backspace swipe does. */
         async selectBack(count) {
@@ -406,11 +426,45 @@ const typingModes = {
     typo: { style: 'typo', gap: 40 },
     correct: { style: 'correct', gap: 40 },
 };
-// In fields with a caret: Gboard's cursor moves (dragging on the space bar, one step per character) and its
-// Backspace swipe (dragging left over Backspace selects words, lifting deletes them), within the text typed, and
-// past it once the editor was closed and opened again (the phone then knows nothing of the field's text when blind).
-const caretScenarios = {
+// Scenarios, each in the fields that need it (caret: one can move in it, lines: it holds several lines, text: it
+// takes typed text, not only keys):
+// - move, reopen, swipe: Gboard's cursor moves (dragging on the space bar, one step per character) and its
+//   Backspace swipe (dragging left over Backspace selects words, lifting deletes them), within the text typed, and
+//   past it once the editor was closed and opened again (the phone then knows nothing of the field's text blind).
+// - unicode: accents and an emoji (two UTF-16 units), committed as Gboard commits them. emoji: Backspace on an emoji
+//   with a skin tone (four units, one character): it goes whole. lines: Enter between two lines. paste: a long text
+//   inserted at once (Gboard's clipboard).
+const pasted = Array(7).fill('The quick brown fox jumps over the lazy dog.').join(' ');
+const scenarios = {
+    unicode: {
+        needs: ['caret', 'text'],
+        steps: [
+            ['insert', 'café '],
+            ['insert', '😀'],
+            ['insert', ' ok'],
+        ],
+        expected: 'café 😀 ok',
+    },
+    emoji: {
+        needs: ['caret', 'text'],
+        steps: [
+            ['insert', 'ok 👍🏽'],
+            ['key', 'Backspace'],
+        ],
+        expected: 'ok ',
+    },
+    lines: {
+        needs: 'lines',
+        steps: [
+            ['type', 'one'],
+            ['key', 'Enter'],
+            ['type', 'two'],
+        ],
+        expected: 'one\ntwo',
+    },
+    paste: { needs: 'caret', steps: [['insert', pasted]], expected: pasted },
     move: {
+        needs: 'caret',
         steps: [
             ['type', 'hello world'],
             ['move', -6],
@@ -418,8 +472,13 @@ const caretScenarios = {
         ],
         expected: 'hello, world',
     },
-    reopen: { steps: [['type', 'hello world'], ['reopen'], ['move', -6], ['type', ',']], expected: 'hello, world' },
+    reopen: {
+        needs: 'caret',
+        steps: [['type', 'hello world'], ['reopen'], ['move', -6], ['type', ',']],
+        expected: 'hello, world',
+    },
     swipe: {
+        needs: 'caret',
         steps: [
             ['type', 'hello big world'],
             ['select', 5],
@@ -429,6 +488,17 @@ const caretScenarios = {
         expected: 'hello big there',
     },
 };
+
+/** How long the PC took to answer each message, by action, in ms. */
+function latencies(log) {
+    const sent = new Map(log.filter((entry) => 'out' in entry).map((entry) => [entry.out, entry]));
+    const byAction = {};
+    for (const answer of log.filter((entry) => 'in' in entry)) {
+        const message = sent.get(answer.in);
+        if (message) (byAction[message.action] ??= []).push(Math.round(answer.at - message.at));
+    }
+    return byAction;
+}
 
 /** What the phone sent, in short: typed text, keys, edits (with how the PC answered). */
 function summarize(log) {
@@ -453,17 +523,19 @@ function summarize(log) {
 
 const results = [];
 async function runCase({ target, entry, mode, focus, value, phone, windows, title = `${marker} ${entry.id}` }) {
-    if (caretScenarios[mode] && !entry.caret) return;
+    const scenario = scenarios[mode];
+    // text: fields take typed text, not only keys (all but the keys-only terminal).
+    const has = (need) => (need === 'text' ? entry.text !== false : entry[need]);
+    if (scenario && ![scenario.needs].flat().every(has)) return;
     await focus(entry.id);
     await windows.ask({ do: 'bring', title });
     // A window coming to the foreground can give the focus back to its first field (WinForms): focus again.
     await focus(entry.id);
     await wait(150);
-    const scenario = caretScenarios[mode];
     if (scenario)
         entry = {
             ...entry,
-            typed: scenario.steps.find(([step]) => step === 'type')[1],
+            typed: scenario.steps.find(([step]) => step === 'type' || step === 'insert')[1],
             expected: scenario.expected,
             check: null,
         };
@@ -475,6 +547,7 @@ async function runCase({ target, entry, mode, focus, value, phone, windows, titl
         if (!scenario) await phone.type(entry.typed, typingModes[mode].style, typingModes[mode].gap);
         for (const [step, value] of scenario?.steps ?? []) {
             if (step === 'type') await phone.type(value, 'keys', 40);
+            else if (step === 'insert') await phone.insert(value);
             else if (step === 'move') await phone.moveCaret(value);
             else if (step === 'select') await phone.selectBack(value);
             else if (step === 'key') await phone.press(value);
@@ -511,6 +584,7 @@ async function runCase({ target, entry, mode, focus, value, phone, windows, titl
         phone: phoneState.text,
         blind: phoneState.passthrough,
         sent: summarize(phoneState.log),
+        latency: latencies(phoneState.log),
         errors: [...new Set(phoneState.log.filter((entry) => entry.error).map((entry) => entry.error))],
         ms: Math.round(performance.now() - started),
     };
@@ -554,6 +628,32 @@ try {
     phone = await startPhone(host);
     const selected = (cases) => cases.filter((entry) => !onlyCases || onlyCases.includes(entry.id));
     for (const target of targets) {
+        // Windows' own Notepad, a fresh one for each run, on an empty test file named with the marker (its title).
+        if (target === 'notepad') {
+            const entry = { id: 'notepad', typed: 'hello world', expected: 'hello world', caret: true, lines: true };
+            for (const mode of selected([entry]).length ? modes : []) {
+                const file = path.join(tmpdir(), `${marker}-notepad.txt`);
+                await writeFile(file, '');
+                const notepad = spawn('notepad.exe', [file], { stdio: 'ignore' });
+                try {
+                    await runCase({
+                        target,
+                        entry,
+                        mode,
+                        phone,
+                        windows,
+                        title: `${marker}-notepad`,
+                        focus: () => wait(300),
+                        value: () => windows.ask({ do: 'window-text', title: `${marker}-notepad` }),
+                    });
+                } finally {
+                    notepad.kill();
+                    await wait(200);
+                    await rm(file, { force: true });
+                }
+            }
+            continue;
+        }
         if (target in nativeCases) {
             await windows.ask({ do: 'open', window: target, marker });
             for (const entry of selected(nativeCases[target]))
@@ -611,6 +711,19 @@ try {
 } finally {
     if (phone?.exceptions.length) console.log('Phone exceptions:', phone.exceptions);
     await cleanup();
+}
+// The PC's answer times over the whole run, per target and action: median and slowest tenth.
+const percentile = (values, share) =>
+    values.toSorted((a, b) => a - b)[Math.min(values.length - 1, Math.floor(values.length * share))];
+console.log('\nPC answer times (ms): median / 90th percentile / count');
+for (const target of new Set(results.map((result) => result.target))) {
+    const byAction = {};
+    for (const result of results.filter((entry) => entry.target === target))
+        for (const [action, values] of Object.entries(result.latency)) (byAction[action] ??= []).push(...values);
+    const line = Object.entries(byAction)
+        .map(([action, values]) => `${action} ${percentile(values, 0.5)}/${percentile(values, 0.9)}/${values.length}`)
+        .join('  ');
+    console.log(`  ${target.padEnd(8)} ${line}`);
 }
 const failures = results.filter((result) => !result.pass);
 const report = path.join(tmpdir(), 'remote-smart-trackpad-typing-report.json');

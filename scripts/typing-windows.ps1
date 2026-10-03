@@ -40,6 +40,15 @@ public static class TestWindows {
         return text.ToString();
     }
     public static string ForegroundTitle() { return Title(GetForegroundWindow()); }
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, StringBuilder lParam);
+    [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+    /// <summary>The whole text of another app's edit box (WM_GETTEXT).</summary>
+    public static string EditText(IntPtr window) {
+        int length = (int)SendMessage(window, 0x000E, IntPtr.Zero, IntPtr.Zero);
+        var text = new StringBuilder(length + 1);
+        SendMessage(window, 0x000D, (IntPtr)(length + 1), text);
+        return text.ToString();
+    }
     /// <summary>Brings the top-level window whose title contains `part` to the foreground (restore: the last resort).</summary>
     public static bool Bring(string part, bool restore) {
         IntPtr found = IntPtr.Zero;
@@ -116,6 +125,8 @@ public sealed class FormsFixture : Fixture {
             var field = fields[id];
             field.Text = "";
             form.Text = "Typing winforms " + Marker + " " + id;
+            // Activation gives the focus back to the form's active control: make it this field first.
+            form.ActiveControl = field;
             form.Activate();
             field.Focus();
         }));
@@ -219,6 +230,15 @@ while ($null -ne ($line = [Console]::ReadLine())) {
                     $bar.SetFocus()
                     $value.SetValue('')
                 } else { $result = $value.Current.Value }
+            }
+            # The text of the edit box in the window whose title contains `title` (a Notepad started on a test file).
+            'window-text' {
+                $window = [System.Windows.Automation.AutomationElement]::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition) |
+                    Where-Object { $_.Current.Name.Contains([string]$request.title) } | Select-Object -First 1
+                if ($null -eq $window) { throw "No window titled '$($request.title)'" }
+                $box = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ClassNameProperty, 'Edit')))
+                if ($null -eq $box) { throw 'No edit box in that window' }
+                $result = [TestWindows]::EditText([IntPtr]$box.Current.NativeWindowHandle).Replace("`r`n", "`n")
             }
             'close' { foreach ($fixture in $fixtures.Values) { $fixture.Close() }; $fixtures.Clear() }
             default { throw "Unknown command $($request.do)" }

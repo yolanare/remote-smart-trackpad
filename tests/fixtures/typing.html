@@ -51,10 +51,10 @@
         <section data-case="input" data-caret data-typed="hello world" data-expected="hello world">
             <label>input</label><input data-field />
         </section>
-        <section data-case="textarea" data-caret data-typed="hello world" data-expected="hello world">
+        <section data-case="textarea" data-caret data-lines data-typed="hello world" data-expected="hello world">
             <label>textarea</label><textarea data-field rows="2"></textarea>
         </section>
-        <section data-case="editable" data-caret data-typed="hello world" data-expected="hello world">
+        <section data-case="editable" data-caret data-lines data-typed="hello world" data-expected="hello world">
             <label>contenteditable</label>
             <div data-field contenteditable></div>
         </section>
@@ -90,7 +90,7 @@
             <div class="screen"></div>
             <textarea data-field data-proxy style="position: absolute; width: 1px; height: 1px; opacity: 0"></textarea>
         </section>
-        <section data-case="terminal" data-caret data-typed="hello world" data-expected="hello world" data-screen>
+        <section data-case="terminal" data-caret data-keys-only data-typed="hello world" data-expected="hello world" data-screen>
             <label>terminal (keys only)</label>
             <div class="screen" data-field data-terminal tabindex="0"></div>
         </section>
@@ -188,19 +188,27 @@
                     screen.textContent = value.slice(0, section.caret) + text + value.slice(section.caret);
                     section.caret += text.length;
                 };
+                // The caret moves and erases by whole characters (an emoji with its skin tone is one), as editors do.
+                const segments = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+                const before = (value, caret) => [...segments.segment(value.slice(0, caret))].at(-1)?.index ?? 0;
+                const after = (value, caret) =>
+                    caret + ([...segments.segment(value.slice(caret))][0]?.segment.length ?? 0);
                 const keys = (event) => {
                     const value = screen.textContent,
                         caret = section.caret;
-                    const moves = { ArrowLeft: caret - 1, ArrowRight: caret + 1, Home: 0, End: value.length };
-                    if (event.key in moves) section.caret = Math.max(0, Math.min(value.length, moves[event.key]));
-                    else if (event.key === 'Backspace' && caret > 0) {
-                        screen.textContent = value.slice(0, caret - 1) + value.slice(caret);
-                        section.caret--;
+                    const moves = {
+                        ArrowLeft: before(value, caret),
+                        ArrowRight: after(value, caret),
+                        Home: 0,
+                        End: value.length,
+                    };
+                    if (event.key in moves) section.caret = moves[event.key];
+                    else if (event.key === 'Backspace') {
+                        screen.textContent = value.slice(0, before(value, caret)) + value.slice(caret);
+                        section.caret = before(value, caret);
                     } else if (event.key === 'Delete')
-                        screen.textContent = value.slice(0, caret) + value.slice(caret + 1);
-                    else if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !field.matches('textarea'))
-                        insert(event.key);
-                    else if (event.key !== 'Backspace') return;
+                        screen.textContent = value.slice(0, caret) + value.slice(after(value, caret));
+                    else return;
                     event.preventDefault();
                 };
                 if ('proxy' in field.dataset) {
@@ -210,8 +218,20 @@
                     });
                     field.addEventListener('keydown', keys);
                 }
-                // A terminal: no text field at all, only keys.
-                if ('terminal' in field.dataset) field.addEventListener('keydown', keys);
+                // A terminal: no text field at all, only keys; characters come with key presses (an emoji as its two
+                // halves, put together).
+                if ('terminal' in field.dataset) {
+                    let high = '';
+                    field.addEventListener('keydown', keys);
+                    field.addEventListener('keypress', (event) => {
+                        if (event.ctrlKey || event.altKey || event.key.length > 2) return;
+                        event.preventDefault();
+                        const code = event.key.charCodeAt(0);
+                        if (event.key.length === 1 && code >= 0xd800 && code <= 0xdbff) return (high = event.key);
+                        insert(high + event.key);
+                        high = '';
+                    });
+                }
                 // Each digit moves on to the next box; Backspace in an empty box erases the one before.
                 if ('otp' in field.dataset)
                     field.querySelectorAll('input').forEach((box, index, boxes) => {
@@ -251,7 +271,8 @@
                 if ('screen' in section.dataset) return section.querySelector('.screen').textContent;
                 if ('otp' in field.dataset)
                     return [...field.querySelectorAll('input')].map((box) => box.value).join('');
-                return 'value' in field ? field.value : field.innerText.replace(/\n$/, '');
+                // A contenteditable keeps a space typed last as a no-break space: it is the space typed.
+                return 'value' in field ? field.value : field.innerText.replace(/\n$/, '').replaceAll(' ', ' ');
             }
             // Driven by scripts/typing-check.mjs: the page reports its cases, then runs each command it is sent (focus a
             // case, report its value) and answers with the next request. The window title names the focused case, which
@@ -270,6 +291,10 @@
                         typed: section.dataset.typed,
                         expected: section.dataset.expected,
                         caret: 'caret' in section.dataset,
+                        lines: 'lines' in section.dataset,
+                        // No text field: Chrome sends it no key for an emoji (web terminals take text from a hidden
+                        // field for that, the proxy case).
+                        text: !('keysOnly' in section.dataset),
                     }));
                     let reply = { cases };
                     for (;;) {
