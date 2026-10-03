@@ -15,16 +15,20 @@ internal static class TrayHost {
         string root = Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar)).FullName;
         string id = Convert.ToBase64String(Encoding.UTF8.GetBytes(root)).Replace('/', '_');
         string stopName = "Local\\RemoteSmartTrackpad-Stop-" + id;
-        // "--stop" asks the running tray of this checkout to shut its server down gracefully (used by the launcher).
-        if (args.Length > 0 && args[0] == "--stop") {
+        string restartName = "Local\\RemoteSmartTrackpad-Restart-" + id;
+        // "--stop" asks the running tray of this checkout to shut its server down gracefully (used by the launcher);
+        // "--restart" to start a fresh server, with the code as it is now (npm restart). Exit code 1: no tray runs.
+        if (args.Length > 0 && (args[0] == "--stop" || args[0] == "--restart")) {
             EventWaitHandle running;
-            if (EventWaitHandle.TryOpenExisting(stopName, out running)) using (running) running.Set();
+            if (EventWaitHandle.TryOpenExisting(args[0] == "--stop" ? stopName : restartName, out running)) using (running) running.Set();
+            else Environment.ExitCode = 1;
             return;
         }
         using (var mutex = new Mutex(false, "Local\\RemoteSmartTrackpad-" + id))
-        using (var stop = new EventWaitHandle(false, EventResetMode.AutoReset, stopName)) {
+        using (var stop = new EventWaitHandle(false, EventResetMode.AutoReset, stopName))
+        using (var restart = new EventWaitHandle(false, EventResetMode.AutoReset, restartName)) {
             if (!mutex.WaitOne(0)) return;
-            try { using (var context = new HostContext(root, stop)) Application.Run(context); }
+            try { using (var context = new HostContext(root, stop, restart)) Application.Run(context); }
             catch (Exception error) { MessageBox.Show(error.Message, "Remote Smart Trackpad", MessageBoxButtons.OK, MessageBoxIcon.Error); }
             finally { mutex.ReleaseMutex(); }
         }
@@ -40,12 +44,13 @@ internal sealed class HostContext : ApplicationContext {
     private readonly string logPath;
     private readonly string node;
     private Process console;
-    private readonly Process server;
+    // The running server; replaced by a fresh one on a restart.
+    private Process server;
     private readonly string root;
     private readonly ToolStripMenuItem startup;
     private bool stopping;
 
-    public HostContext(string projectRoot, WaitHandle stopSignal) {
+    public HostContext(string projectRoot, WaitHandle stopSignal, WaitHandle restartSignal) {
         root = projectRoot;
         Icon appIcon = Icon.ExtractAssociatedIcon(Path.Combine(root, ".data", "RemoteSmartTrackpad.exe"));
         string data = Environment.GetEnvironmentVariable("REMOTE_SMART_TRACKPAD_DATA_DIRECTORY") ?? Path.Combine(root, ".data");
@@ -61,6 +66,7 @@ internal sealed class HostContext : ApplicationContext {
         startup.Click += delegate { try { SetStartup(!startup.Checked); } catch (Exception error) { MessageBox.Show(error.Message, StartupName); } };
         menu.Items.Add(startup);
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Restart server", null, delegate { RestartServer(); });
         menu.Items.Add("Stop server", null, delegate { ExitThread(); });
         tray = new NotifyIcon { Icon = appIcon, Text = StartupName, ContextMenuStrip = menu, Visible = true };
         tray.DoubleClick += delegate { ShowConsole(); };
@@ -68,16 +74,47 @@ internal sealed class HostContext : ApplicationContext {
         string marker = Path.Combine(root, ".data", "tray-initialized");
         if (!File.Exists(marker)) { SetStartup(true); File.WriteAllText(marker, "Startup preference initialized; use the tray menu to change it."); }
         node = File.ReadAllText(Path.Combine(root, ".data", "node-path.txt")).Trim();
-        server = new Process { StartInfo = new ProcessStartInfo(node, "\"" + Path.Combine(root, "host", "server.js") + "\"") { WorkingDirectory = root, UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8 }, EnableRaisingEvents = true };
-        server.OutputDataReceived += delegate(object sender, DataReceivedEventArgs e) { Append(e.Data); };
-        server.ErrorDataReceived += delegate(object sender, DataReceivedEventArgs e) { Append(e.Data); };
-        server.Exited += delegate { if (!stopping && !dispatcher.IsDisposed) dispatcher.BeginInvoke((Action)delegate { if (stopping) return; tray.Text = "Remote Smart Trackpad - stopped"; Append("Server stopped. Close the tray and launch again to retry."); ShowConsole(); }); };
-        server.Start(); server.BeginOutputReadLine(); server.BeginErrorReadLine();
-        var stopWatcher = new Thread(delegate() {
-            stopSignal.WaitOne();
-            if (!dispatcher.IsDisposed) dispatcher.BeginInvoke((Action)ExitThread);
+        StartServer();
+        var signals = new Thread(delegate() {
+            var handles = new[] { stopSignal, restartSignal };
+            while (true) {
+                int signal = WaitHandle.WaitAny(handles);
+                if (dispatcher.IsDisposed) return;
+                if (signal == 1) { dispatcher.BeginInvoke((Action)RestartServer); continue; }
+                dispatcher.BeginInvoke((Action)ExitThread);
+                return;
+            }
         }) { IsBackground = true };
-        stopWatcher.Start();
+        signals.Start();
+    }
+
+    private void StartServer() {
+        var process = new Process { StartInfo = new ProcessStartInfo(node, "\"" + Path.Combine(root, "host", "server.js") + "\"") { WorkingDirectory = root, UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8 }, EnableRaisingEvents = true };
+        process.OutputDataReceived += delegate(object sender, DataReceivedEventArgs e) { Append(e.Data); };
+        process.ErrorDataReceived += delegate(object sender, DataReceivedEventArgs e) { Append(e.Data); };
+        // Only the current server stopping on its own is news: one being replaced or shut down is not.
+        process.Exited += delegate { if (!stopping && !dispatcher.IsDisposed) dispatcher.BeginInvoke((Action)delegate { if (stopping || process != server) return; tray.Text = "Remote Smart Trackpad - stopped"; Append("Server stopped. Use Restart server in the tray menu to retry."); ShowConsole(); }); };
+        process.Start(); process.BeginOutputReadLine(); process.BeginErrorReadLine();
+        server = process;
+        tray.Text = StartupName;
+    }
+    // Gracefully: the server releases held input and closes its connections, or is ended after 5 s.
+    private void StopServer() {
+        Process process = server;
+        server = null;
+        if (process == null) return;
+        if (!process.HasExited) {
+            try { process.StandardInput.WriteLine("shutdown"); process.StandardInput.Flush(); } catch (IOException) { }
+            if (!process.WaitForExit(5000)) process.Kill();
+        }
+        process.Dispose();
+    }
+    // A fresh server, with the code as it is now (host and bridge changes apply); phones reconnect on their own.
+    private void RestartServer() {
+        if (stopping) return;
+        Append("Restarting the server...");
+        StopServer();
+        StartServer();
     }
 
     private void Append(string line) {
@@ -105,14 +142,10 @@ internal sealed class HostContext : ApplicationContext {
     protected override void ExitThreadCore() {
         if (stopping) return;
         stopping = true;
-        if (server != null && !server.HasExited) {
-            try { server.StandardInput.WriteLine("shutdown"); server.StandardInput.Flush(); } catch (IOException) { }
-            if (!server.WaitForExit(5000)) server.Kill();
-        }
+        StopServer();
         tray.Visible = false; tray.Dispose(); dispatcher.Dispose();
         if (console != null) { if (!console.HasExited) console.Kill(); console.Dispose(); }
         lock (logLock) log.Dispose();
-        if (server != null) server.Dispose();
         base.ExitThreadCore();
     }
 }
