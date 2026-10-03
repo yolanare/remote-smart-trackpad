@@ -11,8 +11,12 @@
 // Every test window carries a random marker in its title, and the test host's bridge refuses input unless the
 // foreground window has it (REMOTE_SMART_TRACKPAD_INPUT_GUARD): nothing typed can reach another app. Windows come
 // to the foreground one after the other, so leave the PC alone while it runs.
-//   node scripts/typing-check.mjs [--target=chrome,firefox,winforms,wpf] [--case=id,id] [--mode=keys,ime,slow,typo,correct]
-//                                  [--verbose: what the phone sent] [--trace: what the phone was shown]
+//   node scripts/typing-check.mjs [--quick] [--target=chrome,firefox,winforms,wpf,notepad] [--case=id,id]
+//                                  [--mode=keys,ime,slow,typo,correct,...] [--verbose: what the phone sent]
+//                                  [--trace: what the phone was shown]
+// The full run takes about 45 minutes. --quick (about 3) plays one field of each kind that ever broke, in the modes
+// that found bugs, in Chrome and WinForms: enough after changes that do not touch typing itself. Run the full one
+// after changes to the typing session, the mirror or the bridge. --target, --case and --mode still narrow it.
 import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -29,22 +33,32 @@ const option = (name) =>
         .find((argument) => argument.startsWith(`--${name}=`))
         ?.split('=')[1]
         .split(',');
-const targets = option('target') ?? ['chrome', 'firefox', 'winforms', 'wpf', 'notepad'];
+const quick = process.argv.includes('--quick');
+// The quick run: per target, the fields kept (one of each kind), and the modes.
+const quickCases = {
+    chrome: ['input', 'editable', 'phone', 'complete', 'delayed', 'code-line', 'proxy', 'otp', 'address'],
+    winforms: ['textbox', 'multiline', 'masked'],
+};
+const quickModes = ['keys', 'ime', 'typo', 'move', 'click', 'lines', 'unicode'];
+const targets =
+    option('target') ?? (quick ? Object.keys(quickCases) : ['chrome', 'firefox', 'winforms', 'wpf', 'notepad']);
 const onlyCases = option('case');
-const modes = option('mode') ?? [
-    'keys',
-    'ime',
-    'slow',
-    'typo',
-    'correct',
-    'move',
-    'reopen',
-    'swipe',
-    'unicode',
-    'emoji',
-    'lines',
-    'paste',
-];
+const modes = option('mode')
+    ?? (quick ? quickModes : null) ?? [
+        'keys',
+        'ime',
+        'slow',
+        'typo',
+        'correct',
+        'move',
+        'reopen',
+        'swipe',
+        'unicode',
+        'emoji',
+        'lines',
+        'paste',
+        'click',
+    ];
 const marker = `rst${Math.random().toString(36).slice(2, 8)}`;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const timeout = (promise, ms, what) => {
@@ -663,12 +677,17 @@ process.once('SIGINT', async () => {
 });
 try {
     phone = await startPhone(host);
-    const selected = (cases) => cases.filter((entry) => !onlyCases || onlyCases.includes(entry.id));
+    const selected = (cases, target) =>
+        cases.filter(
+            (entry) =>
+                (!onlyCases || onlyCases.includes(entry.id))
+                && (!quick || option('case') || quickCases[target]?.includes(entry.id))
+        );
     for (const target of targets) {
         // Windows' own Notepad, a fresh one for each run, on an empty test file named with the marker (its title).
         if (target === 'notepad') {
             const entry = { id: 'notepad', typed: 'hello world', expected: 'hello world', caret: true, lines: true };
-            for (const mode of selected([entry]).length ? modes : []) {
+            for (const mode of selected([entry], target).length ? modes : []) {
                 const file = path.join(tmpdir(), `${marker}-notepad.txt`);
                 await writeFile(file, '');
                 const notepad = spawn('notepad.exe', [file], { stdio: 'ignore' });
@@ -693,7 +712,7 @@ try {
         }
         if (target in nativeCases) {
             await windows.ask({ do: 'open', window: target, marker });
-            for (const entry of selected(nativeCases[target]))
+            for (const entry of selected(nativeCases[target], target))
                 for (const mode of modes)
                     await runCase({
                         target,
@@ -714,7 +733,7 @@ try {
         const fixture = await startFixturePage();
         const browser = await openBrowser(target, fixture.url, { app: false });
         try {
-            const cases = selected(await fixture.cases());
+            const cases = selected(await fixture.cases(), target);
             for (const entry of cases)
                 for (const mode of modes)
                     await runCase({
@@ -725,9 +744,10 @@ try {
                         windows,
                         focus: (id) => fixture.command({ do: 'focus', id }),
                         value: (id) => fixture.command({ do: 'value', id }).then((reply) => reply.value),
+                        moveCaret: (id, position) => fixture.command({ do: 'caret', id, position }),
                     });
             // Last: once the address bar has the focus, the page cannot take it back by itself.
-            for (const entry of selected(addressCases))
+            for (const entry of selected(addressCases, target))
                 for (const mode of modes)
                     await runCase({
                         target,

@@ -13,6 +13,7 @@
         "test:browser": "node scripts/browser-check.mjs",
         "test:placeholders": "node scripts/placeholder-check.mjs",
         "test:typing": "node scripts/typing-check.mjs",
+        "test:typing:quick": "node scripts/typing-check.mjs --quick",
         "test:cleanup": "node scripts/test-browsers.mjs --cleanup",
         "build": "node scripts/build.mjs",
         "watch": "node scripts/build.mjs --watch",
