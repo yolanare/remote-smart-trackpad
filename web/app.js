@@ -489,9 +489,10 @@ document.addEventListener('text-key', (event) => {
     if (!rows.sticky) rows.reset();
 });
 // Editing follows the text field's focus. The text button opens it; it ends when a tap lands on the background
-// (nothing there to act on) or when the phone keyboard closes while the field still has the focus (its own close
-// button, the back gesture). Every control keeps the focus in the field meanwhile, so the keyboard stays up and the
-// layout never jumps: pointerdown is cancelled on them, which stops the browser from moving the focus.
+// (nothing there to act on), when the options menu opens (it covers the controls, the field included) or when the
+// phone keyboard closes (its own close button, the back gesture). Every control keeps the focus in the field
+// meanwhile, so the keyboard stays up and the layout never jumps: pointerdown is cancelled on them, which stops the
+// browser from moving the focus.
 const actionable =
     'button, a[href], label, input, select, summary, dialog, .options, pointer-pad, .key-rows, text-editor, #connection';
 let backgroundTap = false;
@@ -510,20 +511,7 @@ document.addEventListener(
     (event) => {
         if (!typing.open) return;
         backgroundTap = !event.target.closest?.(actionable);
-        // Sliders need their own pointer handling; the field gets the focus back once one is set (see below).
-        if (!backgroundTap && !editor.contains(event.target) && event.target.type !== 'range') event.preventDefault();
-    },
-    { capture: true }
-);
-// A label still focuses its checkbox or radio on click: toggle it without letting the focus go.
-document.addEventListener(
-    'click',
-    (event) => {
-        if (!typing.open) return;
-        const control = event.target.closest?.('label')?.control;
-        if (!control || control === event.target || !['checkbox', 'radio'].includes(control.type)) return;
-        event.preventDefault();
-        control.click();
+        if (!backgroundTap && !editor.contains(event.target)) event.preventDefault();
     },
     { capture: true }
 );
@@ -531,17 +519,13 @@ editor.addEventListener('focusout', () =>
     setTimeout(() => {
         if (!typing.open || editor.contains(document.activeElement)) return;
         if (backgroundTap) return closeEditor();
-        // Anything else that took the focus hands it back, except a slider being moved (or another app: the page
-        // itself lost the focus).
-        if (document.hasFocus() && document.activeElement?.type !== 'range') editor.focus();
+        // Anything else that took the focus hands it back (not another app: the page itself lost the focus).
+        if (document.hasFocus()) editor.focus();
     })
 );
-menu.addEventListener('change', (event) => {
-    if (typing.open && event.target.type === 'range') editor.focus();
-});
 // The phone keyboard is up while the visual viewport is notably shorter than the screen (a quarter of it: browser
 // bars take less, a keyboard much more). Desktop browsers never see it, so only the background closes editing there.
-// True when it just went down while editing with the field focused (its own close button, the back gesture).
+// True when it just went down while editing (its own close button, the back gesture), wherever the focus went.
 let keyboardSeen = false;
 function keyboardClosed() {
     const visible = window.visualViewport;
@@ -552,7 +536,7 @@ function keyboardClosed() {
     if (keyboardUp) keyboardSeen = true;
     // A system dialog over the page (Gboard's keyboard picker, from a long press on the space bar) takes the focus
     // and the keyboard away for a moment: not a close.
-    return !keyboardUp && keyboardSeen && document.hasFocus() && editor.contains(document.activeElement);
+    return !keyboardUp && keyboardSeen && document.hasFocus();
 }
 $('#editor-open').addEventListener('click', openEditor);
 $('#pair-form').addEventListener('submit', async (event) => {
@@ -567,7 +551,11 @@ $('#pair-form').addEventListener('submit', async (event) => {
 
 let menuAnimations = [];
 function setMenu(open) {
-    if (open) pad.cancelGesture();
+    if (open) {
+        pad.cancelGesture();
+        // The menu makes the field inert, which takes the keyboard away: editing ends with it.
+        closeEditor();
+    }
     const current =
         !menu.hidden ? { opacity: getComputedStyle(menu).opacity, transform: getComputedStyle(menu).transform } : null;
     const shade = backdrop.hidden ? 0 : getComputedStyle(backdrop).opacity;

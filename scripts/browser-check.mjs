@@ -721,11 +721,6 @@ try {
         const keyKeeps = tap(document.querySelector('.key-row [data-key=Tab]'));
         const padKeeps = tap(document.querySelector('.trackpad'));
         const optionsKeep = tap(document.querySelector('#options-toggle'));
-        // A label toggles its checkbox without taking the focus from the field.
-        const sticky = document.querySelector('[name=sticky]'), before = sticky.checked;
-        sticky.closest('label').click();
-        const labelToggles = sticky.checked !== before && document.activeElement === field;
-        sticky.closest('label').click();
         // The focus taken by something else (not a background tap) comes back to the field.
         tap(document.querySelector('.key-row [data-key=Tab]'));
         field.blur();
@@ -734,13 +729,12 @@ try {
         const backgroundKeeps = tap(document.querySelector('.topbar'));
         field.blur();
         await tick();
-        return { keyKeeps, padKeeps, optionsKeep, labelToggles, refocused, backgroundKeeps };
+        return { keyKeeps, padKeeps, optionsKeep, refocused, backgroundKeeps };
     })()`);
     assert.deepEqual(focusRules, {
         keyKeeps: true,
         padKeeps: true,
         optionsKeep: true,
-        labelToggles: true,
         refocused: true,
         backgroundKeeps: false,
     });
@@ -755,6 +749,13 @@ try {
         ),
         ['edit', 'arrows']
     );
+    // Opening the options menu ends editing: it covers the field and takes the phone keyboard away.
+    await evaluate("document.querySelector('#options-toggle').click()");
+    await waitFor(
+        "document.querySelector('text-editor').hidden && !document.querySelector('.app').classList.contains('editing')"
+    );
+    await evaluate("document.querySelector('#options-toggle').click(); document.querySelector('#editor-open').click()");
+    await waitFor("document.querySelector('.app').classList.contains('editing')");
     // No dead zone: every point of the pointer pad (past its left margin) lands on something that acts: the
     // trackpad, a rail, a click or the hold toggle.
     const deadZones = await evaluate(`(() => {
