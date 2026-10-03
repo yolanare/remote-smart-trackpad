@@ -24,14 +24,18 @@ const app = $('.app'),
     menu = $('#options'),
     backdrop = $('#options-dismiss'),
     toggle = $('#options-toggle');
-// Back and forward, in the top bar: the mouse's side buttons on the PC.
+// Back and forward, in the top bar: the history shortcuts (Alt+Left, Alt+Right) of browsers, Explorer and most
+// apps. Not the mouse's side buttons, which some apps take for something else (Zen browser switches spaces).
 const navButtons = [...document.querySelectorAll('.topbar [data-nav]')];
 for (const button of navButtons)
     button.addEventListener('click', () =>
         button.dispatchEvent(
             new CustomEvent('command', {
                 bubbles: true,
-                detail: { action: 'click', data: { button: button.dataset.nav } },
+                detail: {
+                    action: 'shortcut',
+                    data: { key: button.dataset.nav === 'back' ? 'Left' : 'Right', modifiers: ['Alt'] },
+                },
             })
         )
     );
