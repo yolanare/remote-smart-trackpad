@@ -143,11 +143,23 @@ class TextEditor extends HTMLElement {
         });
         document.addEventListener('selectionchange', () => {
             if (document.activeElement !== textarea || this.composing) return;
-            // Keep the caret after the anchor so Backspace always has something to delete.
-            if (!this.view.blind && textarea.selectionStart === 0 && textarea.value.startsWith(anchor))
-                textarea.setSelectionRange(1, Math.max(1, textarea.selectionEnd));
+            // Keep the caret after the anchor so Backspace always has something to delete. Only a caret: a selection
+            // reaching it (select all) stays as it is, or the phone would close its copy menu.
+            const atAnchor = textarea.selectionStart === 0 && textarea.selectionEnd === 0;
+            if (!this.view.blind && atAnchor && textarea.value.startsWith(anchor)) textarea.setSelectionRange(1, 1);
             else followCaret();
         });
+        // Copying or cutting never takes the anchors along (a select all reaches the one before the text).
+        for (const type of ['copy', 'cut'])
+            textarea.addEventListener(type, (event) => {
+                const { text, start, end } = read();
+                const selected = text.slice(start, end);
+                if (selected === textarea.value.slice(textarea.selectionStart, textarea.selectionEnd)) return;
+                event.preventDefault();
+                event.clipboardData.setData('text/plain', selected);
+                // Removed as a deletion of the selection would be (an input event the session follows).
+                if (type === 'cut') document.execCommand('delete');
+            });
         textarea.addEventListener('compositionstart', () => {
             this.composing = true;
             this.updateHint();
@@ -182,14 +194,22 @@ class TextEditor extends HTMLElement {
         const field = this.firstElementChild;
         const value = this.layout(text),
             lead = this.view.blind ? margin : 1;
+        // A selection that differs only by the anchor before the text (select all) is the same: placing it again
+        // would close the phone's copy menu.
+        const shown = (position) => Math.min(Math.max(position - lead, 0), text.length);
+        const same =
+            field.value === value
+            && !this.view.blind
+            && shown(field.selectionStart) === start
+            && shown(field.selectionEnd) === end;
         if (field.value !== value) field.value = value;
-        if (field.selectionStart !== start + lead || field.selectionEnd !== end + lead)
+        if (!same && (field.selectionStart !== start + lead || field.selectionEnd !== end + lead))
             field.setSelectionRange(start + lead, end + lead);
         this.written = value;
         this.writtenLead = lead;
         this.writtenPads = value.length - text.length;
-        this.writtenStart = start + lead;
-        this.writtenEnd = end + lead;
+        this.writtenStart = field.selectionStart;
+        this.writtenEnd = field.selectionEnd;
     }
     /** The field grows with its text through CSS field-sizing; this measures it where that is unsupported (Firefox). */
     resize() {

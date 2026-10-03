@@ -547,6 +547,29 @@ try {
     assert.ok(squeezed.trackpad >= 79, 'The trackpad keeps its minimum: ' + JSON.stringify(squeezed));
     assert.ok(squeezed.field < 45, 'The field gives way first, down to one line: ' + JSON.stringify(squeezed));
     await resizeTo(375, 405);
+    // Select all reaches the anchor before the text: the selection stays as the phone made it (placing it again would
+    // close its copy menu), even once the PC's answer shows the same selection, and copying leaves the anchor out.
+    const selectAll = await evaluate(`(async () => {
+        const editor = document.querySelector('text-editor'), field = editor.querySelector('textarea');
+        // The editor alone: the app's typing session would answer its events with views of its own.
+        const quiet = (event) => event.stopPropagation();
+        for (const type of ['text-edit', 'text-caret', 'text-key']) editor.addEventListener(type, quiet);
+        editor.render({ readable: true, text: 'hello world', selectionStart: 11, selectionEnd: 11 });
+        field.focus();
+        const moves = [];
+        const setSelectionRange = field.setSelectionRange;
+        field.setSelectionRange = function (...range) { moves.push(range); return setSelectionRange.apply(this, range); };
+        field.select();
+        document.dispatchEvent(new Event('selectionchange'));
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        editor.render({ readable: true, text: 'hello world', selectionStart: 0, selectionEnd: 11 });
+        const copy = new ClipboardEvent('copy', { clipboardData: new DataTransfer(), cancelable: true, bubbles: true });
+        field.dispatchEvent(copy);
+        delete field.setSelectionRange;
+        for (const type of ['text-edit', 'text-caret', 'text-key']) editor.removeEventListener(type, quiet);
+        return { moves, selection: [field.selectionStart, field.selectionEnd], copied: copy.clipboardData.getData('text/plain') };
+    })()`);
+    assert.deepEqual(selectAll, { moves: [], selection: [0, 12], copied: 'hello world' });
     await evaluate(
         "document.querySelector('text-editor').render({ readable: true, text: '', selectionStart: 0, selectionEnd: 0 })"
     );
