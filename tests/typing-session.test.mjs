@@ -240,3 +240,41 @@ test('disconnected, the phone never types blind', async () => {
     h.session.disconnected();
     assert.equal(h.view.blind, false);
 });
+
+test('a click into the text typed blind moves the phone caret there; typing goes on there', async () => {
+    const h = harness();
+    h.pc = { ...unreadable('editor'), around: '', caret: 0 };
+    await h.open();
+    h.session.edit('hello world', 11, 11);
+    h.pc = { ...unreadable('editor'), around: 'hello world', caret: 11 };
+    await h.poll();
+    // The user clicks after "hello" on the PC: its hidden input reports the line and the new caret.
+    h.pc = { ...unreadable('editor'), around: 'hello world', caret: 5 };
+    h.session.clicked();
+    await flush();
+    // The phone's field is told to move its caret (a view that does not keep it as it is).
+    assert.ok(h.views.some((view) => view.text === 'hello world' && view.selectionStart === 5 && !view.keep));
+    h.session.edit('hello, world', 6, 6);
+    assert.deepEqual(h.typed().at(-1).data, { backspace: 0, delete: 0, text: ',' });
+    assert.equal(
+        h.typed().filter(({ action }) => action === 'shortcut').length,
+        0,
+        'no arrow keys: the caret is there'
+    );
+});
+
+test('a click out of the text typed blind clears it, as does one in a field that reports nothing', async () => {
+    const h = harness();
+    h.pc = { ...unreadable('editor'), around: '', caret: 0 };
+    await h.open();
+    h.session.edit('hello', 5, 5);
+    h.pc = { ...unreadable('editor'), around: 'older line', caret: 2 };
+    h.session.clicked();
+    await flush();
+    assert.equal(h.view.text, '');
+    const terminal = harness();
+    await terminal.open();
+    terminal.session.edit('ls', 2, 2);
+    terminal.session.clicked();
+    assert.equal(terminal.view.text, '');
+});

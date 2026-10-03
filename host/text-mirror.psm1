@@ -120,7 +120,11 @@ function Read-MirrorOnce {
     $resolved = Resolve-FieldText $element $text $start
     if ($resolved.unreadable) {
         $script:mirror = $null
-        return @{ field=$field; readable=$false; text=''; selectionStart=0; selectionEnd=0; reason='Text not readable here' }
+        # What it reports anyway, around its caret (a code editor's hidden input holds the line being edited): the
+        # phone finds where a click put the caret in the text it typed blind.
+        $from = [Math]::Max(0, $start - 2000)
+        $around = $text.Substring($from, [Math]::Min($text.Length - $from, 4000))
+        return @{ field=$field; readable=$false; text=''; selectionStart=0; selectionEnd=0; reason='Text not readable here'; around=$around; caret=($start - $from) }
     }
     if ($resolved.empty) { $text = ''; $start = 0; $end = 0 }
     $framework = $element.Current.FrameworkId

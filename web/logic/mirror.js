@@ -178,6 +178,9 @@ export function createMirror(send, render, { now = () => performance.now(), typi
                 || snapshot.revision !== confirmed.revision
                 || snapshot.readable !== confirmed.readable
                 || snapshot.field !== confirmed.field
+                // An unreadable field's caret, in what it reports around it (the typing session follows clicks).
+                || snapshot.caret !== confirmed.caret
+                || snapshot.around !== confirmed.around
             )
                 adopt(snapshot);
         } catch (error) {

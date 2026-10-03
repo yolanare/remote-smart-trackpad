@@ -10,6 +10,18 @@ export const typingMovesFocus = 1500;
 const navigationKeys = new Set(['Left', 'Right', 'Up', 'Down', 'Home', 'End', 'PageUp', 'PageDown']);
 
 /**
+ * Where the PC's caret stands in the echo, from the text an unreadable field reports around its caret (a code
+ * editor's hidden input holds the line being edited): its offset in the echo, or -1 when the echo is not there or
+ * the caret is out of it.
+ */
+export function caretInEcho(echo, around, caret) {
+    if (!echo || typeof around !== 'string' || !Number.isInteger(caret)) return -1;
+    for (let at = around.indexOf(echo); at >= 0; at = around.indexOf(echo, at + 1))
+        if (caret >= at && caret <= at + echo.length) return caret - at;
+    return -1;
+}
+
+/**
  * The typing session (CONTEXT.md): one opening of the phone's text editor. It mirrors a readable PC field (the mirror
  * module does the editing) or types blind into one the phone cannot read, and decides what the phone shows.
  *
@@ -25,7 +37,8 @@ const navigationKeys = new Set(['Left', 'Right', 'Up', 'Down', 'Home', 'End', 'P
  * from the echo's start and can reach past it); key(name) for a key that goes to the PC as is; compositionStart()
  * and compositionEnd(text, selectionStart, selectionEnd) around an IME composition, during which the field must not be
  * written (the keyboard would commit its word again). From the app: open(), close(), poll(), connected(),
- * disconnected(), and pressed(name) when a key reached the PC another way (the key rows).
+ * disconnected(), pressed(name) when a key reached the PC another way (the key rows), and clicked() after a click
+ * on the PC, which may have moved its caret.
  */
 export function createTypingSession({
     send,
@@ -176,6 +189,31 @@ export function createTypingSession({
         pressed(name) {
             pressed(name);
             mirror.poll();
+        },
+        clicked() {
+            if (!blind || !shown.text || composing) return mirror.poll();
+            // Without anything reported around the caret, nothing tells where the click put it: the echo goes.
+            if (typeof state.around !== 'string') {
+                clearEcho();
+                return mirror.poll();
+            }
+            // A read of its own, sent after the click: a poll could still be on its way from before it.
+            const field = state.field,
+                echo = shown.text;
+            return send('mirror-read', {})
+                .then((read) => {
+                    // The focus moved, the field turned readable or typing went on: those follow their own course.
+                    if (!blind || composing || read.readable || read.field !== field || shown.text !== echo) return;
+                    // Into the echo, the phone's caret follows the PC's; anywhere else, the echo no longer borders it.
+                    const at = caretInEcho(echo, read.around, read.caret);
+                    if (at < 0) return clearEcho();
+                    caret = at;
+                    shown = { ...shown, selectionStart: at, selectionEnd: at };
+                    keep = false;
+                    show(view());
+                })
+                .catch(notice)
+                .finally(() => mirror.poll());
         },
         compositionStart() {
             composing = true;

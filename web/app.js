@@ -433,8 +433,9 @@ document.addEventListener('command', async (event) => {
         if (!rows.sticky && (action === 'click' || (action === 'button' && !data.down))) rows.reset();
         // Playback state changes asynchronously in the media app; confirm the optimistic toggle shortly after.
         if (action === 'shortcut' && mediaKeys.has(data.key)) setTimeout(refreshMedia, 400);
-        // A key the PC took can move its caret away from what was typed blind.
+        // A key the PC took, or a click, can move its caret away from what was typed blind.
         if (action === 'shortcut') session.pressed(data.key);
+        else if (action === 'click' || (action === 'button' && !data.down)) session.clicked();
         else session.poll();
     } catch (error) {
         showNotice(error.message);

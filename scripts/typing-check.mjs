@@ -282,6 +282,12 @@ async function startPhone(host) {
                 }
                 const message = JSON.parse(raw);
                 log.push({ out: message.id, action: message.action, data: message.data, at: performance.now() });
+                // Mouse clicks and buttons never reach the PC: they would land wherever its pointer is, maybe on
+                // another app. They are answered as done.
+                if (message.action === 'click' || message.action === 'button') {
+                    queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ type: 'ack', id: message.id, ok: true }) })));
+                    return;
+                }
                 return send.call(this, raw);
             };
         })();`,
@@ -378,6 +384,13 @@ async function startPhone(host) {
             if (name === 'Enter') Object.assign(key, { text: '\r', unmodifiedText: '\r' });
             await page('Input.dispatchKeyEvent', { type: 'keyDown', ...key });
             await page('Input.dispatchKeyEvent', { type: 'keyUp', ...key });
+        },
+        /** A click from the trackpad: the app hears it, the PC never gets it (the check's fake, see startPhone). */
+        async click() {
+            await evaluate(
+                "document.dispatchEvent(new CustomEvent('command', { detail: { action: 'click', data: { button: 'left' } } }))"
+            );
+            await wait(400);
         },
         /** Commits text at once, as Gboard commits an emoji, a suggestion or its clipboard. */
         async insert(text) {
@@ -477,6 +490,13 @@ const scenarios = {
         steps: [['type', 'hello world'], ['reopen'], ['move', -6], ['type', ',']],
         expected: 'hello, world',
     },
+    // A click on the PC puts its caret after "hello": into the text typed blind (the phone follows) or somewhere it
+    // cannot tell (the phone starts afresh); typing goes on at the PC's caret either way.
+    click: {
+        needs: 'pcCaret',
+        steps: [['type', 'hello world'], ['pcCaret', 5], ['click'], ['type', ',']],
+        expected: 'hello, world',
+    },
     swipe: {
         needs: 'caret',
         steps: [
@@ -522,7 +542,17 @@ function summarize(log) {
 }
 
 const results = [];
-async function runCase({ target, entry, mode, focus, value, phone, windows, title = `${marker} ${entry.id}` }) {
+async function runCase({
+    target,
+    entry,
+    mode,
+    focus,
+    value,
+    phone,
+    windows,
+    moveCaret = () => Promise.reject(new Error('No PC caret here')),
+    title = `${marker} ${entry.id}`,
+}) {
     const scenario = scenarios[mode];
     // text: fields take typed text, not only keys (all but the keys-only terminal).
     const has = (need) => (need === 'text' ? entry.text !== false : entry[need]);
@@ -548,6 +578,8 @@ async function runCase({ target, entry, mode, focus, value, phone, windows, titl
         for (const [step, value] of scenario?.steps ?? []) {
             if (step === 'type') await phone.type(value, 'keys', 40);
             else if (step === 'insert') await phone.insert(value);
+            else if (step === 'pcCaret') await moveCaret(entry.id, value);
+            else if (step === 'click') await phone.click();
             else if (step === 'move') await phone.moveCaret(value);
             else if (step === 'select') await phone.selectBack(value);
             else if (step === 'key') await phone.press(value);
@@ -585,6 +617,11 @@ async function runCase({ target, entry, mode, focus, value, phone, windows, titl
         blind: phoneState.blind,
         sent: summarize(phoneState.log),
         latency: latencies(phoneState.log),
+        // The PC's last answers to reads, for diagnosis (report only).
+        reads: phoneState.log
+            .filter((entry) => 'in' in entry && entry.result && 'readable' in entry.result)
+            .slice(-4)
+            .map((entry) => entry.result),
         errors: [...new Set(phoneState.log.filter((entry) => entry.error).map((entry) => entry.error))],
         ms: Math.round(performance.now() - started),
     };
