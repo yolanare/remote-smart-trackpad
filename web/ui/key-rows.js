@@ -34,22 +34,20 @@ const rows = {
     characters: {
         enabled: false,
         compact: true,
-        keys: ['Z', 'S', 'Q', 'D', 'F'].map((letter) => ({
-            key: letter,
-            label: letter,
-            group: 'characters',
-            repeat: true,
-        })),
+        keys: [
+            ...['Z', 'S', 'F'].map((letter) => ({ key: letter, label: letter, group: 'video', repeat: true })),
+            ...['T', 'W'].map((letter) => ({ key: letter, label: letter, group: 'window', repeat: true })),
+        ],
     },
     arrows: {
         enabled: true,
         keys: [
+            { key: 'Home', label: 'Home', icon: 'home', group: 'line' },
+            { key: 'End', label: 'End', icon: 'end', group: 'line' },
             { key: 'Up', label: 'Up', icon: 'up', group: 'arrows', repeat: true },
             { key: 'Down', label: 'Down', icon: 'down', group: 'arrows', repeat: true },
             { key: 'Left', label: 'Left', icon: 'left', group: 'arrows', repeat: true },
             { key: 'Right', label: 'Right', icon: 'right', group: 'arrows', repeat: true },
-            { key: 'Home', label: 'Home', icon: 'home', group: 'line' },
-            { key: 'End', label: 'End', icon: 'end', group: 'line' },
         ],
     },
     modifiers: {
