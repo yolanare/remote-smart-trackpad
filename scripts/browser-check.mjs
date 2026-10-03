@@ -688,6 +688,21 @@ try {
         ),
         ['edit', 'arrows']
     );
+    // No dead zone: every point of the pointer pad (past its left margin) lands on something that acts: the
+    // trackpad, a rail, a click or the hold toggle.
+    const deadZones = await evaluate(`(() => {
+        const pad = document.querySelector('pointer-pad'), box = pad.getBoundingClientRect();
+        const live = '.trackpad, .rail-viewport, button';
+        const left = box.left + parseFloat(getComputedStyle(pad).paddingLeft);
+        const dead = [];
+        for (let y = box.top + 1; y < box.bottom - 1; y += 4)
+            for (let x = left + 1; x < box.right - 1; x += 4) {
+                const hit = document.elementFromPoint(x, y);
+                if (!hit?.closest(live)) dead.push([Math.round(x - box.left), Math.round(y - box.top), hit?.tagName.toLowerCase() + '.' + (hit?.className || '')]);
+            }
+        return { size: [Math.round(box.width), Math.round(box.height)], dead: dead.slice(0, 40), count: dead.length };
+    })()`);
+    assert.equal(deadZones.count, 0, 'Every point of the pointer pad must act: ' + JSON.stringify(deadZones));
     // Double tap to scroll once: a double tap on the vertical rail's lower half scrolls one notch down, on its upper
     // half one up. A single tap scrolls nothing.
     const steps = await evaluate(`(async () => {
