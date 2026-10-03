@@ -10,9 +10,9 @@
     --text: light-dark(rgb(0 0 0 / 100%), rgb(255 255 255 / 90%));
 
     --dot: light-dark(rgb(0 0 0 / 30%), rgb(255 255 255 / 20%));
-    --dot-active: light-dark(rgb(0 0 0 / 50%), rgb(255 255 255 / 20%));
+    --dot-active: light-dark(rgb(0 0 0 / 50%), rgb(255 255 255 / 30%));
+    --drag-fill: light-dark(rgb(0 0 0 / 8%), rgb(255 255 255 / 4%));
     --latched: light-dark(rgb(0 0 0 / 24%), rgb(255 255 255 / 10%));
-    --drag-fill: light-dark(rgb(0 0 0 / 5%), rgb(255 255 255 / 1%));
     --panel-from: light-dark(#fff, #202020);
     --panel-to: light-dark(#f3f3f3, #191919);
     --panel: linear-gradient(110deg, var(--panel-from), var(--panel-to));
