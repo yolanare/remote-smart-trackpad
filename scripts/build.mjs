@@ -9,7 +9,7 @@ import { createInterface } from 'node:readline/promises';
 const watching = process.argv.includes('--watch');
 const revisionFile = 'web/dist/dev-build.json';
 const options = {
-    entryPoints: ['web/app.js'],
+    entryPoints: ['web/pages/remote/remote.js'],
     bundle: true,
     format: 'esm',
     outdir: 'web/dist',
@@ -20,17 +20,17 @@ const options = {
     target: ['chrome110', 'safari16'],
     metafile: true,
     logLevel: 'info',
-    // Development builds reload open pages when a newer bundle exists (see devReload in web/app.js).
+    // Development builds reload open pages when a newer bundle exists (see devReload in web/pages/remote/remote.js).
     define: { __DEV_RELOAD__: String(watching) },
     plugins: [
         {
             name: 'build-metadata',
             setup(build) {
                 if (watching)
-                    build.onLoad({ filter: /[\\/]web[\\/]app\.js$/ }, async ({ path }) => ({
+                    build.onLoad({ filter: /[\\/]pages[\\/]remote[\\/]remote\.js$/ }, async ({ path }) => ({
                         contents: await readFile(path, 'utf8'),
                         loader: 'js',
-                        watchFiles: ['web/index.html', 'web/manifest.webmanifest'],
+                        watchFiles: ['web/pages/remote/index.html', 'web/pwa/manifest.webmanifest'],
                     }));
                 build.onEnd(async (result) => {
                     if (result.errors.length) return;

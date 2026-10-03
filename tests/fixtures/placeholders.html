@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-    Placeholder fixtures for scripts/placeholder-check.mjs. Each [data-case] holds one focusable field ([data-field])
+    Placeholder fixtures for tests/checks/placeholder-check.mjs. Each [data-case] holds one focusable field ([data-field])
     and the text the PC mirror must read from it (data-expected; empty when only a placeholder shows).
     "placeholder" cases reproduce how editors and sites draw placeholders; "content" cases are real text that must
     never be mistaken for one; "decoration" cases are generated text around real content, mirrored as displayed.
@@ -396,7 +396,7 @@ second</textarea>
                 selection.removeAllRanges();
                 selection.addRange(range);
             }
-            // Driven by scripts/placeholder-check.mjs: the page reports its cases, then focuses each one the check
+            // Driven by tests/checks/placeholder-check.mjs: the page reports its cases, then focuses each one the check
             // asks for and names it in the window title, which the PC side checks before reading.
             const harness = new URLSearchParams(location.search).get('harness');
             if (harness)

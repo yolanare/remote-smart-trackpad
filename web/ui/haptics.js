@@ -1,7 +1,7 @@
 import { hapticTrigger } from 'ios-haptics';
 
 // Haptic feedback on the phone, only where something happens, in two kinds the options switch separately:
-// - buttons: every button and link when it acts (app.js); keys and mouse clicks on touch down, like a phone keyboard;
+// - buttons: every button and link when it acts (remote.js); keys and mouse clicks on touch down, like a phone keyboard;
 //   option toggles and steppers when their value changes; the trackpad's drag start and edge zones. Only closing
 //   the options menu (its toggle or the backdrop) stays silent.
 // - scroll: a light tick each time a rail's tick mark passes its middle. The trackpad's movement never ticks.

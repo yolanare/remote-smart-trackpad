@@ -1,5 +1,5 @@
 import { createMirror } from './mirror.js';
-import { replacementFor } from '../text-operations.js';
+import { replacementFor } from './text-operations.js';
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 const graphemes = (text) => [...segmenter.segment(text)].length;

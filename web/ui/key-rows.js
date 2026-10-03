@@ -64,7 +64,7 @@ const rows = {
         ],
     },
 };
-/** Whether each row shows by default, for the option menu's "Show … row" switches (see app.js). */
+/** Whether each row shows by default, for the option menu's "Show … row" switches (see remote.js). */
 export const rowDefaults = Object.fromEntries(Object.entries(rows).map(([name, row]) => [name, row.enabled]));
 const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'Win']);
 // Editing commands: the key sent with Control, whatever modifiers are active.

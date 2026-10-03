@@ -43,7 +43,7 @@
     </head>
     <body>
         <!--
-            Fields the phone types into for real through the host (scripts/typing-check.mjs), each with what the
+            Fields the phone types into for real through the host (tests/checks/typing-check.mjs), each with what the
             keyboard types (data-typed) and what the field must end up holding (data-expected). Some read back as
             text on the phone, some only blind (the proxy and terminal kinds), some change the typing (masks), some
             move the focus while typed into (rebuild, otp), some answer late (delayed).
@@ -310,7 +310,7 @@
                 // A contenteditable keeps a space typed last as a no-break space: it is the space typed.
                 return 'value' in field ? field.value : field.innerText.replace(/\n$/, '').replaceAll(' ', ' ');
             }
-            // Driven by scripts/typing-check.mjs: the page reports its cases, then runs each command it is sent (focus a
+            // Driven by tests/checks/typing-check.mjs: the page reports its cases, then runs each command it is sent (focus a
             // case, report its value) and answers with the next request. The window title names the focused case, which
             // the host's input guard checks before any input.
             const harness = new URLSearchParams(location.search).get('harness');

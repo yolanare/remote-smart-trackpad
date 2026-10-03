@@ -3,13 +3,13 @@ import { createHash } from 'node:crypto';
 import { Resvg } from '@resvg/resvg-js';
 
 // Keep Figma's PNG export intact: its baked effects are the source of every size.
-const png = await readFile(new URL('../web/icon-512.png', import.meta.url));
+const png = await readFile(new URL('../web/assets/icons/icon-512.png', import.meta.url));
 const width = png.readUInt32BE(16),
     height = png.readUInt32BE(20);
 if (width !== 512 || height !== 512) throw new Error('icon-512.png must be 512 x 512');
 const source = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}"><image width="${width}" height="${height}" xlink:href="data:image/png;base64,${png.toString('base64')}"/></svg>`;
 const render = (size) => new Resvg(source, { fitTo: { mode: 'width', value: size } }).render();
-await writeFile(new URL('../web/icon-192.png', import.meta.url), render(192).asPng());
+await writeFile(new URL('../web/assets/icons/icon-192.png', import.meta.url), render(192).asPng());
 
 // Small Windows icons need a DIB with alpha and an AND mask for native tray rendering.
 function iconBitmap(size) {
@@ -55,10 +55,10 @@ images.forEach((image, index) => {
     directory.writeUInt32LE(offset, entry + 12);
     offset += image.length;
 });
-await writeFile(new URL('../web/icon.ico', import.meta.url), Buffer.concat([directory, ...images]));
+await writeFile(new URL('../web/assets/icons/icon.ico', import.meta.url), Buffer.concat([directory, ...images]));
 
 const revision = createHash('sha256').update(png).digest('hex').slice(0, 12);
-for (const file of ['index.html', 'setup.html', 'manifest.webmanifest']) {
+for (const file of ['pages/remote/index.html', 'pages/setup/index.html', 'pwa/manifest.webmanifest']) {
     const url = new URL('../web/' + file, import.meta.url);
     const content = await readFile(url, 'utf8');
     await writeFile(url, content.replace(/(icon-\d+\.png\?v=)[a-zA-Z0-9-]+/g, '$1' + revision));

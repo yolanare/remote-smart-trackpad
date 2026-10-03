@@ -13,7 +13,7 @@ if not exist "node_modules\esbuild\package.json" (
 )
 call npm run build
 if errorlevel 1 goto failed
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0host\start-tray.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0host\tray\start-tray.ps1"
 if errorlevel 1 goto failed
 exit /b 0
 :failed

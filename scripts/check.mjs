@@ -11,4 +11,4 @@ async function check(directory) {
         }
     }
 }
-await Promise.all(['host', 'web', 'scripts'].map(check));
+await Promise.all(['host', 'web', 'scripts', 'tests'].map(check));

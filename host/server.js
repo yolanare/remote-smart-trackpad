@@ -42,7 +42,7 @@ let bridge,
 // A crashed Windows bridge is restarted with backoff; phones see "unavailable" until it is back.
 function launchBridge() {
     bridgeStarted = Date.now();
-    bridge = startBridge(path.join(root, 'host', 'windows-bridge.ps1'), (error) => {
+    bridge = startBridge(path.join(root, 'host', 'windows', 'windows-bridge.ps1'), (error) => {
         console.error(error.message);
         transport.notify('unavailable');
         if (stopping) return;
@@ -79,21 +79,21 @@ function json(response, code, value) {
     response.end(JSON.stringify(value));
 }
 const staticFiles = new Map([
-    ['/', ['index.html', 'text/html']],
-    ['/app.js', ['dist/app.js', 'text/javascript']],
-    ['/style.css', ['dist/app.css', 'text/css']],
-    ['/manifest.webmanifest', ['manifest.webmanifest', 'application/manifest+json']],
-    ['/sw.js', ['sw.js', 'text/javascript']],
-    ['/trust', ['trust.html', 'text/html']],
-    ['/trust.css', ['trust.css', 'text/css']],
-    ['/tokens.css', ['tokens.css', 'text/css']],
-    ['/trust.js', ['trust.js', 'text/javascript']],
-    ['/setup', ['setup.html', 'text/html']],
-    ['/icon-192.png', ['icon-192.png', 'image/png']],
-    ['/icon-512.png', ['icon-512.png', 'image/png']],
-    ['/setup.js', ['setup.js', 'text/javascript']],
-    ['/setup.css', ['setup.css', 'text/css']],
-    ['/vendor/qrcode.min.js', ['vendor/qrcode.min.js', 'text/javascript']],
+    ['/', ['pages/remote/index.html', 'text/html']],
+    ['/app.js', ['dist/remote.js', 'text/javascript']],
+    ['/style.css', ['dist/remote.css', 'text/css']],
+    ['/manifest.webmanifest', ['pwa/manifest.webmanifest', 'application/manifest+json']],
+    ['/sw.js', ['pwa/sw.js', 'text/javascript']],
+    ['/trust', ['pages/trust/index.html', 'text/html']],
+    ['/trust.css', ['pages/trust/trust.css', 'text/css']],
+    ['/tokens.css', ['styles/tokens.css', 'text/css']],
+    ['/trust.js', ['pages/trust/trust.js', 'text/javascript']],
+    ['/setup', ['pages/setup/index.html', 'text/html']],
+    ['/icon-192.png', ['assets/icons/icon-192.png', 'image/png']],
+    ['/icon-512.png', ['assets/icons/icon-512.png', 'image/png']],
+    ['/setup.js', ['pages/setup/setup.js', 'text/javascript']],
+    ['/setup.css', ['pages/setup/setup.css', 'text/css']],
+    ['/vendor/qrcode.min.js', ['assets/vendor/qrcode.min.js', 'text/javascript']],
 ]);
 
 // The PC itself: loopback, or one of its own addresses (opening https://<its LAN IP>/setup on the PC arrives from

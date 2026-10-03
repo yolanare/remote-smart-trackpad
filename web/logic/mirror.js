@@ -1,4 +1,4 @@
-import { nextReplacementStep, replacementFor } from '../text-operations.js';
+import { nextReplacementStep, replacementFor } from './text-operations.js';
 
 /**
  * The mirror (CONTEXT.md) of a readable PC field: the phone's edits go to the PC, the PC's changes come back.

@@ -17,7 +17,11 @@ export function createMotion(send, onError) {
         const current = generation;
         queue.busy = true;
         try {
-            for (let step = next(action, queue); current === generation && (step.dx || step.dy); step = next(action, queue)) {
+            for (
+                let step = next(action, queue);
+                current === generation && (step.dx || step.dy);
+                step = next(action, queue)
+            ) {
                 const { dx, dy } = step;
                 queue.dx -= dx;
                 queue.dy -= dy;
@@ -71,7 +75,8 @@ export function createMotion(send, onError) {
  */
 export function wheelStep(queued, previous) {
     for (let size = Math.trunc(Math.abs(queued)); size >= 2; size--)
-        if (size % 6 && size % 9 && (!previous || (size % previous && previous % size))) return Math.sign(queued) * size;
+        if (size % 6 && size % 9 && (!previous || (size % previous && previous % size)))
+            return Math.sign(queued) * size;
     return 0;
 }
 
