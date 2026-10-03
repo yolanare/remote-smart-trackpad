@@ -163,7 +163,7 @@ svg.icon-large {
     min-height: 2.25rem;
     /* Only the space the buttons' round press fills need (their 2.25rem centered on the status line): the phone's
        status bar, in the page's color, already sets the bar off the screen's edge. */
-    padding: calc(1.125rem - var(--status-middle)) 0.875rem 0 var(--space-4);
+    padding: calc(1.125rem - var(--status-middle)) 0.875rem 0 calc(var(--space-4) + var(--stroke) * 2);
     gap: 0.625rem;
     /* The middle of the status's first line: the dot and the options button center on it. */
     --status-middle: calc(0.25rem + 0.75rem * 1.35 / 2);
