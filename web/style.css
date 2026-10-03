@@ -161,8 +161,9 @@ svg.icon-large {
     align-items: flex-start;
     /* Grows with a long status (up to 30vh); the controls below take what is left, so the page never overflows. */
     min-height: 2.25rem;
-    /* No space above: the phone's status bar, in the page's color, already sets the bar off the screen's edge. */
-    padding: 0 0.875rem 0 var(--space-4);
+    /* Only the space the buttons' round press fills need (their 2.25rem centered on the status line): the phone's
+       status bar, in the page's color, already sets the bar off the screen's edge. */
+    padding: calc(1.125rem - var(--status-middle)) 0.875rem 0 var(--space-4);
     gap: 0.625rem;
     /* The middle of the status's first line: the dot and the options button center on it. */
     --status-middle: calc(0.25rem + 0.75rem * 1.35 / 2);
