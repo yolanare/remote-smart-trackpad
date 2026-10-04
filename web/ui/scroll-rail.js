@@ -54,7 +54,8 @@ export class ScrollRail extends HTMLElement {
                 now = performance.now();
             if (lastMark !== null && current !== lastMark && speed <= tickMaxSpeed && now - lastTick > tickGap) {
                 lastTick = now;
-                tick('scroll');
+                // Once this scroll event is done: a vibration the phone is slow to start must not hold the scroll.
+                setTimeout(() => tick('scroll'));
             }
             lastMark = current;
         };
@@ -64,13 +65,14 @@ export class ScrollRail extends HTMLElement {
             const blend = elapsed > 100 ? 1 : 0.5;
             speed = speed * (1 - blend) + (Math.abs(delta) / Math.max(1, elapsed)) * blend;
             lastEmit = now;
-            feel();
+            // The scroll goes first, the haptic tick after it.
             this.dispatchEvent(
                 new CustomEvent('motion', {
                     bubbles: true,
                     detail: { action: 'scroll', dx: horizontal ? delta : 0, dy: horizontal ? 0 : delta, speed },
                 })
             );
+            feel();
         };
         // Ticks repeat every 1.875rem with the tick itself at 1.8125–1.875rem (see .rail-content in style.css).
         const ticks = () => {
