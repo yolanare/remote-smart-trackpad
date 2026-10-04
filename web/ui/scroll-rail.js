@@ -139,20 +139,28 @@ export class ScrollRail extends HTMLElement {
             placed = true;
         };
         requestAnimationFrame(reset);
-        /** Back near the middle of the scroll range with the ticks where they stood from the rail's start edge. */
+        /** Back near the middle of the scroll range with the ticks `standing` from the rail's start edge. */
         const keep = (standing) => {
             const { period } = ticks();
             previous = center() + ((((offset - standing - center()) % period) + period) % period);
             recenter();
         };
         // A resize (the editor opening, the keyboard, the interface scale) happens at rest: the ticks stay where they
-        // are from the rail's start edge instead of jumping back to the middle.
+        // are from the rail's middle instead of jumping back to the rest position. A layout transition resizes it at
+        // every frame: `held` keeps the exact place from the middle while nothing scrolls, so the whole pixels each
+        // frame rounds to do not add up.
+        let held = null;
         this.observer = new ResizeObserver(() => {
-            const standing = placed ? phase() : null;
+            const size = horizontal ? viewport.clientWidth : viewport.clientHeight;
+            const fromMiddle =
+                held?.at === viewport[property] ? held.fromMiddle
+                : placed && held ? phase() - held.size / 2
+                : null;
             align();
-            if (!viewport.clientWidth || !viewport.clientHeight || drag) return;
-            if (standing === null) reset();
-            else keep(standing);
+            if (!viewport.clientWidth || !viewport.clientHeight || drag) return (held = null);
+            if (fromMiddle === null) reset();
+            else keep(fromMiddle + size / 2);
+            held = { size, at: viewport[property], fromMiddle: fromMiddle ?? phase() - size / 2 };
         });
         this.observer.observe(viewport);
 

@@ -846,8 +846,8 @@ try {
     );
     await evaluate("document.querySelector('#options-toggle').click(); document.querySelector('#editor-open').click()");
     await waitFor("document.querySelector('.app').classList.contains('editing')");
-    // Editing resizes the pad: the dots and the vertical rail's ticks keep where they stand from the top-left corner
-    // (moved by a finger, a scroll), instead of jumping back to their rest position.
+    // Editing resizes the pad: the dots and the vertical rail's ticks keep where they stand from its center (moved by
+    // a finger, a scroll), instead of jumping back to their rest position.
     const pad = await evaluate(
         "(() => { const box = document.querySelector('.trackpad').getBoundingClientRect(); return { x: box.x + box.width / 2, y: box.y + box.height / 2 }; })()"
     );
@@ -863,13 +863,13 @@ try {
     const standing = `(() => {
         const unit = parseFloat(getComputedStyle(document.documentElement).fontSize), tile = 1.5 * unit;
         const dots = document.querySelector('.dots');
-        const [x, y] = [...dots.style.backgroundPosition.matchAll(/([+-]) ([0-9.e]+)rem/g)].map(([, sign, value]) => Number(sign + value) * unit);
+        const [x = 0, y = 0] = [...dots.style.backgroundPosition.matchAll(/([+-]) ([0-9.e]+)rem/g)].map(([, sign, value]) => Number(sign + value) * unit);
         const within = (value, period) => Math.round((((value % period) + period) % period) * 10) / 10;
         const rail = document.querySelector('scroll-rail[axis=y] .rail-viewport');
         const ticks = parseFloat(rail.firstElementChild.style.backgroundPosition.split(' ')[1]);
         return {
-            dots: [within((dots.clientWidth - tile) / 2 + x, tile), within((dots.clientHeight - tile) / 2 + y, tile)],
-            ticks: within(ticks - rail.scrollTop, 1.875 * unit),
+            dots: [within(x, tile), within(y, tile)],
+            ticks: within(ticks - rail.scrollTop - rail.clientHeight / 2, 1.875 * unit),
         };
     })()`;
     const whileEditing = await evaluate(standing);
