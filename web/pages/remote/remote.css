@@ -937,7 +937,8 @@ a.options-action.is-pressed {
     height: 1.125rem;
     opacity: 0;
 }
-/* Title then choices; the choices move to a line of their own, right-aligned, when they do not fit beside it. */
+/* Title then choices; the choices move to a line of their own, right-aligned, when they do not fit beside it (a
+   larger interface scale). Wrapped lines take no gap: each choice is a full row high already. */
 .axis-setting {
     display: flex;
     flex-wrap: wrap;
@@ -946,7 +947,7 @@ a.options-action.is-pressed {
     min-height: 1.875rem;
     margin-bottom: var(--space-1);
     padding: 0 var(--space-4);
-    gap: var(--space-3);
+    gap: 0 var(--space-3);
 }
 .axis-setting > span {
     flex: 1 0 auto;
