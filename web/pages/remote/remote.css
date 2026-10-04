@@ -79,7 +79,7 @@ button {
     /* Pans only: no pinch or double-tap zoom (unlike manipulation, which still allows pinch). */
     touch-action: pan-x pan-y;
     transition:
-        opacity 120ms ease-out,
+        opacity var(--press-release) ease-out,
         transform 220ms cubic-bezier(0.2, 0, 0, 1);
 }
 /*
@@ -517,13 +517,15 @@ scroll-rail {
     padding: var(--fill-padding, 0);
     border-radius: inherit;
     corner-shape: round;
-    transition: background-color 120ms ease-out;
+    transition: background-color var(--press-release) ease-out;
 }
+/* The fill comes in quickly and leaves slowly. */
 .fill-button.is-pressed > .fill,
 .fill-button.is-held > .fill,
 .fill-button[aria-pressed='true'] > .fill {
     background: var(--surface);
     color: var(--text);
+    transition-duration: 120ms;
 }
 /* Its menu open (the options button), a fill button shows it by contrast, as the MODE button does, not by a fill: the
    fill is the press's. */
@@ -533,6 +535,7 @@ scroll-rail {
 @media (hover: hover) and (pointer: fine) {
     .fill-button:active > .fill {
         background: var(--surface);
+        transition-duration: 120ms;
     }
 }
 /* Middle click between left and right: a little wider than tall so it is easy to hit. Pressed, it pushes in, dims
@@ -548,7 +551,7 @@ scroll-rail {
     /* Half the button minus the pressed pill's half, its scale undone: the pill's edges land 6px inside the button. */
     --pressed-inline: calc(1.75rem - (1.75rem - 0.375rem) / var(--press-scale));
     transition:
-        opacity 120ms ease-out,
+        opacity var(--press-release) ease-out,
         transform 220ms cubic-bezier(0.2, 0, 0, 1),
         padding 220ms cubic-bezier(0.2, 0, 0, 1);
 }
@@ -934,9 +937,9 @@ textarea {
 }
 a.options-action {
     transition:
-        opacity 120ms ease-out,
+        opacity var(--press-release) ease-out,
         transform 220ms cubic-bezier(0.2, 0, 0, 1),
-        background-color 120ms ease-out;
+        background-color var(--press-release) ease-out;
 }
 a.options-action.is-pressed {
     transform: scale(var(--press-scale));
