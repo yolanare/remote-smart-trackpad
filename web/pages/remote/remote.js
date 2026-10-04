@@ -744,7 +744,42 @@ function applyTheme() {
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 // The hand holding the phone: the vertical rail and the MODE button go on its side. An open modes menu stays where
 // it opened (placeModeMenu places it on the next opening).
-const applyHand = () => (pad.dataset.hand = option.hand);
+let handAnimations = [];
+function applyHand({ animate = false } = {}) {
+    if (pad.dataset.hand === option.hand) return;
+    for (const animation of handAnimations) animation.finish();
+    handAnimations = [];
+    const sliding = [pad.querySelector('.mouse'), pad.querySelector('scroll-rail[axis=x]')],
+        arriving = [pad.querySelector('scroll-rail[axis=y]'), modeButton];
+    const before = sliding.map((part) => part.getBoundingClientRect().left);
+    // The pad's side padding swaps at once: its transition (for editing) would move the trackpad on its own.
+    pad.style.transition = 'none';
+    pad.dataset.hand = option.hand;
+    const after = sliding.map((part) => part.getBoundingClientRect().left);
+    pad.style.transition = '';
+    if (!animate || reducedMotion()) return;
+    // The trackpad and the horizontal rail slide over from where they stood; the vertical rail and the MODE button
+    // come in from the screen's edge on their new side once the way is clear.
+    const easing = 'cubic-bezier(0.2, 0, 0, 1)',
+        edge = option.hand === 'left' ? -1 : 1;
+    handAnimations = [
+        ...sliding.map((part, index) =>
+            part.animate([{ transform: `translateX(${before[index] - after[index]}px)` }, { transform: 'none' }], {
+                duration: 320,
+                easing,
+            })
+        ),
+        ...arriving.map((part) =>
+            part.animate(
+                [
+                    { opacity: 0, transform: `translateX(${edge * 0.75}rem)` },
+                    { opacity: 1, transform: 'none' },
+                ],
+                { duration: 260, delay: 120, easing, fill: 'backwards' }
+            )
+        ),
+    ];
+}
 // The interface's base size: "1×" on the scale stepper is this much larger than the browser's default text size
 // (1: the same).
 const scaleBase = 1;
@@ -771,7 +806,7 @@ options.onChange((names) => {
     if (names.some((name) => name.endsWith('Haptics'))) applyHaptics();
     if (names.includes('colorScheme')) applyTheme();
     if (names.includes('uiScale')) applyScale();
-    if (names.includes('hand')) applyHand();
+    if (names.includes('hand')) applyHand({ animate: true });
     if (names.some((name) => layoutOptions.has(name))) {
         rows.reset({ force: true });
         layout({ animate: true });

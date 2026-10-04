@@ -966,7 +966,8 @@ try {
     })()`;
     const pickHand = async (hand) => {
         await evaluate(`document.querySelector('[name=hand][value=${hand}]').closest('label').click()`);
-        await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
+        // Once the parts have moved over.
+        await evaluate('new Promise(resolve => setTimeout(resolve, 500))');
     };
     const toggleModes = async () => {
         await evaluate("document.querySelector('.mouse-mode').click()");
