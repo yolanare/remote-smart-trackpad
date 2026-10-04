@@ -952,6 +952,50 @@ try {
             dismissed: { open: false, clicks: 0 },
         }
     );
+    // Left hand: the vertical rail and the MODE button move to the trackpad's left. The open menu stays where it
+    // opened; reopened, it stands on the button's new corner, growing up and to the right, inside the screen.
+    const handState = `(() => {
+        const box = (selector) => document.querySelector(selector).getBoundingClientRect();
+        const pad = box('.trackpad'), rail = box('scroll-rail[axis=y]'), mode = box('.mouse-mode'), x = box('scroll-rail[axis=x]'), menu = box('#mode-menu');
+        return {
+            left: rail.right <= pad.left && mode.right <= x.left,
+            menu: [menu.left, menu.bottom].map(Math.round),
+            anchored: Math.abs(menu.left - Math.max(mode.left, 16)) <= 1 && Math.abs(menu.bottom - (mode.top + 4)) <= 1,
+            inside: menu.right <= innerWidth,
+        };
+    })()`;
+    const pickHand = async (hand) => {
+        await evaluate(`document.querySelector('[name=hand][value=${hand}]').closest('label').click()`);
+        await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
+    };
+    const toggleModes = async () => {
+        await evaluate("document.querySelector('.mouse-mode').click()");
+        await evaluate('new Promise(resolve => setTimeout(resolve, 450))');
+    };
+    await resizeTo(375, 711);
+    await toggleModes();
+    const rightHand = await evaluate(handState);
+    await pickHand('left');
+    const switched = await evaluate(handState);
+    await evaluate("document.querySelector('#mode-dismiss').click()");
+    await evaluate('new Promise(resolve => setTimeout(resolve, 400))');
+    await toggleModes();
+    const reopened = await evaluate(handState);
+    await writeFile(
+        path.join(output, 'browser-mode-menu-left-hand.png'),
+        Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
+    );
+    await pickHand('right');
+    await evaluate("document.querySelector('#mode-dismiss').click()");
+    await evaluate('new Promise(resolve => setTimeout(resolve, 400))');
+    assert.deepEqual(
+        {
+            right: rightHand.left,
+            switched: [switched.left, switched.menu],
+            reopened: [reopened.anchored, reopened.inside],
+        },
+        { right: false, switched: [true, rightHand.menu], reopened: [true, true] }
+    );
     // The MODE button: MODE with no mode on; one mode's icon or the number of modes on, in a square box of one size.
     // Zoomed shots of each state, for review.
     const modeLooks = {};

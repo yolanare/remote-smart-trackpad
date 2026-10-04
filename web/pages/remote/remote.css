@@ -284,6 +284,9 @@ pointer-pad {
         minmax(calc(var(--trackpad-min) + 0.375rem + var(--buttons-min)), 1fr)
         minmax(var(--rail-min), var(--rail-height));
     grid-template-columns: minmax(0, 1fr) 20vw;
+    grid-template-areas:
+        'mouse rail-y'
+        'rail-x mode';
     flex: 1 1 0;
     min-height: calc(var(--trackpad-min) + 0.375rem + var(--buttons-min) + var(--rail-min) + var(--space-2));
     padding: 0 0 0 var(--space-4);
@@ -292,6 +295,26 @@ pointer-pad {
         padding var(--layout-transition),
         --buttons-height var(--layout-transition),
         --rail-height var(--layout-transition);
+}
+/* Left-handed (the Left/Right hand option), the vertical rail and the MODE button go to the left, under the thumb. */
+pointer-pad[data-hand='left'] {
+    grid-template-columns: 20vw minmax(0, 1fr);
+    grid-template-areas:
+        'rail-y mouse'
+        'mode rail-x';
+    padding: 0 var(--space-4) 0 0;
+}
+pointer-pad > .mouse {
+    grid-area: mouse;
+}
+pointer-pad > scroll-rail[axis='y'] {
+    grid-area: rail-y;
+}
+pointer-pad > scroll-rail[axis='x'] {
+    grid-area: rail-x;
+}
+pointer-pad > .mouse-mode {
+    grid-area: mode;
 }
 .mouse {
     display: grid;

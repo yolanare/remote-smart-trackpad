@@ -96,6 +96,15 @@
                         >Scroll</label
                     >
                 </div>
+                <hr />
+                <!-- The hand holding the phone: the vertical rail and the MODE button go on its side. -->
+                <div class="choice-setting">
+                    <span id="hand-label" class="visually-hidden">Left/Right hand</span>
+                    <div class="segmented" role="radiogroup" aria-labelledby="hand-label">
+                        <label><input type="radio" name="hand" value="left" />Left</label>
+                        <label><input type="radio" name="hand" value="right" checked />Right</label>
+                    </div>
+                </div>
             </div>
             <!-- Option defaults live in these attributes; values stored on the phone override them. -->
             <div id="options" class="options" role="region" aria-label="Options" hidden>

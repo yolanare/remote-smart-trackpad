@@ -633,7 +633,10 @@ function placeModeMenu() {
         cell = modeButton.getBoundingClientRect(),
         unit = parseFloat(getComputedStyle(document.documentElement).fontSize),
         edge = parseFloat(getComputedStyle(menu).right) / unit;
-    modeMenu.style.right = `${Math.max((area.right - cell.right) / unit, edge)}rem`;
+    // Left-handed, the button is in the bottom-left corner: the menu grows up and to the right from it.
+    const left = option.hand === 'left';
+    modeMenu.style.left = left ? `${Math.max((cell.left - area.left) / unit, edge)}rem` : '';
+    modeMenu.style.right = left ? 'auto' : `${Math.max((area.right - cell.right) / unit, edge)}rem`;
     modeMenu.style.bottom = `${(area.bottom - cell.top - 4) / unit}rem`;
 }
 /** 2px under the options button's round fill, whatever the top bar's height (a long status grows it). */
@@ -739,6 +742,9 @@ function applyTheme() {
     themeColor.content = getComputedStyle(document.body).backgroundColor;
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+// The hand holding the phone: the vertical rail and the MODE button go on its side. An open modes menu stays where
+// it opened (placeModeMenu places it on the next opening).
+const applyHand = () => (pad.dataset.hand = option.hand);
 // The interface's base size: "1×" on the scale stepper is this much larger than the browser's default text size
 // (1: the same).
 const scaleBase = 1;
@@ -765,6 +771,7 @@ options.onChange((names) => {
     if (names.some((name) => name.endsWith('Haptics'))) applyHaptics();
     if (names.includes('colorScheme')) applyTheme();
     if (names.includes('uiScale')) applyScale();
+    if (names.includes('hand')) applyHand();
     if (names.some((name) => layoutOptions.has(name))) {
         rows.reset({ force: true });
         layout({ animate: true });
@@ -944,5 +951,6 @@ if (__DEV_RELOAD__) {
 }
 applyScale();
 applyTheme();
+applyHand();
 layout();
 connection.connect();
