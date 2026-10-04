@@ -1124,9 +1124,6 @@ a.options-action.is-pressed {
     overflow: clip;
     transform-origin: bottom right;
 }
-.mode-menu .axis-setting {
-    margin-bottom: 0;
-}
 /*
  * A menu's container (morph-panel.js): a box of its own beside the menu, which only holds the content, so scrolling
  * repaints no blur and the content's edges fade without the container's. Empty and of explicit size, resizing it
