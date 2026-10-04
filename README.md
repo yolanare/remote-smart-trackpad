@@ -98,24 +98,27 @@ _Bravo, you can now use your computer on your couch._
 ## Getting started
 
 1. Install Node.js 20 or newer on Windows.
-2. Double-click [Start Remote Smart Trackpad.cmd](./Start%20Remote%20Smart%20Trackpad.cmd). The first run installs the dependencies, builds the web app and compiles the tray app with Windows' .NET Framework compiler. The launcher exits; the server keeps running in the notification area.
-3. Right-click the tray icon → **Connect a device**. On the phone, scan the QR code, enter your name and the six-digit pairing code (codes expire after ten minutes; refresh them on the PC's setup page).
-4. To install the remote as an app, open the trust page from the setup page's QR code once, then use **Install as app** in the options menu.
+2. Double-click [Start Remote Smart Trackpad.cmd](./Start%20Remote%20Smart%20Trackpad.cmd). The first run installs the dependencies, builds the web app and compiles the tray app with the .NET Framework compiler of Windows. Then the launcher closes, and the server continues to run in the notification area.
+3. Right-click the tray icon, then select **Connect a device**. On the phone, scan the QR code, then enter your name and the six-digit pairing code. A code expires after ten minutes. To get a new code, select **New code** on the setup page of the PC.
+4. To install the remote as an app, open the trust page once. Its QR code is on the setup page. Then select **Install as app** in the options menu.
 
-The tray offers **Connect a device**, **Show console**, **Start with Windows**, **Restart server** and **Stop server**. Running the launcher again restarts the server.
+The tray menu contains **Connect a device**, **Show console**, **Start with Windows**, **Restart server** and **Stop server**. When you run the launcher again, it restarts the server.
 
-Start with Windows is enabled on the first launch and respects later changes: Windows launches `.data/RemoteSmartTrackpad.exe` directly at sign-in, with no console window. Keep the project and Node.js where they
-are; after moving either, run the launcher again and toggle startup off and on. [Manage Auto Start.cmd](./Manage%20Auto%20Start.cmd) also takes `enable`, `disable` and `status`. For development: `npm ci`, then `npm start` (a foreground console, no startup entry).
+The first run of the launcher enables **Start with Windows**. Later runs keep the setting that you select. At sign-in, Windows starts `.data/RemoteSmartTrackpad.exe` directly, without a console window. Keep the project and Node.js in their current folders. If you move one of them, run the launcher again, then disable and enable **Start with Windows**. [Manage Auto Start.cmd](./Manage%20Auto%20Start.cmd) also accepts the arguments `enable`, `disable` and `status`.
+
+For development, run `npm ci`, then `npm start`. This command runs the server in a foreground console and does not add a startup entry.
 
 ## Paired devices
 
-[Manage Tokens.cmd](./Manage%20Tokens.cmd) lists paired phones while the server runs. Revoking closes that phone's connection and releases its input; it must pair again. `.data/tokens.json` stores token hashes, names and first-connection dates; the raw token stays on the phone.
+[Manage Tokens.cmd](./Manage%20Tokens.cmd) lists the paired phones while the server runs. When you revoke a phone, the server closes its connection and releases its input. That phone must then pair again. `.data/tokens.json` stores the hash of each token, the name of each phone and the date of its first connection. The raw token stays on the phone.
 
 ## Network and HTTPS
 
-The server listens on loopback and private IPv4 networks only (allow the private network in the Windows firewall prompt). The default port is 8765. A `.local` name is announced over mDNS where supported.
+The server accepts connections only on loopback and on private IPv4 networks. When the Windows firewall asks, allow the private network. The default port is 8765. Where the network supports mDNS, the server announces a `.local` name.
 
-The app needs HTTPS to install. On first start the host creates automatically a local certificate authority in `.data/tls` and a certificate for the PC's private addresses and `.local` name, reissued when the addresses change. Each phone trusts the authority once through `http://<pc>:8765/trust`, the only plain-HTTP page; everything else redirects to HTTPS. Moving from HTTP to HTTPS changes the address, so phones will need to pair again.
+The app needs HTTPS to install. At the first start, the host creates a local certificate authority in `.data/tls`. It also creates a certificate for the private addresses and the `.local` name of the PC. When these addresses change, the host issues a new certificate.
+
+Each phone trusts the certificate authority once, through `http://<pc>:8765/trust`. This page is the only plain-HTTP page. All other HTTP requests go to HTTPS. The change from HTTP to HTTPS changes the address of the app, so a phone that paired over HTTP must pair again.
 
 <br>
 
@@ -128,7 +131,7 @@ The app needs HTTPS to install. On first start the host creates automatically a 
 | Module              | Responsibility                                                                       |
 | ------------------- | ------------------------------------------------------------------------------------ |
 | `host/server.js`    | HTTP routes, listener lifecycle, setup and discovery                                 |
-| `host/access.js`    | Token persistence, migration, identity and revocation                                |
+| `host/access.js`    | Token storage, pairing and revocation                                                |
 | `host/transport.js` | WebSocket framing, per-device ordering, held input and heartbeat                     |
 | `host/bridge.js`    | Windows child process and acknowledged commands                                      |
 | `host/windows/`     | PowerShell bridge: native input, the mirror and its pure rules (`mirror-rules.psm1`) |
@@ -142,27 +145,27 @@ The app needs HTTPS to install. On first start the host creates automatically a 
 | `scripts/`          | Build, syntax check and icon generation                                              |
 | `tests/unit/`       | Unit tests (`npm test`)                                                              |
 | `tests/checks/`     | Browser, typing, placeholder, mirror and tray checks against real apps               |
-| `tests/fixtures/`   | Pages and recorded facts the tests and checks use                                    |
-| `docs/`             | Decisions (`adr/`) and the README's screenshots                                      |
+| `tests/fixtures/`   | Pages and recorded facts that the tests and checks use                               |
+| `docs/`             | Decisions (`adr/`) and the screenshots of this README                                |
 
-The domain vocabulary (PC field, mirror, blind typing, echo…) is in [CONTEXT.md](CONTEXT.md).
+[CONTEXT.md](CONTEXT.md) defines the domain words (PC field, mirror, blind typing, echo…).
 
 <br>
 
-`npm run build` bundles with esbuild (`npm run watch` rebuilds on change); `web/dist` is generated at runtime.
+`npm run build` bundles the web app with esbuild into `web/dist`. The build generates this folder, so do not edit it. `npm run watch` builds the app again after each change.
 
-| Check                       | What it does                                                                                                                                                                                                                                  |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run test:browser`      | Headless Chrome against a throwaway host: pairing, layouts, options, menus, scrolling, editing. Only reads reach the PC. Screenshots and a report go to a temp folder printed at the end.                                                     |
-| `npm run test:typing:quick` | Types for real from the phone app (emulating Gboard and a hardware keyboard) into one field of each kind in Chrome, WinForms and VS Code. About 3 minutes.                                                                                    |
-| `npm run test:typing`       | The same in every field, in Chrome, Firefox, WinForms, WPF, Notepad and an isolated VS Code. Input only reaches windows titled with the run's marker. Run it after changes to the typing session, the mirror or the bridge. About 45 minutes. |
-| `npm run test:placeholders` | Reads fields with placeholders drawn every way sites do, and real text that looks like them, in Chrome, Edge and Firefox (throwaway profiles; `npm run test:cleanup` closes any a crash left open). A few minutes.                            |
+| Check                       | What it does                                                                                                                                                                                                                                                                                                  |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run test:browser`      | Runs headless Chrome against a temporary host and checks pairing, layouts, options, menus, scrolling and editing. Only read commands reach the PC. Screenshots and a report go to a temporary folder. The check shows the path of this folder at the end.                                                     |
+| `npm run test:typing:quick` | Types real text from the phone app into one field of each kind in Chrome, WinForms and VS Code. It emulates Gboard and a hardware keyboard. It takes about 3 minutes.                                                                                                                                         |
+| `npm run test:typing`       | Does the same in every field, in Chrome, Firefox, WinForms, WPF, Notepad and an isolated VS Code. Input reaches only the windows whose title contains the marker of the run. Run it after a change to the typing session, the mirror or the bridge. It takes about 45 minutes.                                |
+| `npm run test:placeholders` | Reads fields in Chrome, Edge and Firefox. Some fields show placeholders, drawn in all the ways that sites use. Other fields contain real text that looks like a placeholder. The browsers use temporary profiles. If a crash leaves a browser open, `npm run test:cleanup` closes it. It takes a few minutes. |
 
-The typing and placeholder checks bring windows to the foreground: leave the PC alone while they run.
-`tests/checks/windows-mirror-check.ps1` (run with `powershell -NoProfile -Mta -ExecutionPolicy Bypass -File`) checks
-UI Automation reading, writing, selection and stale-focus rejection in two disposable fields;
-`tests/checks/tray-check.ps1` (with `-Sta`, after the tray has run once) checks the tray's menu against a separate
-server. Both write their reports to the system temp folder.
+The typing and placeholder checks bring windows to the foreground. Do not use the PC while they run.
+
+`tests/checks/windows-mirror-check.ps1` checks UI Automation in two temporary fields. It checks reading, writing and selection. It also checks that the bridge rejects an edit for a field that lost the focus. Run it with `powershell -NoProfile -Mta -ExecutionPolicy Bypass -File`.
+
+`tests/checks/tray-check.ps1` checks the tray menu against a separate server. Run it with `-Sta` instead of `-Mta`, after the tray ran at least once. Both checks write their reports to the temporary folder of the system.
 
 ## References
 
