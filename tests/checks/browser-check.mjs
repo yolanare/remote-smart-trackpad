@@ -453,7 +453,7 @@ try {
         await resizeTo(width, height);
         assert.ok(
             await evaluate(`(() => { const menu = document.querySelector('#options'), rect = menu.getBoundingClientRect();
-            menu.scrollTop = menu.scrollHeight; const last = menu.querySelector('[name=sticky]').getBoundingClientRect();
+            menu.scrollTop = menu.scrollHeight; const last = [...menu.querySelectorAll('input:not([type=hidden]), button, a')].at(-1).getBoundingClientRect();
             return rect.left >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight && last.bottom <= rect.bottom;
         })()`),
             'Options must fit the viewport and allow access to the last setting'
