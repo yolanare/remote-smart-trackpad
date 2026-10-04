@@ -104,7 +104,7 @@ button.is-held {
         opacity: 0.7;
         transition-duration: 0ms, 70ms;
     }
-    button:active:not([aria-pressed='true'], .mouse-mode, .fill-button) {
+    button:active:not([aria-pressed='true'], .mouse-mode, .mouse-middle, .fill-button) {
         background: var(--surface);
         color: var(--text);
     }
@@ -468,7 +468,7 @@ scroll-rail {
 /* Kept down until released: a mouse button in hold mode, an active modifier (until the next key, or sticky). */
 .mouse-left.is-latched,
 .mouse-right.is-latched,
-.mouse-middle.is-latched > .fill,
+.mouse-middle.is-latched .middle-dot,
 .fill-button.modifier[aria-pressed='true'] > .fill {
     background: var(--latched);
     box-shadow: inset 0 0 0 var(--stroke) var(--border);
@@ -517,12 +517,15 @@ scroll-rail {
         background: var(--surface);
     }
 }
-/* Middle click between left and right: a little wider than tall so it is easy to hit. */
+/* Middle click between left and right: a little wider than tall so it is easy to hit. Pressed like the other clicks
+   (the button pushes in and dims), with nothing drawn around its pill. */
 .mouse-middle {
-    --fill-inset: 0 0.5rem;
-    --fill-padding: 0.25rem;
+    display: flex;
     width: 3.5rem;
     height: 100%;
+    padding: 0.25rem 0.75rem;
+    border: none;
+    background: transparent;
     touch-action: none;
 }
 .middle-dot {
