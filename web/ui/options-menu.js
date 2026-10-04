@@ -103,8 +103,11 @@ export function bindOptionsMenu(menu, options) {
                 : input.dataset.unit === '' ? String(value)
                 : times(value);
         if (input.type !== 'range') return;
-        const fill = (value - Number(input.min)) / (Number(input.max) - Number(input.min));
-        input.style.setProperty('--fill', `${fill * 100}%`);
+        // Where the thumb stands, from 0 to 1: the track's fill and the gap around the thumb follow it.
+        input.style.setProperty(
+            '--position',
+            String((value - Number(input.min)) / (Number(input.max) - Number(input.min)))
+        );
         input.setAttribute('aria-valuetext', off ? 'Off' : `${Number(value.toFixed(2))} times`);
     }
     // Steppers step through the values listed in data-steps for the option named in data-option.

@@ -136,10 +136,10 @@ input:focus-visible,
 }
 /* Separate rules: a browser drops a whole rule that contains another engine's pseudo-element. */
 :root[data-modality='touch'] .speed-setting input:focus-visible:not(:active)::-webkit-slider-thumb {
-    box-shadow: 0 0 0 0.1875rem var(--panel-to);
+    box-shadow: none;
 }
 :root[data-modality='touch'] .speed-setting input:focus-visible:not(:active)::-moz-range-thumb {
-    box-shadow: 0 0 0 0.1875rem var(--panel-to);
+    box-shadow: none;
 }
 svg {
     display: block;
@@ -1365,6 +1365,21 @@ a.options-action {
     background: transparent;
     cursor: pointer;
     touch-action: pan-y;
+    --thumb: 0.75rem;
+    --thumb-gap: 0.1875rem;
+    /* The gap around the thumb is cut out of the track (the panel behind is translucent: nothing painted could stand
+       for it). The thumb's center travels from half a thumb in from each end; whole pixels' worth of soft edge keep
+       the cut round. */
+    --thumb-x: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--position, 0));
+    --cut: radial-gradient(
+        circle at var(--thumb-x) 50%,
+        #000 calc(var(--thumb) / 2 + 0.5px),
+        transparent calc(var(--thumb) / 2 + 1px),
+        transparent calc(var(--thumb) / 2 + var(--thumb-gap) - 0.5px),
+        #000 calc(var(--thumb) / 2 + var(--thumb-gap))
+    );
+    -webkit-mask-image: var(--cut);
+    mask-image: var(--cut);
 }
 /* Touches go to the slider's row (options-menu.js): a scroll starting on the slider must not move it. */
 @media (pointer: coarse) {
@@ -1372,13 +1387,17 @@ a.options-action {
         pointer-events: none;
     }
 }
-/* Sliders (shadcn/ui Slider anatomy, quieter): thin track, muted range, small borderless thumb whose halo in the
-   panel color cuts the track; a ring only while dragging or with keyboard focus. */
+/* Sliders (shadcn/ui Slider anatomy, quieter): thin track, muted range, small borderless thumb in a gap cut out of
+   the track (see the mask above); a ring only while dragging or with keyboard focus. */
 .speed-setting input::-webkit-slider-runnable-track {
     height: 0.1875rem;
     border-radius: 999rem;
     corner-shape: round;
-    background: linear-gradient(to right, var(--muted) var(--fill), var(--surface) var(--fill));
+    background: linear-gradient(
+        to right,
+        var(--muted) calc(var(--position, 0) * 100%),
+        var(--surface) calc(var(--position, 0) * 100%)
+    );
 }
 .speed-setting input::-moz-range-track {
     height: 0.1875rem;
@@ -1394,39 +1413,36 @@ a.options-action {
 }
 .speed-setting input::-webkit-slider-thumb {
     appearance: none;
-    width: 0.875rem;
-    height: 0.875rem;
-    margin-top: calc((0.1875rem - 0.875rem) / 2);
+    width: var(--thumb);
+    height: var(--thumb);
+    margin-top: calc((0.1875rem - var(--thumb)) / 2);
     -webkit-appearance: none;
     border: none;
     border-radius: 999rem;
     corner-shape: round;
     background: var(--text);
-    box-shadow: 0 0 0 0.1875rem var(--panel-to);
+    box-shadow: 0 0 0 0 var(--surface);
     transition: box-shadow 120ms ease-out;
 }
 .speed-setting input::-moz-range-thumb {
     box-sizing: border-box;
-    width: 0.875rem;
-    height: 0.875rem;
+    width: var(--thumb);
+    height: var(--thumb);
     border: none;
     border-radius: 999rem;
     corner-shape: round;
     background: var(--text);
-    box-shadow: 0 0 0 0.1875rem var(--panel-to);
+    box-shadow: 0 0 0 0 var(--surface);
     transition: box-shadow 120ms ease-out;
 }
+/* The ring starts past the gap (the mask cuts its inner part). */
 .speed-setting input:active::-webkit-slider-thumb,
 .speed-setting input:focus-visible::-webkit-slider-thumb {
-    box-shadow:
-        0 0 0 0.1875rem var(--panel-to),
-        0 0 0 0.4375rem var(--surface);
+    box-shadow: 0 0 0 calc(var(--thumb-gap) + 0.25rem) var(--surface);
 }
 .speed-setting input:active::-moz-range-thumb,
 .speed-setting input:focus-visible::-moz-range-thumb {
-    box-shadow:
-        0 0 0 0.1875rem var(--panel-to),
-        0 0 0 0.4375rem var(--surface);
+    box-shadow: 0 0 0 calc(var(--thumb-gap) + 0.25rem) var(--surface);
 }
 .checkbox svg {
     opacity: 0;
