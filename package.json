@@ -1,7 +1,6 @@
 {
     "name": "remote-smart-trackpad",
     "version": "1.0.0",
-    "private": true,
     "type": "module",
     "scripts": {
         "format": "prettier --write .",
