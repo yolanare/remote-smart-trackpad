@@ -602,6 +602,22 @@ try {
         return { moves, selection: [field.selectionStart, field.selectionEnd], copied: copy.clipboardData.getData('text/plain') };
     })()`);
     assert.deepEqual(selectAll, { moves: [], selection: [0, 12], copied: 'hello world' });
+    // A held middle click widens its pill to 6px from the other clicks, and narrows back once released.
+    const middle = await evaluate(`(async () => {
+        const button = document.querySelector('.mouse-middle'), dot = button.querySelector('.middle-dot');
+        const left = document.querySelector('.mouse-left').getBoundingClientRect();
+        const right = document.querySelector('.mouse-right').getBoundingClientRect();
+        const settle = () => new Promise((resolve) => setTimeout(resolve, 400));
+        const rest = dot.getBoundingClientRect().width;
+        button.classList.add('is-held');
+        await settle();
+        const held = dot.getBoundingClientRect();
+        button.classList.remove('is-held');
+        await settle();
+        return { gaps: [held.left - left.right, right.left - held.right].map(Math.round), widened: held.width > rest,
+            back: dot.getBoundingClientRect().width === rest };
+    })()`);
+    assert.deepEqual(middle, { gaps: [6, 6], widened: true, back: true });
     // The phone's keyboard follows what the PC's field takes: its layout, what it fills in, capitals and spelling.
     const keyboards = await evaluate(`(() => {
         const editor = document.querySelector('text-editor'), field = editor.querySelector('textarea');

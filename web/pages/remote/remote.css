@@ -518,8 +518,8 @@ scroll-rail {
         background: var(--surface);
     }
 }
-/* Middle click between left and right: a little wider than tall so it is easy to hit. Pressed like the other clicks
-   (the button pushes in and dims), with nothing drawn around its pill. */
+/* Middle click between left and right: a little wider than tall so it is easy to hit. Pressed, it pushes in, dims
+   and widens its pill to fill the space between the other clicks, 6px short of each once scaled down. */
 .mouse-middle {
     display: flex;
     width: 3.5rem;
@@ -528,6 +528,22 @@ scroll-rail {
     border: none;
     background: transparent;
     touch-action: none;
+    /* Half the button minus the pressed pill's half, its scale undone: the pill's edges land 6px inside the button. */
+    --pressed-inline: calc(1.75rem - (1.75rem - 0.375rem) / var(--press-scale));
+    transition:
+        opacity 120ms ease-out,
+        transform 220ms cubic-bezier(0.2, 0, 0, 1),
+        padding 220ms cubic-bezier(0.2, 0, 0, 1);
+}
+.mouse-middle:is(.is-pressed, .is-held) {
+    padding-inline: var(--pressed-inline);
+    transition-duration: 0ms, 70ms, 70ms;
+}
+@media (hover: hover) and (pointer: fine) {
+    .mouse-middle:active {
+        padding-inline: var(--pressed-inline);
+        transition-duration: 0ms, 70ms, 70ms;
+    }
 }
 .middle-dot {
     position: relative;
