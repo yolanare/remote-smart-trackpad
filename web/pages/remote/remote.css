@@ -873,13 +873,16 @@ textarea {
     /* Right under the options button (remote.js sets --options-top when it opens); before that, under the top bar. */
     --options-top-fallback: calc(var(--topbar-height, 2.25rem) + 0.25rem + env(safe-area-inset-top));
     top: var(--options-top, var(--options-top-fallback));
-    right: var(--space-4);
+    /* 2px past the buttons beneath toward the screen's edges (they keep the same margin), on every side but the one
+       it hangs from: it covers their borders. The modes menu keeps this margin too (remote.js). */
+    --panel-edge: calc(var(--space-4) - 2px);
+    right: var(--panel-edge);
     /* Every option on one line at 1× scale with room to spare; longer text wraps (see the option rows below). */
     width: 19rem;
-    max-width: calc(100% - 2 * var(--space-4));
+    max-width: calc(100% - 2 * var(--panel-edge));
     max-height: calc(
         var(--viewport-height, 100dvh) - var(--options-top, var(--options-top-fallback)) - env(safe-area-inset-bottom) -
-            var(--space-4)
+            var(--panel-edge)
     );
     padding: var(--space-3) 0;
     /* optical alignement, same empty space as the very bottom buttons that have vertical padding */

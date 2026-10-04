@@ -223,6 +223,14 @@ try {
         path.join(output, 'browser-menu.png'),
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
+    // The menu reaches 2px past the buttons beneath toward the screen's edges, right and bottom (it hangs from the
+    // options button at the top): it covers their borders.
+    const covered = await evaluate(`(() => {
+        const buttons = [...document.querySelectorAll('.input-dock button')].map((button) => button.getBoundingClientRect()).filter((box) => box.width);
+        const menu = document.querySelector('#options').getBoundingClientRect();
+        return [menu.right - Math.max(...buttons.map((box) => box.right)), menu.bottom - Math.max(...buttons.map((box) => box.bottom))].map((gap) => Math.round(gap * 10) / 10);
+    })()`);
+    assert.deepEqual(covered, [2, 2]);
     // The menu's edges fade with the scroll: the top fade grows with the distance scrolled, the bottom one shrinks with
     // the distance left, each up to 2rem (32px).
     const fades = await evaluate(`(async () => {
@@ -885,9 +893,9 @@ try {
         return {
             open: !menu.hidden && button.getAttribute('aria-expanded') === 'true',
             // Above the MODE button's tap area (4px into it), its right edge on the button's, no closer to the screen's edge
-            // than the options menu (16px).
+            // than the options menu (14px: 2px past the key rows beneath, it covers their borders).
             anchored:
-                Math.abs(box.right - Math.min(anchor.right, innerWidth - 16)) <= 1
+                Math.abs(box.right - Math.min(anchor.right, innerWidth - 14)) < 0.5
                 && Math.abs(box.bottom - (anchor.top + 4)) <= 1,
             inside: box.top >= 0 && box.left >= 0,
             holding: document.querySelector('pointer-pad').holding,
@@ -960,7 +968,7 @@ try {
         return {
             left: rail.right <= pad.left && mode.right <= x.left,
             menu: [menu.left, menu.bottom].map(Math.round),
-            anchored: Math.abs(menu.left - Math.max(mode.left, 16)) <= 1 && Math.abs(menu.bottom - (mode.top + 4)) <= 1,
+            anchored: Math.abs(menu.left - Math.max(mode.left, 14)) < 0.5 && Math.abs(menu.bottom - (mode.top + 4)) <= 1,
             inside: menu.right <= innerWidth,
         };
     })()`;
