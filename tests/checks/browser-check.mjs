@@ -986,7 +986,18 @@ try {
         path.join(output, 'browser-mode-menu-left-hand.png'),
         Buffer.from((await page('Page.captureScreenshot', { format: 'png' })).data, 'base64')
     );
-    await pickHand('right');
+    // Back to the right hand, the parts coming in from the screen's edge never make the page wider.
+    await evaluate("document.querySelector('[name=hand][value=right]').closest('label').click()");
+    const overflow = await evaluate(`(() => {
+        const app = document.querySelector('.app'), widths = [];
+        for (const at of [0, 60, 140, 240]) {
+            document.getAnimations().forEach((animation) => { animation.pause(); animation.currentTime = at; });
+            widths.push(app.scrollWidth - app.clientWidth);
+        }
+        document.getAnimations().forEach((animation) => animation.finish());
+        return Math.max(...widths);
+    })()`);
+    await evaluate('new Promise(resolve => setTimeout(resolve, 100))');
     await evaluate("document.querySelector('#mode-dismiss').click()");
     await evaluate('new Promise(resolve => setTimeout(resolve, 400))');
     assert.deepEqual(
@@ -994,8 +1005,9 @@ try {
             right: rightHand.left,
             switched: [switched.left, switched.menu],
             reopened: [reopened.anchored, reopened.inside],
+            overflow,
         },
-        { right: false, switched: [true, rightHand.menu], reopened: [true, true] }
+        { right: false, switched: [true, rightHand.menu], reopened: [true, true], overflow: 0 }
     );
     // The MODE button: MODE with no mode on; one mode's icon or the number of modes on, in a square box of one size.
     // Zoomed shots of each state, for review.

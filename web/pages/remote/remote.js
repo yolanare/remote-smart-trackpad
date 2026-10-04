@@ -779,6 +779,13 @@ function applyHand({ animate = false } = {}) {
             )
         ),
     ];
+    // Moving over, the parts reach past the pad (a rail coming in from beyond the screen's edge): clipped meanwhile,
+    // they never make the page wider or taller.
+    const switching = handAnimations;
+    pad.classList.add('is-switching-hand');
+    Promise.allSettled(switching.map((animation) => animation.finished)).then(() => {
+        if (handAnimations === switching) pad.classList.remove('is-switching-hand');
+    });
 }
 // The interface's base size: "1×" on the scale stepper is this much larger than the browser's default text size
 // (1: the same).

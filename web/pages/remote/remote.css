@@ -304,6 +304,10 @@ pointer-pad[data-hand='left'] {
         'mode rail-x';
     padding: 0 var(--space-4) 0 0;
 }
+/* Switching hands, the parts moving over stay inside the pad (remote.js). */
+pointer-pad.is-switching-hand {
+    overflow: hidden;
+}
 pointer-pad > .mouse {
     grid-area: mouse;
 }
