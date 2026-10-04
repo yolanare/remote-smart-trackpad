@@ -602,6 +602,22 @@ try {
         return { moves, selection: [field.selectionStart, field.selectionEnd], copied: copy.clipboardData.getData('text/plain') };
     })()`);
     assert.deepEqual(selectAll, { moves: [], selection: [0, 12], copied: 'hello world' });
+    // Pressed, a button that draws its shape inside lights that shape only: never a fill around it as well.
+    const fills = await evaluate(`(async () => {
+        const filled = (element) => getComputedStyle(element).backgroundColor !== 'rgba(0, 0, 0, 0)';
+        const name = (button) => button.getAttribute('aria-label') || button.className;
+        const pressed = [...document.querySelectorAll('.topbar .fill-button, .key-group .fill-button, .mouse-mode, .mouse-middle')];
+        for (const button of pressed) button.classList.add('is-pressed');
+        // The fill fades in.
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        const twice = pressed.filter(filled).map(name);
+        const unlit = pressed.filter((button) => button.matches('.fill-button') && !filled(button.querySelector('.fill'))).map(name);
+        for (const button of pressed) button.classList.remove('is-pressed');
+        // Released, back at rest before the next check.
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        return { twice, unlit };
+    })()`);
+    assert.deepEqual(fills, { twice: [], unlit: [] });
     // A held middle click widens its pill to 6px from the other clicks, and narrows back once released.
     const middle = await evaluate(`(async () => {
         const button = document.querySelector('.mouse-middle'), dot = button.querySelector('.middle-dot');

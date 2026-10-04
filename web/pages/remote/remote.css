@@ -116,8 +116,9 @@ button:disabled {
 button {
     user-select: none;
 }
-/* The middle click has its shape drawn inside: pressed, it only fades and shrinks like the other clicks. */
-button.is-pressed:not(.mouse-middle),
+/* Buttons that draw their shape inside (the middle click's pill, the MODE box, a fill button's fill) take no fill of
+   their own when pressed: one shape lights up, never two. */
+button.is-pressed:not(.mouse-middle, .mouse-mode, .fill-button),
 button[aria-pressed='true'] {
     background: var(--surface);
     color: var(--text);
@@ -380,11 +381,6 @@ scroll-rail {
     border-radius: 0;
     color: var(--text);
 }
-.mouse-mode,
-.mouse-mode:active,
-.mouse-mode.is-pressed {
-    background: transparent;
-}
 /* No mode on: MODE, quiet. One on: its icon; several: how many. Either in a square box of the same size. */
 .mode-box {
     display: grid;
@@ -486,9 +482,6 @@ scroll-rail {
     border-radius: 999rem;
     corner-shape: round;
 }
-.fill-button,
-.fill-button.is-pressed,
-.fill-button.is-held,
 .fill-button[aria-pressed='true'] {
     background: transparent;
 }
@@ -507,6 +500,7 @@ scroll-rail {
 .fill-button.is-held > .fill,
 .fill-button[aria-pressed='true'] > .fill {
     background: var(--surface);
+    color: var(--text);
 }
 /* Its menu open (the options button), a fill button shows it by contrast, as the MODE button does, not by a fill: the
    fill is the press's. */
