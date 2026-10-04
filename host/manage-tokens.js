@@ -23,7 +23,7 @@ try {
         console.log('Remote Smart Trackpad - device access\n');
         records.forEach((record, index) =>
             console.log(
-                `${index === selected ? '>' : ' '} ${record.name || 'Unnamed device'} | ${record.firstConnectedAt ? new Date(record.firstConnectedAt).toLocaleString() : 'First connection unknown (legacy token)'} | ${record.id}`
+                `${index === selected ? '>' : ' '} ${record.name} | ${new Date(record.firstConnectedAt).toLocaleString()} | ${record.id}`
             )
         );
         if (!records.length) console.log('No paired devices.');

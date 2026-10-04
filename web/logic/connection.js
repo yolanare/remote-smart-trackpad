@@ -30,8 +30,6 @@ export function createConnection(changed) {
                 token = null;
                 return connect();
             }
-            const profile = await response.json();
-            if (profile.needsName) return changed({ state: 'name' });
             socket = new WebSocket(
                 `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/socket?token=${encodeURIComponent(token)}`
             );
@@ -83,17 +81,15 @@ export function createConnection(changed) {
             connect();
         },
         async pair(name, code) {
-            const response = await fetch(code ? '/api/pair' : '/api/profile', {
+            const response = await fetch('/api/pair', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, code }),
             });
             const result = await response.json();
             if (!response.ok) throw new Error(result.error);
-            if (result.token) {
-                token = result.token;
-                localStorage.setItem(tokenKey, token);
-            }
+            token = result.token;
+            localStorage.setItem(tokenKey, token);
             connect();
         },
         send(action, data = {}) {

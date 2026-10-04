@@ -63,7 +63,6 @@ const option = options.values;
 
 const labels = {
     pairing: 'Pair this device',
-    name: 'Your name',
     connecting: 'Connecting…',
     disconnected: 'Disconnected',
     unavailable: 'PC unavailable · reconnecting…',
@@ -71,7 +70,6 @@ const labels = {
 };
 let connectionState = 'connecting',
     connected = false,
-    namingOnly = false,
     // The typing session's latest view (logic/typing-session.js).
     typing = { open: false },
     notice = '',
@@ -288,12 +286,9 @@ async function refreshMedia() {
 const connection = createConnection(({ state }) => {
     connected = state === 'ready';
     connectionState = state;
-    const pairing = state === 'pairing' || state === 'name';
-    namingOnly = state === 'name';
+    const pairing = state === 'pairing';
     $('#pairing').hidden = !pairing;
     $('#controls').hidden = pairing;
-    $('#pair-code-label').hidden = namingOnly;
-    $('#pair-code').required = !namingOnly;
     // A lost connection keeps the interface as it is (editing, the menu, modifiers shown held): only gestures in
     // progress end. The PC let go of every key meanwhile; the held modifiers are pressed again once back.
     if (!connected) {
@@ -562,7 +557,7 @@ $('#pair-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     $('#pair-error').textContent = '';
     try {
-        await connection.pair($('#pair-name').value, namingOnly ? undefined : $('#pair-code').value);
+        await connection.pair($('#pair-name').value, $('#pair-code').value);
     } catch (error) {
         $('#pair-error').textContent = error.message;
     }

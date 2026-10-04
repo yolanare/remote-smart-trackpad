@@ -167,12 +167,6 @@ const server = http.createServer(async (request, response) => {
             transport.revoke(id);
             return json(response, 200, access.list());
         }
-        if (request.method === 'POST' && pathname === '/api/profile') {
-            const record = authorized(request);
-            if (!record) return json(response, 401, { error: 'Pairing required' });
-            await access.identify(record.id, (await readBody(request)).name);
-            return json(response, 200, { ok: true });
-        }
         if (request.method === 'GET' && pathname === '/api/setup') {
             return json(response, 200, {
                 app: 'remote-smart-trackpad',
@@ -214,7 +208,7 @@ const server = http.createServer(async (request, response) => {
                 response,
                 authorized(request) ? 200 : 401,
                 authorized(request) ?
-                    { state: bridge.available ? 'ready' : 'unavailable', needsName: !authorized(request).name }
+                    { state: bridge.available ? 'ready' : 'unavailable' }
                 :   { error: 'Pairing required' }
             );
         if (request.method === 'GET' && pathname === '/remote-smart-trackpad-ca.crt') {

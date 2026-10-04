@@ -14,11 +14,8 @@ export async function openAccessStore(file) {
         records = [];
     }
     if (!Array.isArray(records)) throw new Error('Invalid token store');
-    records = records.map((record) =>
-        typeof record === 'string' ?
-            { id: randomBytes(8).toString('hex'), hash: record, name: null, firstConnectedAt: null }
-        :   record
-    );
+    // A device lacking what pairing gives it (from an older version) is forgotten: its phone pairs again.
+    records = records.filter(complete);
     let writing = Promise.resolve();
     function change(update) {
         const operation = writing.then(async () => {
@@ -52,20 +49,21 @@ export async function openAccessStore(file) {
             ]);
             return token;
         },
-        async identify(id, name) {
-            name = validateName(name);
-            await change((current) =>
-                current.map((record) =>
-                    record.id === id ?
-                        { ...record, name, firstConnectedAt: record.firstConnectedAt ?? new Date().toISOString() }
-                    :   record
-                )
-            );
-        },
         async remove(id) {
             await change((current) => current.filter((record) => record.id !== id));
         },
     };
+}
+
+/** A device record as pairing stores it: an id, its token's hash, a name and when it first connected. */
+function complete(record) {
+    return (
+        typeof record?.id === 'string'
+        && typeof record.hash === 'string'
+        && typeof record.name === 'string'
+        && record.name.trim() !== ''
+        && typeof record.firstConnectedAt === 'string'
+    );
 }
 
 function validateName(value) {
