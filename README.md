@@ -1,40 +1,129 @@
 # Remote Smart Trackpad
 
-A local smartphone remote for a Windows PC. The PC owns access, WebSocket transport and Windows input; the phone owns the controls and mirrors the focused PC text field. [UX specification](remote-smart-trackpad-handoff.md).
+Who doesn't love a little over-engineered smart trackpad-keyboard solution?
+Works locally, only on Windows for now. Start the server on the PC (can be set to start with Windows) and use on your phone browser. The UX is optimized to feel native. Minimal setup, scan a QR code and you're ready to go. Can be used a PWA too.
 
-## Run
+The PC text is synchronized (when possible) with the phone's text input, you can edit right from your phone (auto-correct, speech-to-text, swipe typing, etc.) and the PC's caret and selection are mirrored in realtime.
+
+_Bravo, you can now use your computer on your couch._
+
+<br>
+
+<p align="center">
+  <img src="docs/screenshots/phone-normal.png" width="160" alt="Default screen, dark theme" />
+  <img src="docs/screenshots/phone-minimal-light.png" width="160" alt="Minimal layout, light theme" />
+  <img src="docs/screenshots/phone-options.png" width="160" alt="Options menu" />
+  <img src="docs/screenshots/phone-modes.png" width="160" alt="Modes menu" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/phone-input-text.png" width="160" alt="Editing text on PC" />
+  <img src="docs/screenshots/phone-input-number.png" width="160" alt="Editing a number field on PC" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/pc-setup.png" width="720" alt='PC "Connect a device" page' />
+</p>
+
+<br>
+
+---
+
+<br>
+
+## Features
+
+### Pointer and scrolling
+
+| Feature            | What it does                                                                                                                                                | UX notes                                                                                                                                                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Near real-time     | Pointer and scroll motion is batched once per screen frame.                                                                                                 | Motion never queues up behind a slow network: what arrives is always the latest movement, so the pointer stays under your finger instead of catching up later. |
+| Trackpad gestures  | Tap clicks, two quick taps double-click, tap then touch-and-move drags with the left button held.                                                           | A single tap waits 250 ms for a possible second one. The dot pattern moves with your finger, so the pad itself shows that it is following.                     |
+| Acceleration       | An S-curve damps slow strokes and amplifiesx flicks; separate speed and acceleration for mouse and scroll.                                                  | Precise for small targets, fast across a large screen. Set 0x to turn acceleration off.                                                                        |
+| Mouse buttons      | Left, middle and right buttons that can be held while the other finger moves.                                                                               |                                                                                                                                                                |
+| Scroll rails       | A vertical and a horizontal rail with your phone's native scrolling and momentum.                                                                           | Smooth scrolling also feels nice.                                                                                                                              |
+| Edge motion        | **Keep moving at screen edges**: while dragging, resting your finger near the phone's edge keeps the pointer going.                                         | No need to let go of a click & drag anymore.                                                                                                                   |
+| Scroll one step    | A double tap on a scroll rail will scroll one step, per axis.                                                                                               | For stepping through slides, Zen Spaces or lists without dragging.                                                                                             |
+| Modes              | **Hold clicks** keeps a mouse button down until the next tap.<br>**Free scroll** will turn the trackpad into a easy 2D scroll zone to navigate canvas apps. | Easy to access and toggle from the Mode menu.                                                                                                                  |
+| Left or right hand | Puts the vertical rail and the Mode button on the side of the hand holding the phone.                                                                       |                                                                                                                                                                |
+
+### Keys
+
+| Feature              | What it does                                                                                                                                                              | UX notes                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Key rows             | Function keys (4 to 24), media, editing (undo, redo, cut, copy, paste, delete), common shortcut letters, arrows and Home/End, modifiers with Esc, Tab, Windows and Enter. | Choose which rows show and whether each sits above or below the trackpad. |
+| Media state          | Play/pause and mute show the PC's actual playback and mute state.                                                                                                         |                                                                           |
+| Auto-repeat on press | Keys like volume, undo or arrows repeat while held, like a physical keyboard.                                                                                             | Some keys only fire once never repeat, like Escape.                       |
+| Modifiers            | Tap Shift, Ctrl, Alt or Windows, then a key: the shortcut goes out and the modifiers let go. With the sticky modifiers mode they stay on until disabled.                  | Shortcuts with one thumb; scrolling and moving the pointer keep them on.  |
+| Back and forward     | Two buttons in the top bar send Alt+Left and Alt+Right for browsing history.                                                                                              | Can be hidden.                                                            |
+
+### Text
+
+| Feature                 | What it does                                                                                                                         | UX notes                                                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mirroring               | The phone's text field shows the text of the PC's focused field and follows it while the editor is open.                             | Read about every 200 ms while you type, less often when nothing changes, and nothing at all while the editor is closed.                                   |
+| Selection sync          | The caret and selection go both ways: select on the PC and the phone shows it, move the caret on the phone and the PC follows.       | Your phone's keyboard tools (word suggestions, cursor dragging, select all, drag delete key) work on the PC's text.                                       |
+| Phone keyboard features | Typing goes through your phone's keyboard: autocorrect, suggestions, swipe typing, voice input, other languages and IME composition. | Changes are sent as small edits once a composed word is committed; the PC applies each one only if its field is still the one it was meant for.           |
+| Field type              | The PC tells the phone what the field takes: email, phone number, number, URL, search or a terminal.                                 | The phone shows the matching keyboard: @ and .com for an email, a number pad for digits, a search key, lowercase with no autocorrect in a terminal.       |
+| Placeholders filtered   | A field's hint text ("Search…", "Type a message") never shows up as if it were typed.                                                | Checked through IAccessible2 for Chrome, Edge, Electron apps and Firefox, which tell typed text from text the page only draws.                            |
+| Safe Enter              | The phone's Enter key adds a line break without sending the message only in textareas.                                               | The Enter key in the key rows still sends a real Enter.                                                                                                   |
+| Blind typing            | Fields the phone cannot read (code editors, terminals, password fields) still take typing: it goes to the PC as text and keys.       | What you typed stays on the phone while the PC's caret is right after it, so you can fix a typo with Backspace; a click elsewhere on the PC clears it.    |
+| Keyboard stays up       | Every control (trackpad, keys, rails, options) leaves the focus in the text field.                                                   | You can click, scroll or press shortcuts without the keyboard closing and the layout jumping. Tapping an empty area or closing the keyboard ends editing. |
+
+### Phone and setup
+
+| Feature         | What it does                                                                                                                            | UX notes                                                                                   |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Options         | Color scheme (auto, dark, light), interface scale (0.25× to 8×), haptics for buttons and scroll, X/Y inversion, layout of the key rows. |                                                                                            |
+| Pairing         | Scan a QR code on the PC, enter the instance name and the six-digit code show on the setup page on the PC.                              | Several phones can be paired and used at once; each one releases only the keys it pressed. |
+| Installable app | HTTPS with a local certificate authority the phone trusts once, so it can be installed as a PWA (Progressive Web App).                  | Opens full screen from the home screen, like a normal app.                                 |
+| Always there    | A tray app on the PC, started with Windows.                                                                                             | The Windows side restarts on its own after a crash, and phones reconnect by themselves.    |
+
+## Known current limitations
+
+- **Windows secure screens are out of reach.** The sign-in and lock screens and UAC prompts run on Windows' secure desktop, which no app in your session can type into or read, on purpose. Use the PC's own keyboard there. _I'm currently looking into a way to make the phone's keyboard work on the secure desktop, but it is not trivial._
+- **Apps run as administrator** ignore input from the remote: Windows does not let a normal app drive an elevated one.
+- **Some fields are typed blind, not mirrored**: VS Code's editor and terminal, other editors that draw their own text, password fields, and a few providers that do not report their selection (WPF's RichTextBox). Typing still works; the phone just cannot show the PC's text.
+- **Firefox search boxes** report themselves as read-only: they are typed blind, with the standard keyboard.
+- **Field types** come from an `<input>`'s type or a classic edit box's digits-only style. A web field that only asks for a keyboard through `inputmode` gets the standard one. Terminals are recognised in VS Code and the Windows console; Windows Terminal, Git Bash (mintty), PuTTY and ConEmu are recognised by name.
+- **Very large fields** (over 262,144 characters) are not mirrored.
+- **Local network only**: the phone and the PC must be on the same private network; there is no relay over the internet.
+- **Windows only** on the PC side. The phone side is developed and tested mostly with Chrome on Android and Gboard.
+- Still to verify on real devices: other keyboards and IMEs, long momentum gestures, mDNS and firewall setups, installing the app, and more Windows editors (Word, other browsers' fields).
+
+<br>
+
+---
+
+<br>
+
+## Getting started
 
 1. Install Node.js 20 or newer on Windows.
-2. Double-click [Start Remote Smart Trackpad.cmd](Start%20Remote%20Smart%20Trackpad.cmd). First use installs dependencies, builds the web assets and compiles the native tray host using Windows' .NET Framework compiler. The launcher exits; the server continues in the notification area.
-3. Right-click the tray icon → **Connect a device**. Scan a private-network QR code, enter your name and the six-digit pairing code. Codes expire after ten minutes; refresh them on the PC setup page.
+2. Double-click [Start Remote Smart Trackpad.cmd](./Start%20Remote%20Smart%20Trackpad.cmd). The first run installs the dependencies, builds the web app and compiles the tray app with Windows' .NET Framework compiler. The launcher exits; the server keeps running in the notification area.
+3. Right-click the tray icon → **Connect a device**. On the phone, scan the QR code, enter your name and the six-digit pairing code (codes expire after ten minutes; refresh them on the PC's setup page).
+4. To install the remote as an app, open the trust page from the setup page's QR code once, then use **Install as app** in the options menu.
 
-Running the launcher again restarts the server (the running tray stops gracefully first). The tray offers **Connect a device**, **Show console**, **Start with Windows**, **Restart server** and **Stop server**. Restart server starts a fresh server with the code as it is now (host and bridge changes apply) while the tray stays; `npm restart` does the same from a terminal and waits until the new server answers. Changes to the tray itself (`host/tray/TrayHost.cs`) need the launcher again. Show console opens a native Windows console with live logs from `.data/server.log`. Closing it leaves the server running; stopping the server closes the console and exits the tray. Automatic start is enabled on the first tray launch and respects later changes. Windows launches `.data/RemoteSmartTrackpad.exe` directly through the current user's Run entry, without a CMD or PowerShell window at sign-in. The manual CMD may show installation/build output. The launcher migrates only the previous scheduled task belonging to this checkout.
+The tray offers **Connect a device**, **Show console**, **Start with Windows**, **Restart server** and **Stop server**. Running the launcher again restarts the server.
 
-Keep the project and Node.js at their registered locations. After moving either, rerun the launcher and toggle startup off/on. [Manage Auto Start.cmd](Manage%20Auto%20Start.cmd) also accepts `enable`, `disable` and `status`. A previous foreground server must be stopped before switching to the tray. For development: `npm ci`, then `npm start` (foreground console; no startup registration).
+Start with Windows is enabled on the first launch and respects later changes: Windows launches `.data/RemoteSmartTrackpad.exe` directly at sign-in, with no console window. Keep the project and Node.js where they
+are; after moving either, run the launcher again and toggle startup off and on. [Manage Auto Start.cmd](./Manage%20Auto%20Start.cmd) also takes `enable`, `disable` and `status`. For development: `npm ci`, then `npm start` (a foreground console, no startup entry).
 
-## Device access
+## Paired devices
 
-[Manage Tokens.cmd](Manage%20Tokens.cmd) opens the terminal manager: arrows select, Delete requests revocation, Y confirms, R refreshes, Q exits. Run it while the server is running. Revocation closes the device's active socket and releases input; the phone must pair again. Several paired phones can control the PC at once; each releases only the keys and buttons it pressed.
-
-`.data/tokens.json` stores hashes, user names and first-connection timestamps. Old hash-only tokens migrate without revoking access; their phones are prompted for a name. Their historical first connection cannot be reconstructed and remains unknown until identification. Raw tokens stay in the phone's local storage. There is no phone-side access management.
-
-## Controls and text
-
-The pointer area moves the PC cursor and its dot pattern. A tap clicks (a single tap's click waits 250 ms for a possible second tap), two quick taps double-click, and tap-then-touch-and-move drags with the left button held until the finger lifts. Left/right buttons support holding while moving; the middle button sits between the two native scroll rails. Native browser scrolling supplies momentum; each rail recenters only after scrolling settles. The MODE button in the corner between the rails opens the modes menu, anchored on it: hold clicks (a tap on a mouse button keeps it down until the next one), free scroll with the trackpad (one finger scrolls instead of moving the pointer) and sliding for the mouse and the rails. The options menu holds acceleration (an S-curve that damps slow strokes and amplifies flicks; 0 turns it off), speeds, X/Y inversion for mouse and scroll, the function, media, edit and modifier rows, sticky modifiers and an interface scale (0.25× to 8×). Defaults are the input attributes in `web/pages/remote/index.html`; values changed on the phone are stored locally and **Reset options to defaults** clears them. Play/pause and mute show the PC's playback and mute state, polled every 3 s only while the media row is visible.
-
-Opening the editor reads the entire focused editable UI Automation text field, including its selection. While open it follows PC focus, text and selection changes. Text editing lasts while the phone's text field has the focus: the text button under the key rows opens it, and a tap on the background (where there is nothing to act on) or the keyboard closing (its own button, the back gesture) ends it. Every control (keys, trackpad, rails, mouse buttons, options) keeps the focus in the field, so the keyboard stays up and the layout does not jump. Non-text, password, read-only and unsupported fields clear the mirror without closing it; typing is then sent to the PC as raw keystrokes. An invisible anchor character keeps Backspace working in an empty field, and Escape/Tab are always forwarded. Placeholders never reach the phone: UI Automation reads them like text (CSS `::before`/`::after`, `contenteditable=false` overlays, native placeholders as an embedded object or the field's name), so web fields (Chromium, Electron apps, Firefox) are checked through IAccessible2, which tells editable text from text the page only draws (`host/windows/field-content.ps1`). A field showing only non-editable text is empty; `<input>`/`<textarea>` content is their value. A native field too small to show text is the hidden input of an editor drawn elsewhere (VS Code's editor and terminal) and counts as unreadable. The phone's Enter never presses plain Enter on the PC, which would send chat messages: Chromium rich-text fields receive Shift+Enter, the only break that keeps their caret on the new line; other fields receive a pasted line break (the clipboard is restored and excluded from clipboard history). Edits at the caret use Backspace and typing without repositioning the PC caret. Every enabled key row stays visible during editing, in a compact size. The trackpad keeps a usable minimum height; below it the text field shrinks first, down to one line (it grows with its text through CSS `field-sizing`), then the key rows scroll. The viewport follows the visible area above the native phone keyboard.
-
-The phone sends changed spans, serializes edits and waits for IME composition to commit. Windows verifies field identity and revision before applying changes. A changed PC field wins over pending mobile state; rejected or uncertain edits are reconciled from a fresh PC snapshot, never replayed into another field. Reconnection rereads the PC. This deliberately replaces the previous persistent-draft workflow. Text is not stored in browser persistence.
-
-The mirror polls every 200 ms only while the editor is open and the page is visible, and only sends full snapshots when something changes. With no editor open the host reads no text; idle phones only exchange WebSocket heartbeats. A crashed Windows bridge restarts automatically and phones reconnect on their own. A field is limited to 262,144 UTF-16 code units; larger fields are reported as unavailable. Inserts are split at grapheme boundaries into at most 16,384 code units. UI Automation providers differ in their character units, so the bridge checks selected text before replacement and refuses ranges it cannot verify. Windows may reject input into elevated apps.
+[Manage Tokens.cmd](./Manage%20Tokens.cmd) lists paired phones while the server runs. Revoking closes that phone's connection and releases its input; it must pair again. `.data/tokens.json` stores token hashes, names and first-connection dates; the raw token stays on the phone.
 
 ## Network and HTTPS
 
-The server binds loopback and private IPv4 adapters only. Allow the private Windows firewall network when prompted. Port 8765 is configurable with `REMOTE_SMART_TRACKPAD_PORT`; `REMOTE_SMART_TRACKPAD_DATA_DIRECTORY` isolates test data. mDNS provides a `.local` address when supported; the setup page also supplies IP QR codes. New private adapters are picked up automatically.
+The server listens on loopback and private IPv4 networks only (allow the private network in the Windows firewall prompt). The default port is 8765. A `.local` name is announced over mDNS where supported.
 
-The private network uses HTTPS, which the PWA needs. On first start the host creates a local certificate authority in `.data/tls` and a server certificate for the PC's private IPs and `.local` name, reissued when addresses change. Each phone trusts the authority once through `http://<pc>:8765/trust` (QR code on the setup page), the only plain-HTTP page; other HTTP requests redirect to HTTPS on the same port. Then the browser offers to install the remote; the options menu shows **Install as app** or a link to the trust page. Moving from HTTP to HTTPS changes the origin, so phones pair again. Your own `.data/tls/cert.pem` and `key.pem` (without `generated.json`) are used as is. Setup stays on HTTP loopback. Never copy `ca-key.pem` to the phone.
+The app needs HTTPS to install. On first start the host creates automatically a local certificate authority in `.data/tls` and a certificate for the PC's private addresses and `.local` name, reissued when the addresses change. Each phone trusts the authority once through `http://<pc>:8765/trust`, the only plain-HTTP page; everything else redirects to HTTPS. Moving from HTTP to HTTPS changes the address, so phones will need to pair again.
 
-## Structure and validation
+<br>
+
+---
+
+<br>
+
+## Development
 
 | Module              | Responsibility                                                                       |
 | ------------------- | ------------------------------------------------------------------------------------ |
@@ -54,16 +143,26 @@ The private network uses HTTPS, which the PWA needs. On first start the host cre
 | `tests/unit/`       | Unit tests (`npm test`)                                                              |
 | `tests/checks/`     | Browser, typing, placeholder, mirror and tray checks against real apps               |
 | `tests/fixtures/`   | Pages and recorded facts the tests and checks use                                    |
+| `docs/`             | Decisions (`adr/`) and the README's screenshots                                      |
 
-`npm run build` bundles with esbuild and tree-shakes named Lucide imports. Inter fonts are local. `web/dist` is generated; runtime needs no CDN. `npm run check` checks JavaScript syntax; `npm test` covers transport/revocation, mirror races, IME and Unicode diffs. With Node.js 22+ and Chrome installed at its standard Windows path, `npm run test:browser` exercises pairing, Figma-sized layouts, row settings and native scroll; its throwaway host data and Chrome profile live in the system temp folder and are removed afterwards; screenshots and `browser-report.json` go to a temp folder printed at the end. `npm run test:placeholders` opens `tests/fixtures/placeholders.html` (placeholders drawn every way editors and sites do, and real text that resembles them) in each installed browser (Chrome, Edge, Firefox) and reads every field through the host's mirror code; placeholders must read as empty and real text as is. It is read-only but brings its window to the foreground for each read, so leave the PC alone for the few minutes it takes; failures print what UI Automation and IAccessible2 reported. Its windows run in throwaway profiles (`tests/checks/test-browsers.mjs`; Firefox without first-run pages, prompts or Windows notifications) that close at the end or on Ctrl+C; `npm run test:cleanup` closes any a crash left open.
+The domain vocabulary (PC field, mirror, blind typing, echo…) is in [CONTEXT.md](CONTEXT.md).
 
-`npm run test:typing` types for real from the phone app (headless Chrome emulating Gboard and a hardware keyboard) into test fields in Chrome, Firefox, WinForms, WPF, Notepad and VS Code (an isolated instance with its own profile), through a test host whose bridge only accepts input while a window titled with the run's marker is in the foreground; every field must end up holding exactly what was typed. It takes about 45 minutes and brings windows to the foreground, so leave the PC alone. `npm run test:typing:quick` plays one field of each kind in the modes that ever found bugs, in Chrome, WinForms and VS Code (about 3 minutes): enough when typing itself did not change; run the full check after changes to the typing session, the mirror or the bridge.
+<br>
 
-`powershell -NoProfile -Mta -ExecutionPolicy Bypass -File tests/checks/windows-mirror-check.ps1` briefly opens two disposable text fields and verifies actual UI Automation reading, writing, selection and stale-focus rejection. It requires an interactive Windows desktop, not an isolated sandbox, and writes its report to the system temp folder (path printed at the end).
+`npm run build` bundles with esbuild (`npm run watch` rebuilds on change); `web/dist` is generated at runtime.
 
-After the normal tray has run once, `powershell -NoProfile -Sta -ExecutionPolicy Bypass -File tests/checks/tray-check.ps1` checks its menu actions against a separate server and data directory. It temporarily toggles and restores the current user's startup entry, tests console launch, reopening, server restart (menu and signal) and shutdown, and writes its data and report to the system temp folder (report path printed at the end).
+| Check                       | What it does                                                                                                                                                                                                                                  |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run test:browser`      | Headless Chrome against a throwaway host: pairing, layouts, options, menus, scrolling, editing. Only reads reach the PC. Screenshots and a report go to a temp folder printed at the end.                                                     |
+| `npm run test:typing:quick` | Types for real from the phone app (emulating Gboard and a hardware keyboard) into one field of each kind in Chrome, WinForms and VS Code. About 3 minutes.                                                                                    |
+| `npm run test:typing`       | The same in every field, in Chrome, Firefox, WinForms, WPF, Notepad and an isolated VS Code. Input only reaches windows titled with the run's marker. Run it after changes to the typing session, the mirror or the bridge. About 45 minutes. |
+| `npm run test:placeholders` | Reads fields with placeholders drawn every way sites do, and real text that looks like them, in Chrome, Edge and Firefox (throwaway profiles; `npm run test:cleanup` closes any a crash left open). A few minutes.                            |
 
-Remaining physical-device checks: Gboard/IME and viewport resizing on Android, native touch momentum over long gestures, LAN/mDNS/firewall behavior, PWA installation, real Windows editors (Notepad, VS Code, Word, browser fields), and an actual Windows sign-in. Browser emulation and the controlled UI Automation fixture do not prove these combinations.
+The typing and placeholder checks bring windows to the foreground: leave the PC alone while they run.
+`tests/checks/windows-mirror-check.ps1` (run with `powershell -NoProfile -Mta -ExecutionPolicy Bypass -File`) checks
+UI Automation reading, writing, selection and stale-focus rejection in two disposable fields;
+`tests/checks/tray-check.ps1` (with `-Sta`, after the tray has run once) checks the tray's menu against a separate
+server. Both write their reports to the system temp folder.
 
 ## References
 
