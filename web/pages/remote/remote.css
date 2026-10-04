@@ -504,9 +504,13 @@ scroll-rail {
 }
 .fill-button.is-pressed > .fill,
 .fill-button.is-held > .fill,
-.fill-button[aria-pressed='true'] > .fill,
-.fill-button[aria-expanded='true'] > .fill {
+.fill-button[aria-pressed='true'] > .fill {
     background: var(--surface);
+}
+/* Its menu open (the options button), a fill button shows it by contrast, as the MODE button does, not by a fill: the
+   fill is the press's. */
+.fill-button[aria-expanded='true'] {
+    color: var(--text);
 }
 @media (hover: hover) and (pointer: fine) {
     .fill-button:active > .fill {
