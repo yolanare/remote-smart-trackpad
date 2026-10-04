@@ -57,10 +57,10 @@ const rows = {
         keys: [
             { key: 'Escape', label: 'ESC', group: 'escape' },
             { key: 'Tab', label: 'TAB', group: 'escape', repeat: true },
+            { key: 'Win', label: 'Windows', icon: 'windows' },
             { key: 'Shift', label: 'Shift', icon: 'shift', group: 'modifiers' },
             { key: 'Control', label: 'CTRL', group: 'modifiers' },
             { key: 'Alt', label: 'ALT', group: 'modifiers' },
-            { key: 'Win', label: 'Windows', icon: 'windows' },
             { key: 'Enter', label: 'Enter', icon: 'enter' },
         ],
     },
