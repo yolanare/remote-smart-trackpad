@@ -126,6 +126,18 @@ test('field verdict: readable, placeholder only, or typed blind', { skip: !windo
     assert.deepEqual(await verdict({ ...firefox, caret: 0 }), { unreadable: false, empty: true, singleLine: false });
 });
 
+test('field kind: the keyboard a field calls for', { skip: !windows }, async () => {
+    const kind = (facts) => ask('Get-FieldKind', facts);
+    for (const type of ['email', 'tel', 'url', 'search', 'number'])
+        assert.equal(await kind({ content: web({ native: true, inputType: type }) }), type);
+    // Types the phone has no keyboard for, no type at all, no IAccessible2: plain text.
+    assert.equal(await kind({ content: web({ native: true, inputType: 'date' }) }), 'text');
+    assert.equal(await kind({ content: web({ native: true }) }), 'text');
+    assert.equal(await kind({ content: null }), 'text');
+    // A classic edit box that takes digits only.
+    assert.equal(await kind({ content: null, win32Digits: true }), 'digits');
+});
+
 test('text repair: what a field reports but nobody typed is taken away', { skip: !windows }, async () => {
     const repair = (facts) => ask('Repair-MirrorText', { native: false, className: '', phantomBreak: false, ...facts });
     assert.deepEqual(await repair({ framework: 'Chrome', text: '\n', start: 1, end: 1 }), {

@@ -35,6 +35,7 @@ export function createMirror(send, render, { now = () => performance.now(), typi
             reading: false,
             error: '',
             text: snapshot.text || '',
+            kind: snapshot.kind || 'text',
             selectionStart: snapshot.selectionStart || 0,
             selectionEnd: snapshot.selectionEnd || 0,
             ...pending,

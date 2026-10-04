@@ -602,6 +602,24 @@ try {
         return { moves, selection: [field.selectionStart, field.selectionEnd], copied: copy.clipboardData.getData('text/plain') };
     })()`);
     assert.deepEqual(selectAll, { moves: [], selection: [0, 12], copied: 'hello world' });
+    // The phone's keyboard follows what the PC's field takes: its layout, what it fills in, capitals and spelling.
+    const keyboards = await evaluate(`(() => {
+        const editor = document.querySelector('text-editor'), field = editor.querySelector('textarea');
+        const read = () => [field.inputMode, field.getAttribute('autocomplete'), field.getAttribute('autocapitalize'), field.spellcheck];
+        const shown = {};
+        for (const kind of ['email', 'digits', 'number', 'tel', 'text']) {
+            editor.render({ readable: true, singleLine: true, kind, text: '', selectionStart: 0, selectionEnd: 0 });
+            shown[kind] = read();
+        }
+        return shown;
+    })()`);
+    assert.deepEqual(keyboards, {
+        email: ['email', 'email', 'none', false],
+        digits: ['numeric', null, 'none', false],
+        number: ['decimal', null, 'none', false],
+        tel: ['tel', 'tel', 'none', false],
+        text: ['text', null, 'sentences', true],
+    });
     await evaluate(
         "document.querySelector('text-editor').render({ readable: true, text: '', selectionStart: 0, selectionEnd: 0 })"
     );

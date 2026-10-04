@@ -68,6 +68,13 @@
         <section data-case="search" data-caret data-typed="hello world" data-expected="hello world">
             <label>search</label><input data-field type="search" />
         </section>
+        <!-- data-kind: the keyboard the phone must be told this field calls for. -->
+        <section data-case="email" data-kind="email" data-typed="hello@example.com" data-expected="hello@example.com">
+            <label>email</label><input data-field type="email" />
+        </section>
+        <section data-case="number" data-kind="number" data-typed="12345" data-expected="12345">
+            <label>number</label><input data-field type="number" />
+        </section>
         <section data-case="upper" data-typed="hello" data-expected="HELLO" data-mask="upper">
             <label>mask: uppercase</label><input data-field />
         </section>
@@ -329,6 +336,7 @@
                         caret: 'caret' in section.dataset,
                         lines: 'lines' in section.dataset,
                         pcCaret: 'pcCaret' in section.dataset,
+                        kind: section.dataset.kind,
                         // No text field: Chrome sends it no key for an emoji (web terminals take text from a hidden
                         // field for that, the proxy case).
                         text: !('keysOnly' in section.dataset),

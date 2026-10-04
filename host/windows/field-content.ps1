@@ -24,6 +24,9 @@ public sealed class FieldContent {
     public bool Dom;
     // The field holds one line only (IAccessible2's single-line state; text-mirror.ps1 trusts it for <input> only).
     public bool SingleLine;
+    // An <input>'s type (email, tel, number, url, search...), which Chrome and Firefox name in the text-input-type
+    // attribute; null elsewhere.
+    public string InputType;
 
     [ComImport, Guid("6d5140c1-7436-11ce-8034-00aa006009fa"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface IServiceProvider { [PreserveSig] int QueryService(ref Guid service, ref Guid riid, out IntPtr result); }
@@ -67,6 +70,8 @@ public sealed class FieldContent {
         content.SingleLine = (Accessible2State(focused) & SingleLineState) != 0;
         content.Native = attributes.Contains("tag:input;") || attributes.Contains("tag:textarea;");
         content.Dom = attributes.Contains("tag:");
+        var inputType = System.Text.RegularExpressions.Regex.Match(attributes, "(?:^|;)text-input-type:([^;]*)");
+        if (inputType.Success) content.InputType = inputType.Groups[1].Value;
         if (!content.Dom) return content;
         if (content.Native) {
             try { content.Value = focused.get_accValue(0) ?? ""; } catch {}
@@ -115,6 +120,12 @@ public sealed class FieldContent {
         if (!edit) return false;
         const int Style = -16, MultiLine = 0x4;
         return (GetWindowLong(window, Style) & MultiLine) == 0;
+    }
+    /// <summary>A classic Windows edit box (Edit) that takes digits only (its ES_NUMBER style).</summary>
+    public static bool Win32Digits(IntPtr window, string className) {
+        if (window == IntPtr.Zero || !string.Equals(className, "Edit", StringComparison.OrdinalIgnoreCase)) return false;
+        const int Style = -16, Number = 0x2000;
+        return (GetWindowLong(window, Style) & Number) != 0;
     }
     /// <summary>True when the text holds nothing but zero-width anchors and embedded-object markers.</summary>
     public static bool HasOnlyAnchors(string text) {

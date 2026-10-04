@@ -278,3 +278,14 @@ test('a click out of the text typed blind clears it, as does one in a field that
     terminal.session.clicked();
     assert.equal(terminal.view.text, '');
 });
+
+test("the view says what the PC's field takes, plain text when a read does not", async () => {
+    const h = harness();
+    h.pc = { ...readable('', 'mail'), kind: 'email' };
+    await h.open();
+    assert.equal(h.view.kind, 'email');
+    // Another field, read without a kind: not the email field's keyboard any more.
+    h.pc = unreadable('zone-b');
+    await h.poll();
+    assert.equal(h.view.kind, 'text');
+});

@@ -31,6 +31,17 @@ const shortcutInputs = {
 };
 
 const sizesItself = CSS.supports('field-sizing', 'content');
+// The phone's keyboard for each kind of PC field (typing-session.js): its layout, what it may fill in (null: nothing in
+// particular), and whether it capitalizes and checks spelling.
+const keyboards = {
+    text: { inputMode: 'text', autocomplete: null, autocapitalize: 'sentences', spellcheck: true },
+    email: { inputMode: 'email', autocomplete: 'email', autocapitalize: 'none', spellcheck: false },
+    tel: { inputMode: 'tel', autocomplete: 'tel', autocapitalize: 'none', spellcheck: false },
+    url: { inputMode: 'url', autocomplete: 'url', autocapitalize: 'none', spellcheck: false },
+    search: { inputMode: 'search', autocomplete: null, autocapitalize: 'sentences', spellcheck: true },
+    number: { inputMode: 'decimal', autocomplete: null, autocapitalize: 'none', spellcheck: false },
+    digits: { inputMode: 'numeric', autocomplete: null, autocapitalize: 'none', spellcheck: false },
+};
 
 class TextEditor extends HTMLElement {
     /** The session's latest view. */
@@ -226,8 +237,23 @@ class TextEditor extends HTMLElement {
      */
     render(view) {
         this.view = view;
-        // The keyboard's Enter key shows what it does: an action where it presses Enter, a new line elsewhere.
-        this.firstElementChild.enterKeyHint = this.submits() ? 'go' : 'enter';
+        const field = this.firstElementChild,
+            keyboard = keyboards[view.kind] ?? keyboards.text;
+        // The keyboard's Enter key shows what it does: an action where it presses Enter (a search), a new line
+        // elsewhere.
+        const enter =
+            !this.submits() ? 'enter'
+            : view.kind === 'search' ? 'search'
+            : 'go';
+        if (field.enterKeyHint !== enter) field.enterKeyHint = enter;
+        // The keyboard the PC's field calls for; written only when it changes (the keyboard restarts each time).
+        if (field.inputMode !== keyboard.inputMode) field.inputMode = keyboard.inputMode;
+        if (field.getAttribute('autocomplete') !== keyboard.autocomplete)
+            if (keyboard.autocomplete) field.setAttribute('autocomplete', keyboard.autocomplete);
+            else field.removeAttribute('autocomplete');
+        if (field.getAttribute('autocapitalize') !== keyboard.autocapitalize)
+            field.setAttribute('autocapitalize', keyboard.autocapitalize);
+        if (field.spellcheck !== keyboard.spellcheck) field.spellcheck = keyboard.spellcheck;
         if (!this.composing && !view.keep) this.write(view.text, view.selectionStart, view.selectionEnd);
         this.resize();
         this.updateHint();

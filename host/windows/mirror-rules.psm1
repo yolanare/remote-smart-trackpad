@@ -116,4 +116,16 @@ function Get-EditOutcome($facts) {
     return 'pending'
 }
 
-Export-ModuleMember -Function Normalize-LineEndings, Normalize-MirrorText, Get-ElementIndex, Get-FieldVerdict, Repair-MirrorText, Test-InlineCompletion, Get-EditOutcome
+<#
+What a field takes, for the phone's keyboard to match it: email, tel, url, search, number (a number, signs and
+decimals included), digits (digits only) or text. Facts: content.inputType (an <input>'s type, from IAccessible2) and
+win32Digits (a classic edit box with the digits-only style).
+#>
+function Get-FieldKind($facts) {
+    if ($facts.win32Digits -eq $true) { return 'digits' }
+    $type = [string]$facts.content.inputType
+    if ($type -in @('email', 'tel', 'url', 'search', 'number')) { return $type }
+    return 'text'
+}
+
+Export-ModuleMember -Function Normalize-LineEndings, Normalize-MirrorText, Get-ElementIndex, Get-FieldVerdict, Get-FieldKind, Repair-MirrorText, Test-InlineCompletion, Get-EditOutcome

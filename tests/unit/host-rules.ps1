@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 $hostDirectory = Join-Path $PSScriptRoot '..\..\host\windows'
 Import-Module (Join-Path $hostDirectory 'mirror-rules.psm1') -DisableNameChecking
 Import-Module (Join-Path $hostDirectory 'input.psm1') -DisableNameChecking
-$rules = @('Get-FieldVerdict', 'Repair-MirrorText', 'Get-EditOutcome', 'Select-InsertStrategy')
+$rules = @('Get-FieldVerdict', 'Get-FieldKind', 'Repair-MirrorText', 'Get-EditOutcome', 'Select-InsertStrategy')
 while ($null -ne ($line = [Console]::ReadLine())) {
     try {
         $request = ConvertFrom-Json -InputObject $line

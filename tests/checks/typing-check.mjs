@@ -439,7 +439,7 @@ async function startPhone(host) {
         },
         state: () =>
             evaluate(
-                `({ text: document.querySelector('#editor-text').value.replaceAll(${JSON.stringify(anchor)}, ''), blind: ${editor}.view.blind, readable: ${editor}.view.readable, log: window.__log, renders: window.__renders, now: performance.now() })`
+                `({ text: document.querySelector('#editor-text').value.replaceAll(${JSON.stringify(anchor)}, ''), blind: ${editor}.view.blind, readable: ${editor}.view.readable, kind: ${editor}.view.kind, log: window.__log, renders: window.__renders, now: performance.now() })`
             ),
         async stop() {
             socket.close();
@@ -638,6 +638,8 @@ async function runCase({
             scenario?.whole && phoneState.blind ? phoneState.text === entry.expected
             : scenario ? entry.expected.includes(phoneState.text)
             : (phoneState.blind ? entry.typed : got).endsWith(phoneState.text),
+        // The phone was told what the field takes (its keyboard), where the fixture names it.
+        kind: !entry.kind || phoneState.kind === entry.kind,
         pass: (entry.check ? entry.check(got) : got === entry.expected) && !problem,
         problem,
         got,
@@ -654,7 +656,7 @@ async function runCase({
         errors: [...new Set(phoneState.log.filter((entry) => entry.error).map((entry) => entry.error))],
         ms: Math.round(performance.now() - started),
     };
-    result.pass &&= result.echo;
+    result.pass &&= result.echo && result.kind;
     results.push(result);
     const mark = result.pass ? 'ok  ' : 'FAIL';
     console.log(

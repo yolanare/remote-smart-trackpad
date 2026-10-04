@@ -42,9 +42,11 @@ function Get-FieldFacts($element, [string]$text, [int]$caret) {
         framework=$current.FrameworkId; className=$current.ClassName; name=$current.Name; text=$text; caret=$caret
         boxWidth=$box.Width; boxHeight=$box.Height
         win32SingleLine=[FieldContent]::Win32SingleLine([IntPtr]$current.NativeWindowHandle, $current.ClassName)
+        win32Digits=[FieldContent]::Win32Digits([IntPtr]$current.NativeWindowHandle, $current.ClassName)
         content=if ($null -eq $content) { $null } else {
             @{ dom=$content.Dom; native=$content.Native; valueLength=$content.Value.Length; editableText=$content.EditableText
-               editableObject=$content.EditableObject; leafless=$content.Leafless; singleLine=$content.SingleLine }
+               editableObject=$content.EditableObject; leafless=$content.Leafless; singleLine=$content.SingleLine
+               inputType=$content.InputType }
         }
     }
 }
@@ -76,6 +78,24 @@ function Read-Mirror {
     }
 }
 
+# What a field without readable text takes, for the phone's keyboard: asked of IAccessible2 once per element, not at
+# every read; again, up to three times, while it has not answered (right after a focus change it can lag behind UI
+# Automation for a moment).
+function Get-ElementKind($element, [string]$field) {
+    if ($null -eq $element -or $element.Current.IsPassword) { return 'text' }
+    $known = $script:elementKind
+    if ($null -ne $known -and $known.field -ceq $field -and ($known.settled -or $known.tries -ge 3)) { return $known.kind }
+    $current = $element.Current
+    $content = [FieldContent]::Focused($current.Name)
+    $kind = Get-FieldKind @{
+        win32Digits=[FieldContent]::Win32Digits([IntPtr]$current.NativeWindowHandle, $current.ClassName)
+        content=if ($null -eq $content) { $null } else { @{ inputType=$content.InputType } }
+    }
+    $tries = if ($null -ne $known -and $known.field -ceq $field) { $known.tries + 1 } else { 1 }
+    $script:elementKind = @{ field=$field; kind=$kind; tries=$tries; settled=($null -ne $content -and $content.Dom) }
+    return $kind
+}
+
 function Read-MirrorOnce {
     $element = [System.Windows.Automation.AutomationElement]::FocusedElement
     # Which UI element has the focus, readable or not: the phone keeps what it typed blind while this stays the same.
@@ -85,11 +105,12 @@ function Read-MirrorOnce {
     if ($null -eq $element -or $element.Current.IsPassword -or
         -not $element.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern, [ref]$pattern)) {
         $script:mirror = $null
-        return @{ field=$field; readable=$false; text=''; selectionStart=0; selectionEnd=0 }
+        return @{ field=$field; readable=$false; text=''; selectionStart=0; selectionEnd=0; kind=(Get-ElementKind $element $field) }
     }
+    # A value reported read-only (Firefox reports its search boxes so, though they take typing): typed blind.
     if ($element.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$valuePattern) -and $valuePattern.Current.IsReadOnly) {
         $script:mirror = $null
-        return @{ field=$field; readable=$false; text=''; selectionStart=0; selectionEnd=0 }
+        return @{ field=$field; readable=$false; text=''; selectionStart=0; selectionEnd=0; kind=(Get-ElementKind $element $field) }
     }
     # Some providers refuse to report it at times (WPF's RichTextBox): the field cannot be followed, type blind.
     $ranges = try { $pattern.GetSelection() } catch { $null }
@@ -120,7 +141,7 @@ function Read-MirrorOnce {
     $resolved = Resolve-FieldText $element $text $start
     if ($resolved.unreadable) {
         $script:mirror = $null
-        $unread = @{ field=$field; readable=$false; text=''; selectionStart=0; selectionEnd=0; reason='Text not readable here' }
+        $unread = @{ field=$field; readable=$false; text=''; selectionStart=0; selectionEnd=0; reason='Text not readable here'; kind=(Get-FieldKind $script:resolvedField.facts) }
         # What it reports anyway, around its caret (a code editor's hidden input holds the line being edited): the
         # phone finds where a click put the caret in the text it typed blind. Not its accessible name, which is no
         # text of the field (VS Code's EditContext editor reads only that).
@@ -151,7 +172,7 @@ function Read-MirrorOnce {
     }
     # singleLine: the field cannot hold a line break (an <input>, a one-line edit box): the phone's Enter key sends
     # Enter there instead of a new line.
-    return @{ field=$field; readable=$true; session=$script:mirror.id; revision=$script:mirror.revision; text=$text; selectionStart=$start; selectionEnd=$end; singleLine=($resolved.singleLine -eq $true) }
+    return @{ field=$field; readable=$true; session=$script:mirror.id; revision=$script:mirror.revision; text=$text; selectionStart=$start; selectionEnd=$end; singleLine=($resolved.singleLine -eq $true); kind=(Get-FieldKind $script:resolvedField.facts) }
 }
 
 # A read the phone already has (same session and revision) is answered as unchanged.

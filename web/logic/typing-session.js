@@ -28,9 +28,10 @@ export function caretInEcho(echo, around, caret) {
  * Dependencies: send(action, data) → Promise (one PC command, in order); show(view), called whenever what the phone
  * shows changes; modifiers() → the modifier keys held on the phone; notice(error) for a command that failed; now().
  *
- * The view: { open, reading, readable, blind, singleLine, error, reason, field, text, selectionStart, selectionEnd,
- * keep }. keep: the phone's field already shows this text (an echo kept while blind): leave it as it is, selection
- * included (the keyboard may be selecting in it).
+ * The view: { open, reading, readable, blind, singleLine, kind, error, reason, field, text, selectionStart,
+ * selectionEnd, keep }. kind: what the PC's field takes (email, tel, url, search, number, digits or text), for the
+ * phone's keyboard. keep: the phone's field already shows this text (an echo kept while blind): leave it as it is,
+ * selection included (the keyboard may be selecting in it).
  *
  * Input, from the phone's field (its text never holds anchors): edit(text, selectionStart, selectionEnd) when its text
  * or selection changed; caret(position, selected) when the keyboard moved its cursor while blind (the position counts
@@ -74,6 +75,7 @@ export function createTypingSession({
         readable: state.readable === true,
         blind,
         singleLine: state.readable === true && state.singleLine === true,
+        kind: state.kind || 'text',
         error: state.error,
         reason: state.reason,
         field: state.field,
