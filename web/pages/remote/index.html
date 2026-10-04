@@ -70,15 +70,6 @@
             <!-- The modes menu, opened by the MODE button in the pointer pad's corner (remote.js places it there). -->
             <button id="mode-dismiss" aria-label="Close modes" tabindex="-1" hidden></button>
             <div id="mode-menu" class="options mode-menu" role="group" aria-label="Modes" hidden>
-                <label
-                    ><input type="checkbox" id="hold-clicks" /><span class="checkbox" data-icon="check"></span
-                    ><span class="option-icon" data-icon="hold"></span>Hold clicks</label
-                >
-                <label
-                    ><input type="checkbox" name="freeScroll" /><span class="checkbox" data-icon="check"></span
-                    ><span class="option-icon" data-icon="free-scroll"></span>Free scroll with trackpad</label
-                >
-                <hr />
                 <!-- The hand holding the phone: the vertical rail and the MODE button go on its side. -->
                 <div class="choice-setting">
                     <span id="hand-label" class="visually-hidden">Left/Right hand</span>
@@ -87,6 +78,14 @@
                         <label><input type="radio" name="hand" value="right" checked />Right</label>
                     </div>
                 </div>
+                <label
+                    ><input type="checkbox" id="hold-clicks" /><span class="checkbox" data-icon="check"></span
+                    ><span class="option-icon" data-icon="hold"></span>Hold clicks</label
+                >
+                <label
+                    ><input type="checkbox" name="freeScroll" /><span class="checkbox" data-icon="check"></span
+                    ><span class="option-icon" data-icon="free-scroll"></span>Free scroll with trackpad</label
+                >
             </div>
             <!-- Option defaults live in these attributes; values stored on the phone override them. -->
             <div id="options" class="options" role="region" aria-label="Options" hidden>
