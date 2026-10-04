@@ -41,6 +41,7 @@ const keyboards = {
     search: { inputMode: 'search', autocomplete: null, autocapitalize: 'sentences', spellcheck: true },
     number: { inputMode: 'decimal', autocomplete: null, autocapitalize: 'none', spellcheck: false },
     digits: { inputMode: 'numeric', autocomplete: null, autocapitalize: 'none', spellcheck: false },
+    terminal: { inputMode: 'text', autocomplete: null, autocapitalize: 'none', spellcheck: false },
 };
 
 class TextEditor extends HTMLElement {

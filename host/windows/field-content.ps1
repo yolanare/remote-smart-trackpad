@@ -127,6 +127,19 @@ public sealed class FieldContent {
         const int Style = -16, Number = 0x2000;
         return (GetWindowLong(window, Style) & Number) != 0;
     }
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr window, System.Text.StringBuilder name, int capacity);
+    /// <summary>
+    /// The class of the window holding the keyboard focus, or of the foreground window when no window of its thread
+    /// does (a console's: ConsoleWindowClass); null without a foreground window.
+    /// </summary>
+    public static string FocusedWindowClass() {
+        IntPtr window = GetForegroundWindow();
+        if (window == IntPtr.Zero) return null;
+        var info = new GuiThreadInfo { Size = Marshal.SizeOf(typeof(GuiThreadInfo)) };
+        if (GetGUIThreadInfo(GetWindowThreadProcessId(window, IntPtr.Zero), ref info) && info.Focus != IntPtr.Zero) window = info.Focus;
+        var name = new System.Text.StringBuilder(256);
+        return GetClassName(window, name, name.Capacity) > 0 ? name.ToString() : null;
+    }
     /// <summary>True when the text holds nothing but zero-width anchors and embedded-object markers.</summary>
     public static bool HasOnlyAnchors(string text) {
         foreach (char character in text ?? "") {

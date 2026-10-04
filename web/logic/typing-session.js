@@ -29,8 +29,8 @@ export function caretInEcho(echo, around, caret) {
  * shows changes; modifiers() → the modifier keys held on the phone; notice(error) for a command that failed; now().
  *
  * The view: { open, reading, readable, blind, singleLine, kind, error, reason, field, text, selectionStart,
- * selectionEnd, keep }. kind: what the PC's field takes (email, tel, url, search, number, digits or text), for the
- * phone's keyboard. keep: the phone's field already shows this text (an echo kept while blind): leave it as it is,
+ * selectionEnd, keep }. kind: what the PC's field takes (email, tel, url, search, number, digits, terminal or text),
+ * for the phone's keyboard. keep: the phone's field already shows this text (an echo kept while blind): leave it as it is,
  * selection included (the keyboard may be selecting in it).
  *
  * Input, from the phone's field (its text never holds anchors): edit(text, selectionStart, selectionEnd) when its text

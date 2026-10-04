@@ -43,6 +43,7 @@ function Get-FieldFacts($element, [string]$text, [int]$caret) {
         boxWidth=$box.Width; boxHeight=$box.Height
         win32SingleLine=[FieldContent]::Win32SingleLine([IntPtr]$current.NativeWindowHandle, $current.ClassName)
         win32Digits=[FieldContent]::Win32Digits([IntPtr]$current.NativeWindowHandle, $current.ClassName)
+        windowClass=[FieldContent]::FocusedWindowClass()
         content=if ($null -eq $content) { $null } else {
             @{ dom=$content.Dom; native=$content.Native; valueLength=$content.Value.Length; editableText=$content.EditableText
                editableObject=$content.EditableObject; leafless=$content.Leafless; singleLine=$content.SingleLine
@@ -88,6 +89,7 @@ function Get-ElementKind($element, [string]$field) {
     $current = $element.Current
     $content = [FieldContent]::Focused($current.Name)
     $kind = Get-FieldKind @{
+        className=$current.ClassName; windowClass=[FieldContent]::FocusedWindowClass()
         win32Digits=[FieldContent]::Win32Digits([IntPtr]$current.NativeWindowHandle, $current.ClassName)
         content=if ($null -eq $content) { $null } else { @{ inputType=$content.InputType } }
     }

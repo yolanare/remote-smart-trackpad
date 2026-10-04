@@ -96,6 +96,18 @@ test('field verdict: readable, placeholder only, or typed blind', { skip: !windo
     };
     for (const text of [editContext.name, 'ello world', ''])
         assert.deepEqual(await verdict({ ...editContext, text }), { unreadable: true, empty: true, singleLine: false });
+    // A terminal (the console) reads its whole screen: typed blind.
+    assert.deepEqual(
+        await verdict({
+            framework: '',
+            className: '',
+            windowClass: 'ConsoleWindowClass',
+            name: '',
+            text: 'C:\\>dir',
+            content: null,
+        }),
+        { unreadable: true, empty: true, singleLine: false }
+    );
     // An empty <input> reads its placeholder as an embedded object.
     assert.deepEqual(
         await verdict({
@@ -136,6 +148,10 @@ test('field kind: the keyboard a field calls for', { skip: !windows }, async () 
     assert.equal(await kind({ content: null }), 'text');
     // A classic edit box that takes digits only.
     assert.equal(await kind({ content: null, win32Digits: true }), 'digits');
+    // Terminals: VS Code's (xterm.js), Windows Terminal, the console.
+    assert.equal(await kind({ className: 'xterm-helper-textarea', content: web({ native: true }) }), 'terminal');
+    assert.equal(await kind({ className: 'TermControl', content: null }), 'terminal');
+    assert.equal(await kind({ className: '', windowClass: 'ConsoleWindowClass', content: null }), 'terminal');
 });
 
 test('text repair: what a field reports but nobody typed is taken away', { skip: !windows }, async () => {

@@ -24,13 +24,16 @@ function Get-ElementIndex([int[]]$starts, [int]$position, [int]$textLength) {
 }
 
 <#
-What a focused field's text really is (CONTEXT.md: Readable, Placeholder). Facts: framework, name (accessible name),
-text, caret (selection start in that text), boxWidth, boxHeight, win32SingleLine (a classic edit box without the
-multi-line style), content (what IAccessible2 tells, null without it: dom, native, valueLength, editableText,
+What a focused field's text really is (CONTEXT.md: Readable, Placeholder). Facts: framework, className, windowClass
+(see Get-FieldKind), name (accessible name), text, caret (selection start in that text), boxWidth, boxHeight,
+win32SingleLine (a classic edit box without the multi-line style), content (what IAccessible2 tells, null without it: dom, native, valueLength, editableText,
 editableObject, leafless, singleLine). Answers unreadable (the content lives elsewhere: type blind), empty (only a
 placeholder, or nothing), native (an <input>/<textarea>) and singleLine.
 #>
 function Get-FieldVerdict($facts) {
+    # A terminal's text is its whole screen and history, not the command being typed (the console reads it so): the
+    # phone types blind.
+    if ((Get-FieldKind $facts) -eq 'terminal') { return @{ unreadable=$true; empty=$true } }
     $content = $facts.content
     if ($null -eq $content) {
         # Without IAccessible2, an input that hides its content exposes its accessible name as text instead. A
@@ -118,10 +121,15 @@ function Get-EditOutcome($facts) {
 
 <#
 What a field takes, for the phone's keyboard to match it: email, tel, url, search, number (a number, signs and
-decimals included), digits (digits only) or text. Facts: content.inputType (an <input>'s type, from IAccessible2) and
-win32Digits (a classic edit box with the digits-only style).
+decimals included), digits (digits only), terminal (commands: no capital letter to start with) or text. Facts:
+className, windowClass (the class of the window holding the keyboard focus), content.inputType (an <input>'s type,
+from IAccessible2) and win32Digits (a classic edit box with the digits-only style).
 #>
 function Get-FieldKind($facts) {
+    # xterm.js (VS Code's terminal and most web terminals) takes its keys in a hidden textarea; Windows Terminal draws
+    # its own; the console, Git Bash's mintty, PuTTY and ConEmu are windows of their own.
+    if ($facts.className -cin @('xterm-helper-textarea', 'TermControl') -or
+        $facts.windowClass -cin @('ConsoleWindowClass', 'mintty', 'PuTTY', 'VirtualConsoleClass')) { return 'terminal' }
     if ($facts.win32Digits -eq $true) { return 'digits' }
     $type = [string]$facts.content.inputType
     if ($type -in @('email', 'tel', 'url', 'search', 'number')) { return $type }
