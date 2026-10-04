@@ -25,6 +25,8 @@ function updateCountdown() {
 }
 // One QR code at a time: the stable .local address first, other addresses one tap away.
 function renderAddresses(urls, discoveryUrl) {
+    // Demo discovery URL for screenshots
+    // discoveryUrl = discoveryUrl?.replace(/\/\/[^/:]+\.local/, '//remote-smart-trackpad-your-pc.local');
     addresses = [
         ...(discoveryUrl ? [{ url: discoveryUrl, label: '.local address' }] : []),
         ...urls.map((url) => ({ url, label: new URL(url).hostname })),
