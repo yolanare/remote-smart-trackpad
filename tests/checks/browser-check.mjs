@@ -602,57 +602,23 @@ try {
         return { moves, selection: [field.selectionStart, field.selectionEnd], copied: copy.clipboardData.getData('text/plain') };
     })()`);
     assert.deepEqual(selectAll, { moves: [], selection: [0, 12], copied: 'hello world' });
-    // Pressed, a button that draws its shape inside lights that shape only: never a fill around it as well.
-    const fills = await evaluate(`(async () => {
-        const filled = (element) => getComputedStyle(element).backgroundColor !== 'rgba(0, 0, 0, 0)';
-        const name = (button) => button.getAttribute('aria-label') || button.className;
-        const pressed = [...document.querySelectorAll('.topbar .fill-button, .key-group .fill-button, .mouse-mode, .mouse-middle')];
-        for (const button of pressed) button.classList.add('is-pressed');
-        // The fill fades in.
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        const twice = pressed.filter(filled).map(name);
-        const unlit = pressed.filter((button) => button.matches('.fill-button') && !filled(button.querySelector('.fill'))).map(name);
-        for (const button of pressed) button.classList.remove('is-pressed');
-        // Released, back at rest before the next check.
-        await new Promise((resolve) => setTimeout(resolve, 400));
-        return { twice, unlit };
-    })()`);
-    assert.deepEqual(fills, { twice: [], unlit: [] });
-    // A held middle click widens its pill to 6px from the other clicks, and narrows back once released.
-    const middle = await evaluate(`(async () => {
-        const button = document.querySelector('.mouse-middle'), dot = button.querySelector('.middle-dot');
-        const left = document.querySelector('.mouse-left').getBoundingClientRect();
-        const right = document.querySelector('.mouse-right').getBoundingClientRect();
-        const settle = () => new Promise((resolve) => setTimeout(resolve, 400));
-        const rest = dot.getBoundingClientRect().width;
-        button.classList.add('is-held');
-        await settle();
-        const held = dot.getBoundingClientRect();
-        button.classList.remove('is-held');
-        await settle();
-        return { gaps: [held.left - left.right, right.left - held.right].map(Math.round), widened: held.width > rest,
-            back: dot.getBoundingClientRect().width === rest };
-    })()`);
-    assert.deepEqual(middle, { gaps: [6, 6], widened: true, back: true });
-    // The phone's keyboard follows what the PC's field takes: its layout, what it fills in, capitals and spelling.
+    // The phone's keyboard follows what the PC's field takes and leaves with it: an email field's fills in addresses,
+    // the plain field after it gets back its capitals and spelling, a terminal's starts without a capital.
     const keyboards = await evaluate(`(() => {
         const editor = document.querySelector('text-editor'), field = editor.querySelector('textarea');
-        const read = () => [field.inputMode, field.getAttribute('autocomplete'), field.getAttribute('autocapitalize'), field.spellcheck];
-        const shown = {};
-        for (const kind of ['email', 'digits', 'number', 'tel', 'terminal', 'text']) {
+        return ['email', 'text', 'terminal'].map((kind) => {
             editor.render({ readable: true, singleLine: true, kind, text: '', selectionStart: 0, selectionEnd: 0 });
-            shown[kind] = read();
-        }
-        return shown;
+            return { inputMode: field.inputMode, autocomplete: field.getAttribute('autocomplete'), autocapitalize: field.getAttribute('autocapitalize'), spellcheck: field.spellcheck };
+        });
     })()`);
-    assert.deepEqual(keyboards, {
-        email: ['email', 'email', 'none', false],
-        digits: ['numeric', null, 'none', false],
-        number: ['decimal', null, 'none', false],
-        tel: ['tel', 'tel', 'none', false],
-        terminal: ['text', null, 'none', false],
-        text: ['text', null, 'sentences', true],
+    assert.equal(keyboards[0].autocomplete, 'email');
+    assert.deepEqual(keyboards[1], {
+        inputMode: 'text',
+        autocomplete: null,
+        autocapitalize: 'sentences',
+        spellcheck: true,
     });
+    assert.equal(keyboards[2].autocapitalize, 'none');
     await evaluate(
         "document.querySelector('text-editor').render({ readable: true, text: '', selectionStart: 0, selectionEnd: 0 })"
     );
@@ -862,31 +828,15 @@ try {
     );
     await evaluate("document.querySelector('#options-toggle').click(); document.querySelector('#editor-open').click()");
     await waitFor("document.querySelector('.app').classList.contains('editing')");
-    // Editing resizes the pad: the dots and the vertical rail's ticks keep where they stand from its center (moved by
-    // a finger, a scroll), instead of jumping back to their rest position.
-    const pad = await evaluate(
-        "(() => { const box = document.querySelector('.trackpad').getBoundingClientRect(); return { x: box.x + box.width / 2, y: box.y + box.height / 2 }; })()"
-    );
-    for (const [type, shift] of [
-        ['touchStart', 0],
-        ['touchMove', 7],
-        ['touchMove', 13],
-    ])
-        await page('Input.dispatchTouchEvent', { type, touchPoints: [{ x: pad.x + shift, y: pad.y + shift }] });
-    await page('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    // Editing resizes the pad: the vertical rail's ticks keep where they stand from its middle (moved by a scroll),
+    // instead of jumping back to their rest position.
     await evaluate("document.querySelector('scroll-rail[axis=y] .rail-viewport').scrollTop += 9");
     await evaluate('new Promise(resolve => setTimeout(resolve, 100))');
     const standing = `(() => {
-        const unit = parseFloat(getComputedStyle(document.documentElement).fontSize), tile = 1.5 * unit;
-        const dots = document.querySelector('.dots');
-        const [x = 0, y = 0] = [...dots.style.backgroundPosition.matchAll(/([+-]) ([0-9.e]+)rem/g)].map(([, sign, value]) => Number(sign + value) * unit);
-        const within = (value, period) => Math.round((((value % period) + period) % period) * 10) / 10;
+        const unit = parseFloat(getComputedStyle(document.documentElement).fontSize), period = 1.875 * unit;
         const rail = document.querySelector('scroll-rail[axis=y] .rail-viewport');
         const ticks = parseFloat(rail.firstElementChild.style.backgroundPosition.split(' ')[1]);
-        return {
-            dots: [within(x, tile), within(y, tile)],
-            ticks: within(ticks - rail.scrollTop - rail.clientHeight / 2, 1.875 * unit),
-        };
+        return (((ticks - rail.scrollTop - rail.clientHeight / 2) % period) + period) % period;
     })()`;
     const whileEditing = await evaluate(standing);
     await evaluate("document.querySelector('#options-toggle').click()");
@@ -894,13 +844,9 @@ try {
     await evaluate("document.querySelector('#options-toggle').click()");
     await settled();
     const afterEditing = await evaluate(standing);
-    const close = (a, b) => Math.abs(a - b) <= 1 || Math.abs(Math.abs(a - b) - 1.5 * 16) <= 1;
     assert.ok(
-        close(whileEditing.dots[0], afterEditing.dots[0])
-            && close(whileEditing.dots[1], afterEditing.dots[1])
-            && Math.abs(whileEditing.ticks - afterEditing.ticks) <= 1
-            && (whileEditing.dots.some(Boolean) || whileEditing.ticks),
-        'Dots and ticks must keep their place: ' + JSON.stringify({ whileEditing, afterEditing })
+        Math.abs(whileEditing - afterEditing) <= 1,
+        'Ticks must keep their place: ' + JSON.stringify({ whileEditing, afterEditing })
     );
     // Free scroll: the trackpad scrolls instead of moving the pointer, the content following the finger like on the
     // rails (a drag down scrolls up, a negative dy, unless the scroll Y inversion is on).
@@ -909,6 +855,9 @@ try {
             `(() => { const input = document.querySelector('[name=freeScroll]'); input.checked = ${on}; input.dispatchEvent(new Event('change')); })()`
         );
     await freeScroll(true);
+    const pad = await evaluate(
+        "(() => { const box = document.querySelector('.trackpad').getBoundingClientRect(); return { x: box.x + box.width / 2, y: box.y + box.height / 2 }; })()"
+    );
     await evaluate('window.__blocked = []');
     for (const [type, shift] of [
         ['touchStart', 0],

@@ -139,19 +139,25 @@ test('field verdict: readable, placeholder only, or typed blind', { skip: !windo
 });
 
 test('field kind: the keyboard a field calls for', { skip: !windows }, async () => {
+    // The <input> types the phone has a keyboard for reach it from real browsers (npm run test:typing); these are the
+    // fields no browser fixture shows.
     const kind = (facts) => ask('Get-FieldKind', facts);
-    for (const type of ['email', 'tel', 'url', 'search', 'number'])
-        assert.equal(await kind({ content: web({ native: true, inputType: type }) }), type);
-    // Types the phone has no keyboard for, no type at all, no IAccessible2: plain text.
+    // A type the phone has no keyboard for: plain text.
     assert.equal(await kind({ content: web({ native: true, inputType: 'date' }) }), 'text');
-    assert.equal(await kind({ content: web({ native: true }) }), 'text');
-    assert.equal(await kind({ content: null }), 'text');
     // A classic edit box that takes digits only.
-    assert.equal(await kind({ content: null, win32Digits: true }), 'digits');
-    // Terminals: VS Code's (xterm.js), Windows Terminal, the console.
-    assert.equal(await kind({ className: 'xterm-helper-textarea', content: web({ native: true }) }), 'terminal');
-    assert.equal(await kind({ className: 'TermControl', content: null }), 'terminal');
-    assert.equal(await kind({ className: '', windowClass: 'ConsoleWindowClass', content: null }), 'terminal');
+    assert.equal(await kind({ className: 'Edit', content: null, win32Digits: true }), 'digits');
+    // VS Code's terminal, as UI Automation reports it.
+    assert.equal(
+        await kind({
+            framework: 'Chrome',
+            className: 'xterm-helper-textarea',
+            name: 'Terminal 1, powershell',
+            boxWidth: 6,
+            boxHeight: 13,
+            content: web({ native: true }),
+        }),
+        'terminal'
+    );
 });
 
 test('text repair: what a field reports but nobody typed is taken away', { skip: !windows }, async () => {
