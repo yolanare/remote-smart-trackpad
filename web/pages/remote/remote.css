@@ -895,18 +895,19 @@ textarea {
     font-size: 0.75rem;
     touch-action: pan-y;
 }
+/* Checkbox rows: tall enough to tap with ease, touching each other (the row itself is the space between options). */
+.options {
+    --option-row: 2.25rem;
+}
 .options label {
     display: flex;
     position: relative;
     align-items: center;
-    min-height: 1.875rem;
-    margin-bottom: var(--space-1);
+    min-height: var(--option-row);
+    margin-bottom: 0;
     padding: 0.375rem var(--space-4);
     gap: 0.625rem;
     cursor: pointer;
-}
-.options label:last-child {
-    margin-bottom: 0;
 }
 /*
  * Press states beyond buttons (remote.js sets .is-pressed on labels, links and disclosures too): option rows light up
@@ -977,8 +978,7 @@ a.options-action.is-pressed {
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
-    min-height: 1.875rem;
-    margin-bottom: var(--space-1);
+    min-height: var(--option-row);
     padding: 0 var(--space-4);
     gap: 0 var(--space-3);
 }
@@ -990,7 +990,7 @@ a.options-action.is-pressed {
 .options .axis-setting label {
     flex: none;
     min-width: 4rem;
-    height: 1.875rem;
+    height: var(--option-row);
     margin: 0;
     padding: 0;
 }
