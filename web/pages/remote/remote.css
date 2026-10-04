@@ -116,7 +116,8 @@ button:disabled {
 button {
     user-select: none;
 }
-button.is-pressed,
+/* The middle click has its shape drawn inside: pressed, it only fades and shrinks like the other clicks. */
+button.is-pressed:not(.mouse-middle),
 button[aria-pressed='true'] {
     background: var(--surface);
     color: var(--text);
