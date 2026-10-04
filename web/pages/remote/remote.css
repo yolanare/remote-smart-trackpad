@@ -1365,7 +1365,7 @@ a.options-action {
     background: transparent;
     cursor: pointer;
     touch-action: pan-y;
-    --thumb: 0.75rem;
+    --thumb: 0.625rem;
     --thumb-gap: 0.1875rem;
     /* Where the thumb's center stands on the track: half a thumb in from each end at the extremes. */
     --thumb-x: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--position, 0));
