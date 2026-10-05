@@ -329,6 +329,15 @@ const session = createTypingSession({
     notice: (error) => showNotice(error.message),
 });
 editor.heldModifiers = () => [...rows.held];
+// The Keyboard options: capitals at the start of sentences, and a keyboard following the PC's field.
+function applyKeyboard() {
+    editor.keyboardOptions = {
+        capitalize: option.autoCapitalize !== false,
+        matchField: option.fieldKeyboard !== false,
+    };
+    editor.render(editor.view);
+}
+applyKeyboard();
 
 // No zoom, whatever the browser allows (Firefox's "zoom on all websites" ignores user-scalable=no): the remote
 // never uses two-finger gestures, so a second finger never reaches the browser's pinch handling.
@@ -812,6 +821,7 @@ options.onChange((names) => {
     if (names.some((name) => name.endsWith('Haptics'))) applyHaptics();
     if (names.includes('colorScheme')) applyTheme();
     if (names.includes('uiScale')) applyScale();
+    if (names.includes('autoCapitalize') || names.includes('fieldKeyboard')) applyKeyboard();
     if (names.includes('hand')) applyHand({ animate: true });
     if (names.some((name) => layoutOptions.has(name))) {
         rows.reset({ force: true });

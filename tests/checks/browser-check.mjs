@@ -627,6 +627,32 @@ try {
         spellcheck: true,
     });
     assert.equal(keyboards[2].autocapitalize, 'none');
+    // The Keyboard options: with capitals off, plain text starts in lowercase; with the field's keyboard off, an email
+    // field keeps the plain keyboard. Both back on afterwards.
+    const keyboardOptions = await evaluate(`(() => {
+        const editor = document.querySelector('text-editor'), field = editor.querySelector('textarea');
+        const set = (name, checked) => {
+            const input = document.querySelector('[name=' + name + ']');
+            input.checked = checked;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+        const show = (kind) => {
+            editor.render({ readable: true, singleLine: true, kind, text: '', selectionStart: 0, selectionEnd: 0 });
+            return { inputMode: field.inputMode, autocomplete: field.getAttribute('autocomplete'), autocapitalize: field.getAttribute('autocapitalize') };
+        };
+        set('autoCapitalize', false);
+        const lowercase = show('text');
+        set('autoCapitalize', true);
+        set('fieldKeyboard', false);
+        const plain = show('email');
+        set('fieldKeyboard', true);
+        return { lowercase, plain, back: show('email') };
+    })()`);
+    assert.deepEqual(keyboardOptions, {
+        lowercase: { inputMode: 'text', autocomplete: null, autocapitalize: 'none' },
+        plain: { inputMode: 'text', autocomplete: null, autocapitalize: 'sentences' },
+        back: { inputMode: 'email', autocomplete: 'email', autocapitalize: 'none' },
+    });
     await evaluate(
         "document.querySelector('text-editor').render({ readable: true, text: '', selectionStart: 0, selectionEnd: 0 })"
     );

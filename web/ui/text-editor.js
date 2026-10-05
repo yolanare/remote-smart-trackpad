@@ -49,6 +49,11 @@ class TextEditor extends HTMLElement {
     view = { readable: false, blind: false, singleLine: false, text: '', selectionStart: 0, selectionEnd: 0 };
     /** The modifier keys held on the key rows (set by the app): with one held, typing makes shortcuts. */
     heldModifiers = () => [];
+    /**
+     * The Keyboard options (set by the app): capitalize, the keyboard starting sentences with a capital where the field
+     * allows it; matchField, the keyboard following the PC's field (an email field's, a number pad), or the plain one.
+     */
+    keyboardOptions = { capitalize: true, matchField: true };
     connectedCallback() {
         if (this.firstChild) return;
         this.innerHTML =
@@ -239,12 +244,14 @@ class TextEditor extends HTMLElement {
     render(view) {
         this.view = view;
         const field = this.firstElementChild,
-            keyboard = keyboards[view.kind] ?? keyboards.text;
+            kind = this.keyboardOptions.matchField ? view.kind : 'text',
+            keyboard = keyboards[kind] ?? keyboards.text,
+            capitalize = this.keyboardOptions.capitalize ? keyboard.autocapitalize : 'none';
         // The keyboard's Enter key shows what it does: an action where it presses Enter (a search), a new line
         // elsewhere.
         const enter =
             !this.submits() ? 'enter'
-            : view.kind === 'search' ? 'search'
+            : kind === 'search' ? 'search'
             : 'go';
         if (field.enterKeyHint !== enter) field.enterKeyHint = enter;
         // The keyboard the PC's field calls for; written only when it changes (the keyboard restarts each time).
@@ -252,8 +259,7 @@ class TextEditor extends HTMLElement {
         if (field.getAttribute('autocomplete') !== keyboard.autocomplete)
             if (keyboard.autocomplete) field.setAttribute('autocomplete', keyboard.autocomplete);
             else field.removeAttribute('autocomplete');
-        if (field.getAttribute('autocapitalize') !== keyboard.autocapitalize)
-            field.setAttribute('autocapitalize', keyboard.autocapitalize);
+        if (field.getAttribute('autocapitalize') !== capitalize) field.setAttribute('autocapitalize', capitalize);
         if (field.spellcheck !== keyboard.spellcheck) field.spellcheck = keyboard.spellcheck;
         if (!this.composing && !view.keep) this.write(view.text, view.selectionStart, view.selectionEnd);
         this.resize();
