@@ -4,7 +4,72 @@
 [Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 Import-Module (Join-Path $PSScriptRoot 'input.psm1') -DisableNameChecking
-Import-Module (Join-Path $PSScriptRoot 'text-mirror.psm1') -DisableNameChecking
+
+<#
+Reading other apps (the mirror, the media state) waits for them: UI Automation and IAccessible2 calls do not return
+while the app's UI thread is busy (a browser streaming a long answer) or hung. Those calls run in a reader of their own,
+so input never waits behind them: a command that does not answer within its budget returns an error and goes on in
+the background, and the reader answers "busy" until it is done. One that never ends is left behind for a new reader.
+#>
+function New-Reader {
+    $runspace = [runspacefactory]::CreateRunspace()
+    $runspace.ApartmentState = 'MTA'
+    $runspace.ThreadOptions = 'ReuseThread'
+    $runspace.Open()
+    $setup = [powershell]::Create()
+    $setup.Runspace = $runspace
+    [void]$setup.AddScript({
+        param($directory)
+        Import-Module (Join-Path $directory 'input.psm1') -DisableNameChecking
+        Import-Module (Join-Path $directory 'text-mirror.psm1') -DisableNameChecking
+    }).AddArgument($PSScriptRoot)
+    [void]$setup.Invoke()
+    $setup.Dispose()
+    return $runspace
+}
+$reader = New-Reader
+# The command still running in the background, if any: { pipeline, handle, action, clock }.
+$readerBusy = $null
+# How long a command may take before input goes on without it (an edit types, then waits to see the field take it).
+$readerBudget = @{ 'mirror-read'=500; 'mirror-edit'=5000; 'mirror-close'=500; 'media-state'=500 }
+$abandonAfter = 20000
+function Invoke-Reader([string]$action, $data) {
+    if ($null -ne $script:readerBusy) {
+        if ($script:readerBusy.handle.IsCompleted) {
+            try { [void]$script:readerBusy.pipeline.EndInvoke($script:readerBusy.handle) } catch {}
+            $script:readerBusy.pipeline.Dispose()
+            $script:readerBusy = $null
+        } elseif ($script:readerBusy.clock.ElapsedMilliseconds -lt $abandonAfter) {
+            throw 'The PC is busy: its app is not answering'
+        } else {
+            [Console]::Error.WriteLine("Windows bridge: $($script:readerBusy.action) did not end in $($abandonAfter / 1000) s; reading starts again in a new reader")
+            $script:reader = New-Reader
+            $script:readerBusy = $null
+        }
+    }
+    $pipeline = [powershell]::Create()
+    $pipeline.Runspace = $script:reader
+    [void]$pipeline.AddScript({
+        param($action, $data)
+        switch ($action) {
+            'mirror-read' { Read-MirrorFor $data.session $data.revision }
+            'mirror-edit' { Edit-Mirror $data }
+            'mirror-close' { Close-Mirror }
+            'media-state' { Get-MediaState }
+        }
+    }).AddArgument($action).AddArgument($data)
+    $handle = $pipeline.BeginInvoke()
+    if (-not $handle.AsyncWaitHandle.WaitOne($readerBudget[$action])) {
+        $script:readerBusy = @{ pipeline=$pipeline; handle=$handle; action=$action; clock=[System.Diagnostics.Stopwatch]::StartNew() }
+        [Console]::Error.WriteLine("Windows bridge: $action did not answer within $($readerBudget[$action]) ms (the focused app is busy); input goes on")
+        throw 'The PC is busy: its app is not answering'
+    }
+    try {
+        $output = $pipeline.EndInvoke($handle)
+        if ($output.Count) { return $output[0] }
+        return $null
+    } finally { $pipeline.Dispose() }
+}
 # Tests that type for real (tests/checks/typing-check.mjs) set this to a marker in their own windows' titles: input then
 # only ever reaches a window carrying it, never another app the user has in the foreground.
 $inputGuard = $env:REMOTE_SMART_TRACKPAD_INPUT_GUARD
@@ -48,15 +113,15 @@ while ($null -ne ($line = [Console]::ReadLine())) {
             'key' { Set-Key ([string]$data.key) $(if ($data.PSObject.Properties.Name -contains 'down') { [bool]$data.down } else { $null }) }
             # Typing into a PC field the phone cannot read.
             'text' { Invoke-Typing ([int]$data.backspace) ([int]$data.delete) ([string]$data.text) }
-            'media-state' { $result = Get-MediaState }
+            'media-state' { $result = Invoke-Reader 'media-state' $data }
             'glide' {
                 $vx = [double]$data.vx; $vy = [double]$data.vy
                 if ([double]::IsNaN($vx) -or [double]::IsNaN($vy) -or [Math]::Abs($vx) -gt 20 -or [Math]::Abs($vy) -gt 20) { throw 'Invalid glide velocity' }
                 [Glider]::Set($vx, $vy)
             }
-            'mirror-read' { $result = Read-MirrorFor $data.session $data.revision }
-            'mirror-edit' { $result = Edit-Mirror $data }
-            'mirror-close' { Close-Mirror }
+            'mirror-read' { $result = Invoke-Reader 'mirror-read' $data }
+            'mirror-edit' { $result = Invoke-Reader 'mirror-edit' $data }
+            'mirror-close' { [void](Invoke-Reader 'mirror-close' $data) }
             'release' { Release-All }
             default { throw 'Unknown command' }
         }

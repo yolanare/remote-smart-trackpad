@@ -234,6 +234,7 @@ function layout({ animate = false } = {}) {
 let mirrorTimer = 0,
     mirrorPolling = false,
     mirrorActiveAt = 0,
+    movedAt = -Infinity,
     mediaTimer = 0;
 function mirrorDelay() {
     const quiet = performance.now() - mirrorActiveAt;
@@ -246,7 +247,9 @@ function mirrorDelay() {
 function pollMirrorLater(delay = mirrorDelay()) {
     clearTimeout(mirrorTimer);
     mirrorTimer = setTimeout(async () => {
-        await session.poll();
+        // Not while the pointer or a scroll moves: moving changes no text, and the PC answers commands in order, so a
+        // read of a busy app would hold the motion up behind it.
+        if (performance.now() - movedAt > 300) await session.poll();
         if (mirrorPolling) pollMirrorLater();
     }, delay);
 }
@@ -460,6 +463,7 @@ document.addEventListener('command', async (event) => {
     }
 });
 document.addEventListener('motion', (event) => {
+    movedAt = performance.now();
     const { action, dx, dy, speed = 0 } = event.detail;
     const mouse = action === 'move';
     const gain =

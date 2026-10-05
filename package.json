@@ -14,6 +14,7 @@
         "test:placeholders": "node tests/checks/placeholder-check.mjs",
         "test:typing": "node tests/checks/typing-check.mjs",
         "test:typing:quick": "node tests/checks/typing-check.mjs --quick",
+        "test:busy": "node tests/checks/bridge-busy-check.mjs",
         "test:cleanup": "node tests/checks/test-browsers.mjs --cleanup",
         "build": "node scripts/build.mjs",
         "watch": "node scripts/build.mjs --watch",
