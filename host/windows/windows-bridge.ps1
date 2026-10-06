@@ -89,6 +89,22 @@ public static class InputGuard {
 }
 '@
 }
+<#
+Runs an input command. When Windows rejects it because an app run as administrator is in front (its tray menu, often),
+the focus goes to the taskbar, which closes such a menu, and the command runs again once: it then answers with a
+notice saying so. Still rejected, the error names that app: the PC's own mouse or keyboard must deal with it.
+#>
+function Invoke-Input([scriptblock]$command) {
+    try { $null = & $command; return $null } catch { $rejected = $_ }
+    $elevated = [Foreground]::Elevated()
+    if ($null -eq $elevated) { throw $rejected }
+    if ([Foreground]::LeaveElevated()) {
+        [Console]::Error.WriteLine("Windows bridge: $elevated runs as administrator and was in front; the taskbar took the focus")
+        $null = & $command
+        return @{ notice="Permission denied: Unable to move, $elevated runs as administrator. The remote moved the focus off it."; level='danger' }
+    }
+    throw "$elevated runs as administrator: Windows keeps the remote off it. Use the PC's mouse or keyboard to leave it."
+}
 $readActions = @('mirror-read', 'mirror-close', 'media-state', 'release')
 while ($null -ne ($line = [Console]::ReadLine())) {
     try {
@@ -100,19 +116,21 @@ while ($null -ne ($line = [Console]::ReadLine())) {
         }
         switch ($request.action) {
             'move' {
-                if (-not [NativeInput]::MoveBy([int]$data.dx, [int]$data.dy)) { throw 'Windows rejected pointer movement' }
+                $result = Invoke-Input { if (-not [NativeInput]::MoveBy([int]$data.dx, [int]$data.dy)) { throw 'Windows rejected pointer movement' } }
             }
-            'click' { Invoke-Click ([string]$data.button) ([bool]$data.double) }
-            'button' { Set-Button ([string]$data.button) ([bool]$data.down) }
+            'click' { $result = Invoke-Input { Invoke-Click ([string]$data.button) ([bool]$data.double) } }
+            'button' { $result = Invoke-Input { Set-Button ([string]$data.button) ([bool]$data.down) } }
             'scroll' {
-                if ([int]$data.dy -ne 0 -and -not [NativeInput]::Mouse(0x0800, -[int]$data.dy)) { throw 'Windows rejected scroll input' }
-                if ([int]$data.dx -ne 0 -and -not [NativeInput]::Mouse(0x1000, [int]$data.dx)) { throw 'Windows rejected horizontal scroll' }
+                $result = Invoke-Input {
+                    if ([int]$data.dy -ne 0 -and -not [NativeInput]::Mouse(0x0800, -[int]$data.dy)) { throw 'Windows rejected scroll input' }
+                    if ([int]$data.dx -ne 0 -and -not [NativeInput]::Mouse(0x1000, [int]$data.dx)) { throw 'Windows rejected horizontal scroll' }
+                }
             }
-            'shortcut' { Invoke-Shortcut ([string]$data.key) $data.modifiers }
+            'shortcut' { $result = Invoke-Input { Invoke-Shortcut ([string]$data.key) $data.modifiers } }
             # A key held down or let go (down given), or tapped.
-            'key' { Set-Key ([string]$data.key) $(if ($data.PSObject.Properties.Name -contains 'down') { [bool]$data.down } else { $null }) }
+            'key' { $result = Invoke-Input { Set-Key ([string]$data.key) $(if ($data.PSObject.Properties.Name -contains 'down') { [bool]$data.down } else { $null }) } }
             # Typing into a PC field the phone cannot read.
-            'text' { Invoke-Typing ([int]$data.backspace) ([int]$data.delete) ([string]$data.text) }
+            'text' { $result = Invoke-Input { Invoke-Typing ([int]$data.backspace) ([int]$data.delete) ([string]$data.text) } }
             'media-state' { $result = Invoke-Reader 'media-state' $data }
             'glide' {
                 $vx = [double]$data.vx; $vy = [double]$data.vy

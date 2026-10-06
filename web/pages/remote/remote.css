@@ -201,6 +201,13 @@ svg.icon-large {
 #connection:not([data-state='ready']) .status-dot {
     background: var(--warning);
 }
+/* A permission Windows refused: red, dot and text. */
+#connection[data-state='danger'] .status-dot {
+    background: var(--danger);
+}
+#connection[data-state='danger'] #connection-label {
+    color: var(--danger);
+}
 #connection-label {
     max-height: 30vh;
     /* The space under the status is its own: the trackpad starts right under the top bar, and a status wrapped over

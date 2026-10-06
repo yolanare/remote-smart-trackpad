@@ -73,14 +73,18 @@ let connectionState = 'connecting',
     // The typing session's latest view (logic/typing-session.js).
     typing = { open: false },
     notice = '',
+    // How the notice shows: warning (orange) or danger (red, a permission Windows refused).
+    noticeLevel = 'warning',
     noticeTimer;
 function refreshStatus() {
     let message = labels[connectionState],
         state = connectionState;
     if (state === 'ready') {
         state = 'warning';
-        if (notice) message = notice;
-        else if (typing.open && typing.error) message = typing.error;
+        if (notice) {
+            message = notice;
+            state = noticeLevel;
+        } else if (typing.open && typing.error) message = typing.error;
         else if (typing.open && !typing.reading && !typing.readable)
             message = typing.reason || 'No text field · typing to PC';
         else state = 'ready';
@@ -94,14 +98,15 @@ function refreshStatus() {
  * Shows a command error for a few seconds, then returns to the connection state. Not while disconnected: the
  * connection state says it already (a command sent as the phone wakes up fails before the connection is back).
  */
-function showNotice(message) {
+function showNotice(message, duration = 4000, level = 'warning') {
     if (!connected) return;
     notice = message;
+    noticeLevel = level;
     clearTimeout(noticeTimer);
     noticeTimer = setTimeout(() => {
         notice = '';
         refreshStatus();
-    }, 4000);
+    }, duration);
     refreshStatus();
 }
 
@@ -311,7 +316,13 @@ const connection = createConnection(({ state }) => {
     refreshStatus();
     schedulePolling();
 });
-const send = (action, data) => connection.send(action, data);
+// A command can come back with a notice: something the PC did on its own to carry it out (it moved the focus off an
+// app run as administrator). Shown briefly: the next move would hide why the pointer jumped.
+const send = (action, data) =>
+    connection.send(action, data).then((result) => {
+        if (result?.notice) showNotice(result.notice, 2000, result.level);
+        return result;
+    });
 const motion = createMotion(send, showNotice);
 const session = createTypingSession({
     send,

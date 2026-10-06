@@ -209,6 +209,48 @@ public interface IMMDevice { int Activate(ref Guid id, int context, IntPtr param
 public interface IMMDeviceEnumerator { int EnumAudioEndpoints(int flow, int state, out IntPtr devices); int GetDefaultAudioEndpoint(int flow, int role, out IMMDevice device); }
 [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] public class MMDeviceEnumerator {}
 
+// Windows keeps the input of an app with the user's rights (the remote) off the windows of an app run as administrator
+// (UIPI): while one is in front (a tray icon's menu, PowerToys), every injected move, click and key fails. Giving the
+// focus to the taskbar is allowed, and closes such a menu as a click outside it would.
+public static class Foreground {
+    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window, out int process);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindow(string className, string title);
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr window);
+    [DllImport("user32.dll")] static extern void SwitchToThisWindow(IntPtr window, bool altTab);
+    [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(int access, bool inherit, int id);
+    [DllImport("advapi32.dll")] static extern bool OpenProcessToken(IntPtr process, int access, out IntPtr token);
+    [DllImport("advapi32.dll")] static extern bool GetTokenInformation(IntPtr token, int kind, out int value, int size, out int written);
+    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+    /// <summary>The name of the app in front when it runs as administrator, else null.</summary>
+    public static string Elevated() {
+        int id;
+        GetWindowThreadProcessId(GetForegroundWindow(), out id);
+        if (id == 0) return null;
+        const int QueryLimited = 0x1000, Query = 0x8, TokenElevation = 20;
+        IntPtr process = OpenProcess(QueryLimited, false, id);
+        if (process == IntPtr.Zero) return null;
+        try {
+            IntPtr token;
+            if (!OpenProcessToken(process, Query, out token)) return null;
+            try {
+                int elevated, written;
+                if (!GetTokenInformation(token, TokenElevation, out elevated, 4, out written) || elevated == 0) return null;
+            } finally { CloseHandle(token); }
+        } finally { CloseHandle(process); }
+        try { return System.Diagnostics.Process.GetProcessById(id).ProcessName; } catch { return "An app"; }
+    }
+    /// <summary>Gives the focus to the taskbar when an app run as administrator is in front; true when it moved.</summary>
+    public static bool LeaveElevated() {
+        if (Elevated() == null) return false;
+        IntPtr taskbar = FindWindow("Shell_TrayWnd", null);
+        if (taskbar == IntPtr.Zero) return false;
+        if (!SetForegroundWindow(taskbar)) SwitchToThisWindow(taskbar, true);
+        System.Threading.Thread.Sleep(50);
+        return Elevated() == null;
+    }
+}
+
 public static class SpeakerVolume {
     public static bool Muted() {
         IMMDevice device;
