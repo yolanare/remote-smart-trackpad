@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -24,14 +25,24 @@ internal static class TrayHost {
             else Environment.ExitCode = 1;
             return;
         }
+        // "--takeover": started by a tray switching modes (HostContext.SwitchMode), which leaves meanwhile.
+        bool takeover = args.Length > 0 && args[0] == "--takeover";
+        bool relaunchWithUserRights = false;
         using (var mutex = new Mutex(false, "Local\\RemoteSmartTrackpad-" + id))
         using (var stop = new EventWaitHandle(false, EventResetMode.AutoReset, stopName))
         using (var restart = new EventWaitHandle(false, EventResetMode.AutoReset, restartName)) {
-            if (!mutex.WaitOne(0)) return;
-            try { using (var context = new HostContext(root, stop, restart)) Application.Run(context); }
+            if (!mutex.WaitOne(takeover ? 15000 : 0)) return;
+            try {
+                using (var context = new HostContext(root, stop, restart)) {
+                    Application.Run(context);
+                    relaunchWithUserRights = context.RelaunchWithUserRights;
+                }
+            }
             catch (Exception error) { MessageBox.Show(error.Message, "Remote Smart Trackpad", MessageBoxButtons.OK, MessageBoxIcon.Error); }
             finally { mutex.ReleaseMutex(); }
         }
+        // Back to the user's rights: Explorer starts the tray as the signed-in user, once this one is gone.
+        if (relaunchWithUserRights) Process.Start(new ProcessStartInfo("explorer.exe", "\"" + Application.ExecutablePath + "\"") { UseShellExecute = false });
     }
 }
 
@@ -49,6 +60,11 @@ internal sealed class HostContext : ApplicationContext {
     private readonly string root;
     private readonly ToolStripMenuItem startup;
     private bool stopping;
+    // Running as administrator, Windows lets the remote act on apps run as administrator too (their windows and tray
+    // menus). Chosen in the tray menu for the current session; the tray starts with Windows with the user's rights.
+    private readonly bool elevated = new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
+    /// <summary>Set when this tray leaves to start again with the user's rights.</summary>
+    public bool RelaunchWithUserRights { get; private set; }
 
     public HostContext(string projectRoot, WaitHandle stopSignal, WaitHandle restartSignal) {
         root = projectRoot;
@@ -65,10 +81,13 @@ internal sealed class HostContext : ApplicationContext {
         startup = new ToolStripMenuItem("Start with Windows") { CheckOnClick = false };
         startup.Click += delegate { try { SetStartup(!startup.Checked); } catch (Exception error) { MessageBox.Show(error.Message, StartupName); } };
         menu.Items.Add(startup);
+        var administrator = new ToolStripMenuItem("Run as administrator (restart server)") { CheckOnClick = false, Checked = elevated };
+        administrator.Click += delegate { SwitchMode(!elevated); };
+        menu.Items.Add(administrator);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Restart server", null, delegate { RestartServer(); });
         menu.Items.Add("Stop server", null, delegate { ExitThread(); });
-        tray = new NotifyIcon { Icon = appIcon, Text = StartupName, ContextMenuStrip = menu, Visible = true };
+        tray = new NotifyIcon { Icon = appIcon, Text = Title, ContextMenuStrip = menu, Visible = true };
         tray.DoubleClick += delegate { ShowConsole(); };
         using (var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run")) startup.Checked = key != null && key.GetValue(StartupName) != null;
         string marker = Path.Combine(root, ".data", "tray-initialized");
@@ -96,7 +115,20 @@ internal sealed class HostContext : ApplicationContext {
         process.Exited += delegate { if (!stopping && !dispatcher.IsDisposed) dispatcher.BeginInvoke((Action)delegate { if (stopping || process != server) return; tray.Text = "Remote Smart Trackpad - stopped"; Append("Server stopped. Use Restart server in the tray menu to retry."); ShowConsole(); }); };
         process.Start(); process.BeginOutputReadLine(); process.BeginErrorReadLine();
         server = process;
-        tray.Text = StartupName;
+        tray.Text = Title;
+    }
+    private string Title { get { return elevated ? StartupName + " (administrator)" : StartupName; } }
+    /// <summary>
+    /// Starts the tray again in the other mode; this one leaves (its server stops, the new tray starts its own).
+    /// Declining the administrator prompt changes nothing.
+    /// </summary>
+    private void SwitchMode(bool administrator) {
+        if (administrator) {
+            try { Process.Start(new ProcessStartInfo(Application.ExecutablePath, "--takeover") { UseShellExecute = true, Verb = "runas" }); }
+            catch (System.ComponentModel.Win32Exception) { return; }
+        } else RelaunchWithUserRights = true;
+        Append(administrator ? "Restarting as administrator..." : "Restarting with the user's rights...");
+        ExitThread();
     }
     // Gracefully: the server releases held input and closes its connections, or is ended after 5 s.
     private void StopServer() {
